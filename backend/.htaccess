@@ -1,0 +1,12 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Allow direct access to /storage (and everything under it)
+    RewriteCond %{REQUEST_URI} !^/storage/?.*$
+
+    # Skip if already hitting /public
+    RewriteCond %{REQUEST_URI} !^/public/?.*$
+
+    # Send everything else to /public
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>

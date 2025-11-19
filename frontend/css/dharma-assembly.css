@@ -1,0 +1,1005 @@
+/* css/dharma-assembly.css - Special Occasions Module Styles with Animations */
+
+:root {
+    --primary-color: #ff00ff;
+    --secondary-color: #808000;
+    --primary-rgb: 255, 0, 255;
+}
+
+/* ========================================
+   Page Common Styles
+   ======================================== */
+.dharma-assembly-page {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
+    padding: 1.5rem;
+    padding-bottom: 50px;
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ========================================
+   Page Header with Animated Background
+   ======================================== */
+.occasion-header {
+    position: relative;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    padding: 40px 0;
+    margin-bottom: 30px;
+    border-radius: 0 0 30px 30px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(255, 0, 255, 0.3);
+    animation: gradientShift 8s ease infinite;
+    background-size: 200% 200%;
+}
+
+@keyframes gradientShift {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+.occasion-header-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 0.1) 25%,
+        transparent 25%,
+        transparent 50%,
+        rgba(255, 255, 255, 0.1) 50%,
+        rgba(255, 255, 255, 0.1) 75%,
+        transparent 75%,
+        transparent
+    );
+    background-size: 50px 50px;
+    opacity: 0.3;
+    animation: movePattern 20s linear infinite;
+}
+
+@keyframes movePattern {
+    0% {
+        background-position: 0 0;
+    }
+    100% {
+        background-position: 50% 50%;
+    }
+}
+
+.occasion-header .container-fluid {
+    position: relative;
+    z-index: 1;
+}
+
+.occasion-title-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    color: white;
+}
+
+.occasion-header-icon {
+    font-size: 48px;
+    color: #ffd700;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+    animation: iconPulse 2s ease-in-out infinite;
+}
+
+@keyframes iconPulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+.occasion-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin: 0;
+    color: white;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.occasion-subtitle {
+    font-size: 1.1rem;
+    margin: 5px 0 0 0;
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 300;
+}
+
+.occasion-header .btn-outline-light {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(10px);
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.occasion-header .btn-outline-light:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* ========================================
+   Assembly Type Tabs
+   ======================================== */
+.assembly-tabs {
+    border-bottom: none;
+    gap: 10px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+}
+
+.assembly-tabs .nav-item {
+    flex: 1;
+    min-width: 200px;
+}
+
+.assembly-tabs .nav-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    background: #fff;
+    color: #6c757d;
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    text-align: center;
+    min-height: 120px;
+}
+
+.assembly-tabs .nav-link i {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.assembly-tabs .nav-link span {
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
+.assembly-tabs .nav-link small {
+    font-size: 0.85rem;
+    color: #999;
+}
+
+.assembly-tabs .nav-link:hover {
+    border-color: #ff00ff;
+    box-shadow: 0 4px 15px rgba(255, 0, 255, 0.15);
+    transform: translateY(-4px);
+}
+
+.assembly-tabs .nav-link:hover i {
+    color: #ff00ff;
+    transform: scale(1.15);
+}
+
+.assembly-tabs .nav-link.active {
+    border-color: #ff00ff;
+    background: linear-gradient(135deg, rgba(255, 0, 255, 0.1) 0%, rgba(128, 128, 0, 0.1) 100%);
+    color: #ff00ff;
+    box-shadow: 0 8px 20px rgba(255, 0, 255, 0.2);
+}
+
+.assembly-tabs .nav-link.active i {
+    color: #ff00ff;
+    transform: scale(1.2);
+}
+
+.assembly-tabs .nav-link.active small {
+    color: #ff00ff;
+}
+
+/* ========================================
+   Progress Wizard
+   ======================================== */
+.progress-wrapper {
+    padding: 0.5rem 0;
+}
+
+.progress-steps {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.progress-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    position: relative;
+    flex: 0 0 auto;
+}
+
+.step-circle {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: #e9ecef;
+    border: 3px solid #e9ecef;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.2rem;
+    color: #6c757d;
+    transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    z-index: 2;
+}
+
+.step-label {
+    font-size: 0.85rem;
+    color: #6c757d;
+    font-weight: 500;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.progress-step.active .step-circle {
+    background: linear-gradient(135deg, #ff00ff 0%, #cc00cc 100%);
+    border-color: #ff00ff;
+    color: white;
+    box-shadow: 0 4px 15px rgba(255, 0, 255, 0.4);
+    transform: scale(1.15);
+}
+
+.progress-step.active .step-label {
+    color: #ff00ff;
+    font-weight: 600;
+}
+
+.progress-step.completed .step-circle {
+    background: #28a745;
+    border-color: #28a745;
+    color: white;
+    transform: scale(1.05);
+}
+
+.progress-step.completed .step-label {
+    color: #28a745;
+}
+
+.progress-step.completed .step-circle::after {
+    content: '\f26b';
+    font-family: 'bootstrap-icons';
+    position: absolute;
+    font-size: 1.5rem;
+}
+
+.progress-line {
+    flex: 1;
+    height: 4px;
+    background: #e9ecef;
+    position: relative;
+    margin: 0 10px;
+    transform-origin: left;
+    transform: scaleX(0);
+    transition: transform 0.5s ease;
+}
+
+.progress-line.completed {
+    background: #28a745;
+    transform: scaleX(1);
+}
+
+/* ========================================
+   Gradient Section Headers
+   ======================================== */
+.section-header-gradient {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    padding: 1rem 1.5rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 4px 15px rgba(255, 0, 255, 0.15);
+    animation: gradientShift 8s ease infinite;
+    background-size: 200% 200%;
+}
+
+.section-header-gradient i {
+    font-size: 1.5rem;
+    color: white;
+}
+
+.section-header-gradient span {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: white;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* ========================================
+   Cards with Float Animation
+   ======================================== */
+.occasion-form-card,
+.filter-card,
+.table-card {
+    border: none;
+    border-radius: 20px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+}
+
+.occasion-form-card:hover,
+.filter-card:hover,
+.table-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 40px rgba(255, 0, 255, 0.15);
+}
+
+/* ========================================
+   Form Check Card (Radio/Checkbox Cards)
+   ======================================== */
+.form-check-card {
+    position: relative;
+    margin-bottom: 1rem;
+}
+
+.form-check-card .form-check-input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.form-check-card .form-check-label {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border: 2px solid #dee2e6;
+    border-radius: 12px;
+    background: #fff;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.form-check-card .form-check-label i {
+    font-size: 1.75rem;
+    color: #6c757d;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.form-check-card .form-check-label > div {
+    flex: 1;
+}
+
+.form-check-card:hover .form-check-label {
+    border-color: #ff00ff;
+    box-shadow: 0 8px 20px rgba(255, 0, 255, 0.15);
+    transform: translateY(-2px) scale(1.01);
+}
+
+.form-check-card:hover .form-check-label i {
+    color: #ff00ff;
+    transform: scale(1.1);
+}
+
+.form-check-card .form-check-input:checked ~ .form-check-label {
+    border-color: #ff00ff;
+    background: linear-gradient(135deg, rgba(255, 0, 255, 0.08) 0%, rgba(128, 128, 0, 0.08) 100%);
+    box-shadow: 0 8px 25px rgba(255, 0, 255, 0.25);
+    transform: scale(1.02);
+}
+
+.form-check-card .form-check-input:checked ~ .form-check-label i {
+    color: #ff00ff;
+    transform: scale(1.15);
+    animation: iconBounce 0.6s ease;
+}
+
+@keyframes iconBounce {
+    0%, 100% {
+        transform: scale(1.15);
+    }
+    50% {
+        transform: scale(1.25);
+    }
+}
+
+.form-check-card .form-check-input:checked ~ .form-check-label span,
+.form-check-card .form-check-input:checked ~ .form-check-label small {
+    color: #ff00ff;
+    font-weight: 600;
+}
+
+/* ========================================
+   Occasion Options Grid
+   ======================================== */
+.occasion-options-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+/* ========================================
+   Dedicatees Grid (Checkboxes)
+   ======================================== */
+.dedicatees-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 0.75rem;
+}
+
+.dedicatees-grid .form-check {
+    padding: 0.75rem 1rem;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    background: #f8f9fa;
+    transition: all 0.3s ease;
+}
+
+.dedicatees-grid .form-check:hover {
+    border-color: #ff00ff;
+    background: #fff;
+    transform: translateX(5px);
+}
+
+.dedicatees-grid .form-check-input:checked ~ .form-check-label {
+    color: #ff00ff;
+    font-weight: 600;
+}
+
+/* ========================================
+   Payment Methods Grid
+   ======================================== */
+.payment-methods-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1rem;
+}
+
+/* ========================================
+   Personal Details Summary
+   ======================================== */
+.personal-details-summary {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.details-card {
+    background: #f8f9fa;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-top: 1rem;
+}
+
+.details-card p {
+    margin-bottom: 0.75rem;
+    font-size: 0.95rem;
+}
+
+.details-card p:last-child {
+    margin-bottom: 0;
+}
+
+/* ========================================
+   Stats Cards
+   ======================================== */
+.stat-card {
+    background: white;
+    border-radius: 15px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+    border-left: 4px solid;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+}
+
+.stat-card-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0;
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-top: 0.5rem;
+}
+
+.stat-card-primary {
+    border-left-color: #ff00ff;
+}
+
+.stat-card-primary .stat-card-icon {
+    background: linear-gradient(135deg, rgba(255, 0, 255, 0.1) 0%, rgba(255, 0, 255, 0.05) 100%);
+    color: #ff00ff;
+}
+
+.stat-card-success {
+    border-left-color: #28a745;
+}
+
+.stat-card-success .stat-card-icon {
+    background: linear-gradient(135deg, rgba(40, 167, 69, 0.1) 0%, rgba(40, 167, 69, 0.05) 100%);
+    color: #28a745;
+}
+
+.stat-card-info {
+    border-left-color: #17a2b8;
+}
+
+.stat-card-info .stat-card-icon {
+    background: linear-gradient(135deg, rgba(23, 162, 184, 0.1) 0%, rgba(23, 162, 184, 0.05) 100%);
+    color: #17a2b8;
+}
+
+.stat-card-warning {
+    border-left-color: #ffc107;
+}
+
+.stat-card-warning .stat-card-icon {
+    background: linear-gradient(135deg, rgba(255, 193, 7, 0.1) 0%, rgba(255, 193, 7, 0.05) 100%);
+    color: #ffc107;
+}
+
+/* ========================================
+   Form Controls
+   ======================================== */
+.form-control,
+.form-select {
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    padding: 12px 16px;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #ff00ff;
+    box-shadow: 0 0 0 0.2rem rgba(255, 0, 255, 0.15);
+    outline: none;
+}
+
+.form-control:hover:not(:focus),
+.form-select:hover:not(:focus) {
+    background-color: #f8f9fa;
+    border-color: #cbd5e1;
+}
+
+.form-label {
+    font-weight: 500;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+.form-label .text-danger {
+    color: #dc3545 !important;
+}
+
+/* ========================================
+   Modal Gradient Header
+   ======================================== */
+.modal-header.bg-gradient-primary {
+    background: linear-gradient(135deg, #ff00ff 0%, #cc00cc 100%);
+    color: white;
+}
+
+/* ========================================
+   Buttons
+   ======================================== */
+.btn-primary {
+    background: linear-gradient(135deg, #ff00ff 0%, #cc00cc 100%);
+    border: none;
+    padding: 12px 30px;
+    font-weight: 600;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(255, 0, 255, 0.3);
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 0, 255, 0.4);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+.btn-secondary {
+    background: #6c757d;
+    border: none;
+    padding: 12px 30px;
+    font-weight: 600;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+.btn-secondary:hover {
+    background: #5a6268;
+    transform: translateY(-2px);
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+    border: none;
+    padding: 12px 30px;
+    font-weight: 600;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+    transition: all 0.3s ease;
+}
+
+.btn-success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+}
+
+/* ========================================
+   DataTables
+   ======================================== */
+#occasionsTable {
+    font-size: 0.9rem;
+}
+
+#occasionsTable thead th {
+    background: linear-gradient(135deg, #ff00ff 0%, #cc00cc 100%);
+    color: #fff;
+    font-weight: 600;
+    border: none;
+    padding: 1rem 0.75rem;
+}
+
+#occasionsTable tbody tr {
+    transition: all 0.2s ease;
+}
+
+#occasionsTable tbody tr:hover {
+    background-color: rgba(255, 0, 255, 0.05);
+    transform: scale(1.01);
+}
+
+#occasionsTable tbody td {
+    padding: 0.75rem;
+    vertical-align: middle;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.badge {
+    padding: 0.35rem 0.75rem;
+    font-weight: 500;
+    border-radius: 6px;
+}
+
+.btn-group-sm .btn {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.875rem;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.btn-group-sm .btn:hover {
+    transform: translateY(-2px);
+}
+
+/* ========================================
+   Form Actions
+   ======================================== */
+.form-actions {
+    animation: slideUp 0.5s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ========================================
+   Animated Popup
+   ======================================== */
+.animated-popup {
+    animation: popupBounce 0.5s ease;
+}
+
+@keyframes popupBounce {
+    0% {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* ========================================
+   Validation Styles
+   ======================================== */
+.was-validated .form-control:valid {
+    border-color: #28a745;
+}
+
+.was-validated .form-control:invalid {
+    border-color: #dc3545;
+}
+
+.invalid-feedback {
+    display: none;
+    color: #dc3545;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+.was-validated .form-control:invalid ~ .invalid-feedback {
+    display: block;
+}
+
+/* ========================================
+   Responsive Styles
+   ======================================== */
+@media (max-width: 768px) {
+    .dharma-assembly-page {
+        padding: 1rem;
+    }
+    
+    .occasion-header {
+        padding: 30px 0;
+        border-radius: 0 0 20px 20px;
+    }
+    
+    .occasion-title-wrapper {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+    
+    .occasion-header-icon {
+        font-size: 36px;
+    }
+    
+    .occasion-title {
+        font-size: 1.8rem;
+    }
+    
+    .occasion-subtitle {
+        font-size: 0.9rem;
+    }
+    
+    .section-header-gradient {
+        padding: 0.875rem 1rem;
+        font-size: 1rem;
+    }
+    
+    .section-header-gradient i {
+        font-size: 1.25rem;
+    }
+    
+    .section-header-gradient span {
+        font-size: 1rem;
+    }
+    
+    .assembly-tabs .nav-item {
+        min-width: 150px;
+    }
+    
+    .assembly-tabs .nav-link {
+        padding: 0.75rem;
+        min-height: 100px;
+    }
+    
+    .assembly-tabs .nav-link i {
+        font-size: 1.5rem;
+    }
+    
+    .progress-steps {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .progress-line {
+        width: 4px;
+        height: 40px;
+        margin: 0;
+        transform-origin: top;
+    }
+    
+    .step-circle {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
+    
+    .step-label {
+        font-size: 0.75rem;
+    }
+    
+    .occasion-options-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .dedicatees-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .payment-methods-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .stat-card {
+        margin-bottom: 1rem;
+    }
+    
+    .stat-card-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 1.5rem;
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+    }
+}
+
+/* ========================================
+   Loading States
+   ======================================== */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.loading-spinner {
+    width: 3rem;
+    height: 3rem;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #ff00ff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* ========================================
+   Custom Scrollbar
+   ======================================== */
+.dharma-assembly-page::-webkit-scrollbar,
+.table-responsive::-webkit-scrollbar {
+    width: 10px;
+    height: 8px;
+}
+
+.dharma-assembly-page::-webkit-scrollbar-track,
+.table-responsive::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.dharma-assembly-page::-webkit-scrollbar-thumb,
+.table-responsive::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #ff00ff 0%, #cc00cc 100%);
+    border-radius: 10px;
+}
+
+.dharma-assembly-page::-webkit-scrollbar-thumb:hover,
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #cc00cc 0%, #ff00ff 100%);
+}
+
+/* ========================================
+   Utility Classes
+   ======================================== */
+.text-primary {
+    color: #ff00ff !important;
+}
+
+.bg-primary {
+    background-color: #ff00ff !important;
+}
+
+.border-primary {
+    border-color: #ff00ff !important;
+}
+
+.shadow-sm {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+.shadow-md {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+.shadow-lg {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* ========================================
+   AOS Animation Overrides
+   ======================================== */
+[data-aos] {
+    pointer-events: auto;
+}
+
+[data-aos="fade-up"] {
+    transform: translateY(50px);
+    opacity: 0;
+}
+
+[data-aos="fade-up"].aos-animate {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+[data-aos="fade-down"] {
+    transform: translateY(-50px);
+    opacity: 0;
+}
+
+[data-aos="fade-down"].aos-animate {
+    transform: translateY(0);
+    opacity: 1;
+}

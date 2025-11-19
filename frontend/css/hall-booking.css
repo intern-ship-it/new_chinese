@@ -1,0 +1,569 @@
+/* css/hall-booking.css - Hall Booking Module Styles */
+
+/* ========================================
+   Page Container - Reduced White Space
+   ======================================== */
+.hall-booking-create-page {
+    padding: 1rem !important;
+    min-height: 100vh;
+    background: #f8f9fa;
+}
+
+/* ========================================
+   Page Header - Compact Design
+   ======================================== */
+.page-header {
+    background: linear-gradient(135deg, #ff00ff 0%, #cc00cc 20%, #996699 40%, #808000 80%, #9b9b4a 100%);
+    padding: 1.5rem 0;
+    margin: -1rem -1rem 1.5rem -1rem;
+    border-radius: 0 0 20px 20px;
+    box-shadow: 0 4px 15px rgba(255, 0, 255, 0.2);
+    animation: gradientShift 8s ease infinite;
+    background-size: 200% 200%;
+}
+
+@keyframes gradientShift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    color: white;
+}
+
+.header-content > i {
+    font-size: 2.5rem;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+.header-content .title {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0;
+    color: white;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.header-content .subtitle {
+    font-size: 0.95rem;
+    margin: 0;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* ========================================
+   Step Indicators - Compact
+   ======================================== */
+.step-indicators {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.step-indicator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    position: relative;
+}
+
+.step-number {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: #e9ecef;
+    color: #6c757d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.25rem;
+    transition: all 0.3s ease;
+    border: 3px solid #e9ecef;
+}
+
+.step-indicator.active .step-number {
+    background: linear-gradient(135deg, #ff00ff, #cc00cc);
+    color: white;
+    border-color: #ff00ff;
+    box-shadow: 0 4px 15px rgba(255, 0, 255, 0.3);
+    transform: scale(1.1);
+}
+
+.step-indicator.completed .step-number {
+    background: #28a745;
+    color: white;
+    border-color: #28a745;
+}
+
+.step-indicator.completed .step-number::before {
+    content: "✓";
+    font-size: 1.5rem;
+}
+
+.step-label {
+    font-size: 0.8rem;
+    text-align: center;
+    color: #6c757d;
+    line-height: 1.2;
+}
+
+.step-indicator.active .step-label,
+.step-indicator.completed .step-label {
+    color: #212529;
+    font-weight: 600;
+}
+
+.step-line {
+    flex: 1;
+    height: 3px;
+    background: #e9ecef;
+    margin: 0 1rem;
+    position: relative;
+    top: -20px;
+}
+
+/* ========================================
+   Workflow Content - Reduced Spacing
+   ======================================== */
+.workflow-content {
+    background: white;
+    border-radius: 15px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    min-height: 400px;
+}
+
+.step-content {
+    display: none;
+}
+
+.step-content.active {
+    display: block;
+    animation: fadeInUp 0.3s ease;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.step-title {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #212529;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.step-title i {
+    color: #ff00ff;
+}
+
+/* ========================================
+   Time Slots Grid - Compact Cards
+   ======================================== */
+.time-slots-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.time-slot-card {
+    padding: 1rem;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+    background: white;
+}
+
+.time-slot-card:hover {
+    border-color: #ff00ff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(255, 0, 255, 0.15);
+}
+
+.time-slot-card.selected {
+    border-color: #ff00ff;
+    background: linear-gradient(135deg, rgba(255, 0, 255, 0.1) 0%, rgba(128, 128, 0, 0.1) 100%);
+    box-shadow: 0 4px 20px rgba(255, 0, 255, 0.25);
+}
+
+.time-icon {
+    font-size: 2rem;
+    color: #ff00ff;
+    margin-bottom: 0.5rem;
+}
+
+.time-slot-card h5 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0.5rem 0;
+    color: #212529;
+}
+
+.time-slot-card .time {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin: 0.25rem 0;
+}
+
+.time-slot-card .price {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #ff00ff;
+    margin: 0.5rem 0 0 0;
+}
+
+/* ========================================
+   Packages List - Compact
+   ======================================== */
+.packages-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.package-item {
+    position: relative;
+}
+
+.package-item input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+}
+
+.package-item label {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.package-item label:hover {
+    border-color: #ff00ff;
+    background: rgba(255, 0, 255, 0.02);
+}
+
+.package-item input:checked ~ label {
+    border-color: #ff00ff;
+    background: linear-gradient(135deg, rgba(255, 0, 255, 0.08) 0%, rgba(128, 128, 0, 0.08) 100%);
+    box-shadow: 0 2px 10px rgba(255, 0, 255, 0.15);
+}
+
+.package-item label i {
+    font-size: 1.8rem;
+    color: #ff00ff;
+}
+
+.package-item label h5 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 0.25rem 0;
+    color: #212529;
+}
+
+.package-item label p {
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin: 0;
+}
+
+/* ========================================
+   Form Styles - Remove Question Marks
+   ======================================== */
+.form-label {
+    font-weight: 500;
+    color: #495057;
+    margin-bottom: 0.4rem;
+    font-size: 0.95rem;
+}
+
+.form-label .required {
+    color: #dc3545;
+    margin-left: 2px;
+}
+
+.form-control, .form-select {
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 0.6rem 0.75rem;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #ff00ff;
+    box-shadow: 0 0 0 0.15rem rgba(255, 0, 255, 0.1);
+    outline: none;
+}
+
+/* ========================================
+   Step Actions - Compact Buttons
+   ======================================== */
+.step-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e9ecef;
+}
+
+.step-actions .btn {
+    padding: 0.6rem 1.5rem;
+    font-weight: 500;
+    border-radius: 8px;
+}
+
+/* ========================================
+   Booking Summary Card - Sticky Right Panel
+   ======================================== */
+.booking-summary-card {
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+}
+
+.summary-header, .payment-header {
+    background: linear-gradient(135deg, #ff00ff, #cc00cc);
+    color: white;
+    padding: 1rem 1.25rem;
+    border-radius: 15px 15px 0 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 600;
+}
+
+.payment-header {
+    border-radius: 0;
+    background: linear-gradient(135deg, #808000, #9b9b4a);
+}
+
+.summary-header i, .payment-header i {
+    font-size: 1.3rem;
+}
+
+.summary-body {
+    padding: 1.25rem;
+}
+
+.summary-section {
+    margin-bottom: 1.25rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.summary-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.summary-section h6 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+}
+
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.4rem 0;
+    font-size: 0.9rem;
+}
+
+.summary-row span:first-child {
+    color: #6c757d;
+}
+
+.summary-row span:last-child,
+.summary-row strong {
+    color: #212529;
+    font-weight: 500;
+}
+
+.summary-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: linear-gradient(135deg, rgba(255, 0, 255, 0.1) 0%, rgba(128, 128, 0, 0.1) 100%);
+    border-radius: 10px;
+    margin-top: 1rem;
+}
+
+.summary-total span {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #212529;
+}
+
+.summary-total strong {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #ff00ff;
+}
+
+/* ========================================
+   Payment Options - Compact Grid
+   ======================================== */
+.payment-section {
+    border-top: 1px solid #e9ecef;
+}
+
+.payment-options {
+    padding: 1rem 1.25rem;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+}
+
+.payment-option {
+    position: relative;
+    cursor: pointer;
+}
+
+.payment-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+}
+
+.payment-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.payment-content i {
+    font-size: 1.5rem;
+    color: #6c757d;
+}
+
+.payment-content strong {
+    font-size: 0.85rem;
+    color: #212529;
+}
+
+.payment-content small {
+    font-size: 0.75rem;
+    color: #6c757d;
+}
+
+.payment-option input:checked ~ .payment-content {
+    border-color: #ff00ff;
+    background: rgba(255, 0, 255, 0.05);
+}
+
+.payment-option input:checked ~ .payment-content i {
+    color: #ff00ff;
+}
+
+/* ========================================
+   Responsive Design
+   ======================================== */
+@media (max-width: 991px) {
+    .booking-summary-card {
+        position: static;
+        margin-top: 1.5rem;
+    }
+    
+    .step-indicators {
+        padding: 0.75rem;
+    }
+    
+    .step-number {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
+    
+    .time-slots-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
+}
+
+@media (max-width: 576px) {
+    .hall-booking-create-page {
+        padding: 0.5rem !important;
+    }
+    
+    .page-header {
+        margin: -0.5rem -0.5rem 1rem -0.5rem;
+        padding: 1rem 0;
+    }
+    
+    .header-content .title {
+        font-size: 1.5rem;
+    }
+    
+    .step-label {
+        font-size: 0.7rem;
+    }
+    
+    .time-slots-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .payment-options {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ========================================
+   Success Confetti Animation
+   ======================================== */
+.success-confetti {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 9999;
+}
+
+.confetti-particle {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+}
