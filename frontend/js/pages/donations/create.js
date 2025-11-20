@@ -3,31 +3,119 @@
 
 (function($, window) {
     'use strict';
-    
+    if (!window.DonationsSharedModule) {
+        window.DonationsSharedModule = {
+            moduleId: 'donations',
+			eventNamespace: 'donations',
+            cssId: 'donations-css',
+            cssPath: '/css/donations.css',
+            activePages: new Set(),
+            
+            // Load shared CSS (only once per module)
+            loadCSS: function() {
+                if (!document.getElementById(this.cssId)) {
+                    const link = document.createElement('link');
+                    link.id = this.cssId;
+                    link.rel = 'stylesheet';
+                    link.href = this.cssPath;
+                    document.head.appendChild(link);
+                    console.log('Donations CSS loaded');
+                }
+            },
+            
+            // Register a page as active
+            registerPage: function(pageId) {
+                this.activePages.add(pageId);
+                this.loadCSS(); // Ensure CSS is loaded
+                console.log(`Donations page registered: ${pageId} (Total: ${this.activePages.size})`);
+            },
+            
+            // Unregister a page
+            unregisterPage: function(pageId) {
+                this.activePages.delete(pageId);
+                console.log(`Donations page unregistered: ${pageId} (Remaining: ${this.activePages.size})`);
+                
+                // If no more pages active, cleanup CSS
+                if (this.activePages.size === 0) {
+                    this.cleanup();
+                }
+            },
+            
+            // Check if any pages are active
+            hasActivePages: function() {
+                return this.activePages.size > 0;
+            },
+            
+            // Get active pages
+            getActivePages: function() {
+                return Array.from(this.activePages);
+            },
+            
+            // Cleanup module resources
+            cleanup: function() {
+                // Remove CSS
+                const cssLink = document.getElementById(this.cssId);
+                if (cssLink) {
+                    cssLink.remove();
+                    console.log('Donations CSS removed');
+                }
+                
+                // Cleanup GSAP animations
+                if (typeof gsap !== 'undefined') {
+                    gsap.killTweensOf("*");
+                }
+                
+                // Remove all donations-related event listeners
+                $(document).off('.' + this.eventNamespace);
+                $(window).off('.' + this.eventNamespace);
+                
+                this.activePages.clear();
+                console.log('Donations module cleaned up');
+            }
+        };
+    }
     window.DonationsCreatePage = {
+		pageId: 'donations-create',
+        eventNamespace: window.DonationsSharedModule.eventNamespace,
         donationType: 'donation', // Default type
         
         // Page initialization
         init: function(params) {
-            this.loadCSS();
+            window.DonationsSharedModule.registerPage(this.pageId);
             this.render();
             this.initAnimations();
             this.bindEvents();
             this.initializePlugins();
         },
-        
-        // Load CSS dynamically
-        loadCSS: function() {
-            // Check if CSS is already loaded
-            if (!document.getElementById('donations-css')) {
-                const link = document.createElement('link');
-                link.id = 'donations-css';
-                link.rel = 'stylesheet';
-                link.href = '/css/donations.css';
-                document.head.appendChild(link);
+        // Page cleanup
+        cleanup: function() {
+            console.log(`Cleaning up ${this.pageId}...`);
+            
+            // Unregister from shared module
+            window.DonationsSharedModule.unregisterPage(this.pageId);
+            
+            // Cleanup page-specific events (with page namespace)
+            $(document).off(`.${this.eventNamespace}`);
+            $(window).off(`.${this.eventNamespace}`);
+            
+            // Cleanup page-specific animations
+            if (typeof gsap !== 'undefined') {
+                gsap.killTweensOf(`.${this.pageId}-page *`);
             }
+            
+            // Clear any intervals/timeouts
+            if (this.intervals) {
+                this.intervals.forEach(interval => clearInterval(interval));
+                this.intervals = [];
+            }
+            
+            if (this.timeouts) {
+                this.timeouts.forEach(timeout => clearTimeout(timeout));
+                this.timeouts = [];
+            }
+            
+            console.log(`${this.pageId} cleanup completed`);
         },
-        
         // Render page HTML
         render: function() {
             const html = `
@@ -514,7 +602,7 @@
                 
                 gsap.set(card, { scale: 1 });
                 
-                $(card).on('mouseenter', function() {
+                $(card).on('mouseenter.' + this.eventNamespace, function() {
                     gsap.to(card, {
                         scale: 1.05,
                         boxShadow: '0 8px 20px rgba(255, 0, 255, 0.15)',
@@ -523,7 +611,7 @@
                     });
                 });
                 
-                $(card).on('mouseleave', function() {
+                $(card).on('mouseleave.' + this.eventNamespace, function() {
                     if (!$(card).find('input').is(':checked')) {
                         gsap.to(card, {
                             scale: 1,
@@ -547,7 +635,7 @@
             const self = this;
             
             // Donation type change
-            $('#donationType').on('change', function() {
+            $('#donationType').on('change.' + this.eventNamespace, function() {
                 const selectedType = $(this).val();
                 self.donationType = selectedType;
                 self.loadFormContent(selectedType);
@@ -560,7 +648,7 @@
             });
             
             // Form submission
-            $('#donationForm').on('submit', function(e) {
+            $('#donationForm').on('submit.' + this.eventNamespace, function(e) {
                 e.preventDefault();
                 
                 if (!this.checkValidity()) {
@@ -573,17 +661,18 @@
             });
             
             // Cancel button
-            $('#btnCancel').on('click', function() {
-                TempleRouter.navigate('donations');
+            $('#btnCancel').on('click.' + this.eventNamespace, function() {
+				self.cleanup();
+                TempleRouter.navigate('donations/list');
             });
             
             // Reset button
-            $('#btnReset').on('click', function() {
+            $('#btnReset').on('click.' + this.eventNamespace, function() {
                 self.resetForm();
             });
             
             // Radio card selection animation
-            $(document).on('change', 'input[type="radio"]', function() {
+            $(document).on('change.' + this.eventNamespace, 'input[type="radio"]', function() {
                 const $parent = $(this).closest('.form-check-card');
                 const $siblings = $parent.siblings('.form-check-card');
                 
@@ -609,13 +698,13 @@
             });
 
             // Input field animations on focus
-            $('.form-control').on('focus', function() {
+            $('.form-control').on('focus.' + this.eventNamespace, function() {
                 gsap.to($(this), {
                     scale: 1.02,
                     duration: 0.2,
                     ease: 'power1.out'
                 });
-            }).on('blur', function() {
+            }).on('blur.' + this.eventNamespace, function() {
                 gsap.to($(this), {
                     scale: 1,
                     duration: 0.2
@@ -623,7 +712,7 @@
             });
 
             // Select dropdown animation on change
-            $('.form-select').on('change', function() {
+            $('.form-select').on('change.' + this.eventNamespace, function() {
                 gsap.fromTo(this,
                     { scale: 1 },
                     { 
@@ -666,6 +755,7 @@
                 setTimeout(() => {
                     this.resetForm();
                     $submitBtn.prop('disabled', false).html(originalText);
+					self.cleanup();
                     TempleRouter.navigate('donations/list');
                 }, 1500);
             }, 1500);

@@ -3,29 +3,118 @@
 
 (function($, window) {
     'use strict';
-    
+    if (!window.DonationsSharedModule) {
+        window.DonationsSharedModule = {
+            moduleId: 'donations',
+			eventNamespace: 'donations',
+            cssId: 'donations-css',
+            cssPath: '/css/donations.css',
+            activePages: new Set(),
+            
+            // Load shared CSS (only once per module)
+            loadCSS: function() {
+                if (!document.getElementById(this.cssId)) {
+                    const link = document.createElement('link');
+                    link.id = this.cssId;
+                    link.rel = 'stylesheet';
+                    link.href = this.cssPath;
+                    document.head.appendChild(link);
+                    console.log('Donations CSS loaded');
+                }
+            },
+            
+            // Register a page as active
+            registerPage: function(pageId) {
+                this.activePages.add(pageId);
+                this.loadCSS(); // Ensure CSS is loaded
+                console.log(`Donations page registered: ${pageId} (Total: ${this.activePages.size})`);
+            },
+            
+            // Unregister a page
+            unregisterPage: function(pageId) {
+                this.activePages.delete(pageId);
+                console.log(`Donations page unregistered: ${pageId} (Remaining: ${this.activePages.size})`);
+                
+                // If no more pages active, cleanup CSS
+                if (this.activePages.size === 0) {
+                    this.cleanup();
+                }
+            },
+            
+            // Check if any pages are active
+            hasActivePages: function() {
+                return this.activePages.size > 0;
+            },
+            
+            // Get active pages
+            getActivePages: function() {
+                return Array.from(this.activePages);
+            },
+            
+            // Cleanup module resources
+            cleanup: function() {
+                // Remove CSS
+                const cssLink = document.getElementById(this.cssId);
+                if (cssLink) {
+                    cssLink.remove();
+                    console.log('Donations CSS removed');
+                }
+                
+                // Cleanup GSAP animations
+                if (typeof gsap !== 'undefined') {
+                    gsap.killTweensOf("*");
+                }
+                
+                // Remove all donations-related event listeners
+                $(document).off('.' + this.eventNamespace);
+                $(window).off('.' + this.eventNamespace);
+                
+                this.activePages.clear();
+                console.log('Donations module cleaned up');
+            }
+        };
+    }
     window.DonationsListPage = {
         dataTable: null,
-        
+        pageId: 'donations-list',
+        eventNamespace: window.DonationsSharedModule.eventNamespace,
         // Page initialization
         init: function(params) {
-            this.loadCSS();
+            window.DonationsSharedModule.registerPage(this.pageId);
             this.render();
             this.initAnimations();
             this.loadData();
             this.bindEvents();
         },
         
-        // Load CSS dynamically
-        loadCSS: function() {
-            // Check if CSS is already loaded
-            if (!document.getElementById('donations-css')) {
-                const link = document.createElement('link');
-                link.id = 'donations-css';
-                link.rel = 'stylesheet';
-                link.href = '/css/donations.css';
-                document.head.appendChild(link);
+        // Page cleanup
+        cleanup: function() {
+            console.log(`Cleaning up ${this.pageId}...`);
+            
+            // Unregister from shared module
+            window.DonationsSharedModule.unregisterPage(this.pageId);
+            
+            // Cleanup page-specific events (with page namespace)
+            $(document).off(`.${this.eventNamespace}`);
+            $(window).off(`.${this.eventNamespace}`);
+            
+            // Cleanup page-specific animations
+            if (typeof gsap !== 'undefined') {
+                gsap.killTweensOf(`.${this.pageId}-page *`);
             }
+            
+            // Clear any intervals/timeouts
+            if (this.intervals) {
+                this.intervals.forEach(interval => clearInterval(interval));
+                this.intervals = [];
+            }
+            
+            if (this.timeouts) {
+                this.timeouts.forEach(timeout => clearTimeout(timeout));
+                this.timeouts = [];
+            }
+            
+            console.log(`${this.pageId} cleanup completed`);
         },
         
         // Render page HTML
@@ -182,7 +271,7 @@
             $('.stat-card').each(function(index) {
                 const card = this;
                 
-                $(card).on('mouseenter', function() {
+                $(card).on('mouseenter.' + this.eventNamespace, function() {
                     gsap.to(card, {
                         y: -10,
                         boxShadow: '0 15px 30px rgba(0,0,0,0.15)',
@@ -191,7 +280,7 @@
                     });
                 });
                 
-                $(card).on('mouseleave', function() {
+                $(card).on('mouseleave.' + this.eventNamespace, function() {
                     gsap.to(card, {
                         y: 0,
                         boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
@@ -477,7 +566,7 @@
             const self = this;
             
             // New donation button
-            $('#btnNewDonation').on('click', function() {
+            $('#btnNewDonation').on('click.' + this.eventNamespace, function() {
                 gsap.to(this, {
                     scale: 0.95,
                     duration: 0.1,
@@ -490,7 +579,7 @@
             });
             
             // Refresh button
-            $('#btnRefresh').on('click', function() {
+            $('#btnRefresh').on('click.' + this.eventNamespace, function() {
                 // Animate button
                 const $btn = $(this);
                 const $icon = $btn.find('i');
@@ -511,30 +600,30 @@
             });
             
             // Filter changes
-            $('#filterType, #filterPayment, #filterFromDate, #filterToDate').on('change', function() {
+            $('#filterType, #filterPayment, #filterFromDate, #filterToDate').on('change.' + this.eventNamespace, function() {
                 self.applyFilters();
             });
             
             // View button
-            $(document).on('click', '.btn-view', function() {
+            $(document).on('click.' + this.eventNamespace, '.btn-view', function() {
                 const id = $(this).data('id');
                 self.viewDonation(id);
             });
             
             // Edit button
-            $(document).on('click', '.btn-edit', function() {
+            $(document).on('click.' + this.eventNamespace, '.btn-edit', function() {
                 const id = $(this).data('id');
                 self.editDonation(id);
             });
             
             // Print button
-            $(document).on('click', '.btn-print', function() {
+            $(document).on('click.' + this.eventNamespace, '.btn-print', function() {
                 const id = $(this).data('id');
                 self.printReceipt(id);
             });
             
             // Delete button
-            $(document).on('click', '.btn-delete', function() {
+            $(document).on('click.' + this.eventNamespace, '.btn-delete', function() {
                 const id = $(this).data('id');
                 self.deleteDonation(id);
             });

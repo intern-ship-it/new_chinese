@@ -1,0 +1,168 @@
+/* css/pagoda.css */
+/* Pagoda Tower Auspicious Light System Styles */
+
+/* Dashboard Cards */
+.pagoda-dashboard-container {
+    padding: 20px;
+}
+
+.stats-card {
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.stats-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.stats-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    color: white;
+}
+
+.stats-label {
+    font-size: 14px;
+    color: #6c757d;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stats-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: #2c3e50;
+}
+
+/* Light Status Badges */
+.light-code {
+    font-family: 'Courier New', monospace;
+    background: #f8f9fa;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    color: #495057;
+}
+
+/* Stat Cards */
+.stat-card {
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* Tower Cards */
+.tower-card {
+    transition: all 0.3s ease;
+}
+
+.tower-card:hover {
+    box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+}
+
+/* Quick Actions */
+.quick-actions .btn {
+    padding: 20px;
+    height: auto;
+    line-height: 1.6;
+    font-size: 14px;
+    font-weight: 600;
+    border-width: 2px;
+}
+
+.quick-actions .btn i {
+    font-size: 32px;
+    margin-bottom: 8px;
+    display: block;
+}
+
+/* Revenue Stats */
+.revenue-stat {
+    padding: 15px;
+}
+
+/* Expiry Stats */
+.expiry-stat {
+    padding: 20px;
+    border-radius: 12px;
+    background: #f8f9fa;
+    transition: all 0.3s ease;
+}
+
+.expiry-stat:hover {
+    background: #e9ecef;
+    transform: scale(1.05);
+}
+
+.expiry-icon {
+    font-size: 36px;
+    margin-bottom: 10px;
+}
+
+/* Page Header */
+.page-header {
+    margin-bottom: 2rem;
+}
+
+.page-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #2c3e50;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .stats-value {
+        font-size: 24px;
+    }
+    
+    .stats-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 24px;
+    }
+    
+    .quick-actions .btn i {
+        font-size: 24px;
+    }
+    
+    .page-title {
+        font-size: 1.5rem;
+    }
+}
+
+/* Loading States */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease-in;
+}

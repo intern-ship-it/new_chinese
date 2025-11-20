@@ -22,6 +22,9 @@
         },
 
         // Initialize the page
+
+
+        // Initialize the page
         init: function (params) {
             console.log('Initializing Auspicious Light Entry Page');
             this.params = params || {};
@@ -485,9 +488,9 @@
             // GSAP Timeline for header animation (entrance only, no scroll dependency)
             // Using fromTo to explicitly set start and end states
             const headerTimeline = gsap.timeline({ delay: 0.1 });
-            
+
             headerTimeline
-                .fromTo('.form-title', 
+                .fromTo('.form-title',
                     {
                         y: -50,
                         opacity: 0
@@ -499,7 +502,7 @@
                         ease: 'back.out(1.7)'
                     }
                 )
-                .fromTo('.form-header p', 
+                .fromTo('.form-header p',
                     {
                         y: 20,
                         opacity: 0
@@ -514,12 +517,12 @@
                 );
 
             // Safety check: Ensure header is visible after animation completes
-            headerTimeline.eventCallback("onComplete", function() {
+            headerTimeline.eventCallback("onComplete", function () {
                 $('.form-title, .form-header p').css('opacity', '1');
             });
 
             // Fallback: If animation doesn't start, force visibility after 1 second
-            setTimeout(function() {
+            setTimeout(function () {
                 if ($('.form-title').css('opacity') == '0') {
                     $('.form-title, .form-header p').css({
                         'opacity': '1',
@@ -692,7 +695,8 @@
             };
         },
 
-        // Handle form submission
+        // Find this section in your existing file (around line 180-220):
+
         handleSubmit: function () {
             const self = this;
 
@@ -716,45 +720,101 @@
             $btnSubmit.addClass('loading').prop('disabled', true);
             $btnSubmit.html('<i class="bi bi-hourglass-split"></i> Processing...');
 
-            // Simulate API call (replace with actual API call when ready)
-            setTimeout(function () {
-                $btnSubmit.removeClass('loading').prop('disabled', false);
-                $btnSubmit.html('<i class="bi bi-check-circle"></i> Submit Entry');
+            // ========================================
+            // NEW: Connect to Pagoda Backend API
+            // ========================================
 
-                // Show success message
-                self.showSuccessMessage(formData);
-            }, 2000);
+            // Prepare data for backend
+            const registrationData = {
+                devotee: {
+                    name_english: formData.name_english,
+                    name_chinese: formData.name_chinese,
+                    nric: formData.nric_no,
+                    contact_no: formData.contact_no,
+                    email: formData.email
+                },
+                light_option: formData.light_option || 'new_light',
+                merit_amount: parseFloat(formData.merit_option) || 0,
+                offer_date: formData.offer_date,
+                payment_method: formData.devotion_method || 'cash',
+                payment_reference: formData.light_no || null,
+                remarks: formData.remark,
+                receipt_number: formData.receipt_no
+                // Note: light_number is optional - backend will auto-assign if not provided
+            };
 
-            // Uncomment below for actual API integration
-            /*
-            TempleAPI.post('/auspicious-light/entries', formData)
-                .done(function(response) {
+            // Call backend API
+            PagodaAPI.registrations.create(registrationData)
+                .done(function (response) {
                     $btnSubmit.removeClass('loading').prop('disabled', false);
                     $btnSubmit.html('<i class="bi bi-check-circle"></i> Submit Entry');
-                    
+
                     if (response.success) {
-                        self.showSuccessMessage(formData);
+                        self.showSuccessMessage(response.data);
                     } else {
                         Swal.fire({
                             icon: 'error',
                             title: 'Submission Failed',
                             text: response.message || 'An error occurred while submitting the form.',
-                            confirmButtonColor: '#ff00ff'
+                            confirmButtonColor: '#e74c3c'
                         });
                     }
                 })
-                .fail(function(xhr) {
+                .fail(function (xhr) {
                     $btnSubmit.removeClass('loading').prop('disabled', false);
                     $btnSubmit.html('<i class="bi bi-check-circle"></i> Submit Entry');
-                    
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Submission Error',
-                        text: 'Failed to submit the form. Please try again later.',
-                        confirmButtonColor: '#ff00ff'
-                    });
+
+                    TempleUtils.handleAjaxError(xhr, 'Failed to submit registration');
                 });
-            */
+        },
+
+
+        // Update success message to show backend response
+        showSuccessMessage: function (registration) {
+            const currencySymbol = APP_CONFIG.CURRENCY_SYMBOLS[
+                TempleUtils.getStoredTempleSettings().currency || 'MYR'
+            ];
+
+            Swal.fire({
+                title: 'Success!',
+                html: `
+            <div class="success-checkmark">
+                <div class="check-icon">
+                    <span class="icon-line line-tip"></span>
+                    <span class="icon-line line-long"></span>
+                </div>
+            </div>
+            <p style="font-size: 16px; margin-top: 20px;">
+                <strong>Auspicious Light Registration Successful!</strong>
+            </p>
+            <div style="text-align: left; max-width: 400px; margin: 20px auto; font-size: 14px;">
+                <p><strong>Receipt Number:</strong> ${registration.receipt_number}</p>
+                <p><strong>Light Number:</strong> ${registration.light_number}</p>
+                <p><strong>Light Code:</strong> <code style="background: #f0f0f0; padding: 2px 6px; border-radius: 4px;">${registration.light_code}</code></p>
+                <p><strong>Devotee:</strong> ${registration.devotee.name_chinese} (${registration.devotee.name_english})</p>
+                <p><strong>Merit Amount:</strong> ${currencySymbol} ${parseFloat(registration.merit_amount).toFixed(2)}</p>
+                <p><strong>Offer Date:</strong> ${moment(registration.offer_date).format('DD/MM/YYYY')}</p>
+                <p><strong>Expiry Date:</strong> ${moment(registration.expiry_date).format('DD/MM/YYYY')}</p>
+            </div>
+        `,
+                icon: 'success',
+                confirmButtonText: 'Create Another Entry',
+                confirmButtonColor: '#28a745',
+                showCancelButton: true,
+                cancelButtonText: 'View Dashboard',
+                cancelButtonColor: '#6c757d'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Reset form for new entry
+                    this.resetForm();
+                } else {
+                    // Navigate to pagoda dashboard
+                    TempleRouter.navigate('pagoda/dashboard');
+                }
+            });
+
+            // Show confetti animation
+            this.showConfetti();
         },
 
         // Show success message

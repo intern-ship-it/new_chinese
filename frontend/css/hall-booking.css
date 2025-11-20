@@ -9,6 +9,224 @@
     background: #f8f9fa;
 }
 
+.hall-booking-list-page {
+    padding: 0;
+    min-height: 100vh;
+    background: #f8f9fa;
+}
+
+/* Header Styles for Listing Page */
+.hall-booking-header {
+    background: linear-gradient(135deg, #ff00ff 0%, #cc00cc 20%, #996699 40%, #808000 80%, #9b9b4a 100%);
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(255, 0, 255, 0.15);
+}
+
+.hall-booking-header-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="temple" patternUnits="userSpaceOnUse" width="20" height="20"><circle cx="10" cy="10" r="1" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23temple)"/></svg>');
+    animation: bgFloat 20s ease-in-out infinite;
+}
+
+@keyframes bgFloat {
+    0%, 100% { transform: translateX(0) translateY(0); }
+    33% { transform: translateX(-10px) translateY(-5px); }
+    66% { transform: translateX(10px) translateY(5px); }
+}
+
+.hall-booking-title-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    color: white;
+    position: relative;
+    z-index: 1;
+}
+
+.hall-booking-header-icon {
+    font-size: 3rem;
+    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.3));
+    animation: iconPulse 3s ease-in-out infinite;
+}
+
+@keyframes iconPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+.hall-booking-title {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin: 0;
+    color: white;
+    text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
+    letter-spacing: -0.5px;
+}
+
+.hall-booking-subtitle {
+    font-size: 1.1rem;
+    margin: 0;
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 300;
+}
+
+/* Filter Card Styles */
+.filter-card {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 5px 25px rgba(0, 0, 0, 0.08);
+    background: white;
+    transition: all 0.3s ease;
+}
+
+.filter-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 35px rgba(0, 0, 0, 0.12);
+}
+
+.filter-card .card-body {
+    padding: 1.5rem;
+}
+
+.filter-card .form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.filter-card .form-control,
+.filter-card .form-select {
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 0.6rem 0.75rem;
+    transition: all 0.3s ease;
+    font-size: 0.95rem;
+}
+
+.filter-card .form-control:focus,
+.filter-card .form-select:focus {
+    border-color: #ff00ff;
+    box-shadow: 0 0 0 0.15rem rgba(255, 0, 255, 0.1);
+    outline: none;
+}
+
+
+/* DataTable Customization */
+#bookingsTable {
+    margin: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+#bookingsTable thead th {
+    background: linear-gradient(135deg, #ff00ff, #cc00cc);
+    color: white;
+    border: none;
+    padding: 1rem 0.75rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+#bookingsTable thead th:first-child {
+    border-top-left-radius: 15px;
+}
+
+#bookingsTable thead th:last-child {
+    border-top-right-radius: 15px;
+}
+
+#bookingsTable tbody td {
+    padding: 0.75rem;
+    border-bottom: 1px solid #f1f3f4;
+    vertical-align: middle;
+    font-size: 0.9rem;
+}
+
+#bookingsTable tbody tr {
+    transition: all 0.3s ease;
+}
+
+#bookingsTable tbody tr:hover {
+    background: linear-gradient(90deg, rgba(255, 0, 255, 0.05) 0%, rgba(128, 128, 0, 0.05) 100%);
+    transform: translateX(2px);
+}
+
+/* Status Badges */
+.badge {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-weight: 500;
+}
+
+/* Action Buttons */
+.btn-group-sm .btn {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8rem;
+    border-radius: 6px;
+    margin: 0 1px;
+    transition: all 0.3s ease;
+}
+
+.btn-group-sm .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* DataTable Controls */
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter {
+    margin-bottom: 1rem;
+}
+
+.dataTables_wrapper .dataTables_length select,
+.dataTables_wrapper .dataTables_filter input {
+    border: 2px solid #e9ecef;
+    border-radius: 6px;
+    padding: 0.4rem 0.6rem;
+}
+
+.dataTables_wrapper .dataTables_filter input:focus {
+    border-color: #ff00ff;
+    outline: none;
+}
+
+.dataTables_wrapper .dataTables_info {
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+    padding: 0.5rem 1rem;
+    margin: 0 2px;
+    border-radius: 6px;
+    border: none;
+    background: #f8f9fa;
+    color: #495057;
+    transition: all 0.3s ease;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+    background: #ff00ff;
+    color: white;
+    transform: translateY(-1px);
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+    background: #ff00ff;
+    color: white;
+}
+
 /* ========================================
    Page Header - Compact Design
    ======================================== */
@@ -54,7 +272,7 @@
 }
 
 /* ========================================
-   Step Indicators - Compact
+   Step Indicators - Updated for 4 Steps
    ======================================== */
 .step-indicators {
     display: flex;
@@ -77,8 +295,8 @@
 }
 
 .step-number {
-    width: 50px;
-    height: 50px;
+    width: 45px;
+    height: 45px;
     border-radius: 50%;
     background: #e9ecef;
     color: #6c757d;
@@ -86,7 +304,7 @@
     align-items: center;
     justify-content: center;
     font-weight: 700;
-    font-size: 1.25rem;
+    font-size: 1.1rem;
     transition: all 0.3s ease;
     border: 3px solid #e9ecef;
 }
@@ -107,14 +325,15 @@
 
 .step-indicator.completed .step-number::before {
     content: "✓";
-    font-size: 1.5rem;
+    font-size: 1.2rem;
 }
 
 .step-label {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     text-align: center;
     color: #6c757d;
     line-height: 1.2;
+    font-weight: 500;
 }
 
 .step-indicator.active .step-label,
@@ -127,20 +346,20 @@
     flex: 1;
     height: 3px;
     background: #e9ecef;
-    margin: 0 1rem;
+    margin: 0 0.5rem;
     position: relative;
-    top: -20px;
+    top: -18px;
 }
 
 /* ========================================
-   Workflow Content - Reduced Spacing
+   Workflow Content - Enhanced
    ======================================== */
 .workflow-content {
     background: white;
     border-radius: 15px;
     padding: 1.5rem;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-    min-height: 400px;
+    min-height: 500px;
 }
 
 .step-content {
@@ -167,7 +386,7 @@
     font-size: 1.3rem;
     font-weight: 600;
     color: #212529;
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem;
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -178,11 +397,200 @@
 }
 
 /* ========================================
+   Venues Grid - Similar to Time Slots
+   ======================================== */
+.venues-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.venue-card {
+    padding: 1.5rem;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+    background: white;
+}
+
+.venue-card:hover {
+    border-color: #ff00ff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(255, 0, 255, 0.15);
+}
+
+.venue-card.selected {
+    border-color: #ff00ff;
+    background: linear-gradient(135deg, rgba(255, 0, 255, 0.1) 0%, rgba(128, 128, 0, 0.1) 100%);
+    box-shadow: 0 4px 20px rgba(255, 0, 255, 0.25);
+}
+
+.venue-icon {
+    font-size: 2.5rem;
+    color: #ff00ff;
+    margin-bottom: 1rem;
+}
+
+.venue-card h5 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0.5rem 0;
+    color: #212529;
+}
+
+.venue-location {
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin: 0;
+}
+
+/* ========================================
+   Calendar Component
+   ======================================== */
+.calendar-container {
+    background: white;
+    border-radius: 12px;
+    padding: 1rem;
+    border: 1px solid #e9ecef;
+}
+
+.calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    padding: 0 1rem;
+}
+
+.calendar-header h4 {
+    margin: 0;
+    font-weight: 600;
+    color: #212529;
+}
+
+.calendar-grid {
+    width: 100%;
+}
+
+.calendar-days-header {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    margin-bottom: 0.5rem;
+}
+
+.day-header {
+    padding: 0.75rem;
+    text-align: center;
+    font-weight: 600;
+    color: #6c757d;
+    font-size: 0.85rem;
+    background: #f8f9fa;
+}
+
+.calendar-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background: #e9ecef;
+    border: 1px solid #e9ecef;
+}
+
+.calendar-day {
+    position: relative;
+    aspect-ratio: 1;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-height: 45px;
+}
+
+.calendar-day:not(.empty):not(.past):not(.weekend):hover {
+    background: rgba(255, 0, 255, 0.1);
+}
+
+.calendar-day.selected {
+    background: #ff00ff !important;
+    color: white;
+    font-weight: 600;
+}
+
+.calendar-day.today {
+    background: rgba(255, 0, 255, 0.1);
+    font-weight: 600;
+    border: 2px solid #ff00ff;
+}
+
+.calendar-day.past {
+    color: #adb5bd;
+    cursor: not-allowed;
+    background: #f8f9fa;
+}
+
+.calendar-day.weekend {
+    background: #f1f1f1;
+    color: #adb5bd;
+    cursor: not-allowed;
+}
+
+.calendar-day.empty {
+    background: transparent;
+    cursor: default;
+}
+
+.day-number {
+    font-size: 0.9rem;
+}
+
+.calendar-legend {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+.legend-indicator {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    border: 1px solid #dee2e6;
+}
+
+.legend-indicator.available {
+    background: white;
+}
+
+.legend-indicator.weekend {
+    background: #f1f1f1;
+}
+
+.legend-indicator.selected {
+    background: #ff00ff;
+}
+
+/* ========================================
    Time Slots Grid - Compact Cards
    ======================================== */
 .time-slots-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     gap: 1rem;
     margin-bottom: 1.5rem;
 }
@@ -216,7 +624,7 @@
 }
 
 .time-slot-card h5 {
-    font-size: 0.95rem;
+    font-size: 1rem;
     font-weight: 600;
     margin: 0.5rem 0;
     color: #212529;
@@ -236,9 +644,22 @@
 }
 
 /* ========================================
-   Packages List - Compact
+   Packages Section - Enhanced
    ======================================== */
-.packages-list {
+.packages-section {
+    margin-bottom: 1.5rem;
+}
+
+.packages-section h5 {
+    color: #495057;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.main-packages-list, 
+#subPackagesList {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
@@ -249,6 +670,7 @@
     position: relative;
 }
 
+.package-item input[type="radio"],
 .package-item input[type="checkbox"] {
     position: absolute;
     opacity: 0;
@@ -256,9 +678,9 @@
 
 .package-item label {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 1rem;
-    padding: 1rem;
+    padding: 1.25rem;
     border: 2px solid #e9ecef;
     border-radius: 12px;
     cursor: pointer;
@@ -280,23 +702,224 @@
 .package-item label i {
     font-size: 1.8rem;
     color: #ff00ff;
+    margin-top: 0.2rem;
 }
 
 .package-item label h5 {
-    font-size: 1rem;
+    font-size: 1.1rem;
     font-weight: 600;
-    margin: 0 0 0.25rem 0;
+    margin: 0 0 0.5rem 0;
     color: #212529;
 }
 
 .package-item label p {
     font-size: 0.9rem;
     color: #6c757d;
-    margin: 0;
+    margin: 0 0 0.5rem 0;
+    line-height: 1.4;
+}
+
+.package-item label small {
+    display: block;
+    color: #28a745;
+    font-weight: 500;
+}
+
+.package-item label strong {
+    color: #ff00ff;
+    font-size: 1rem;
 }
 
 /* ========================================
-   Form Styles - Remove Question Marks
+   Additional Services - Accordion Style
+   ======================================== */
+.addons-section {
+    margin-bottom: 1.5rem;
+}
+
+.addon-category {
+    margin-bottom: 1rem;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.addon-category-title {
+    background: #f8f9fa;
+    padding: 1rem;
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #495057;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.addon-category-title:hover {
+    background: #e9ecef;
+}
+
+.addon-category-title i {
+    transition: transform 0.3s ease;
+}
+
+.addon-items {
+    display: none;
+    padding: 0;
+}
+
+.addon-item {
+    border-top: 1px solid #e9ecef;
+    position: relative;
+}
+
+.addon-item:first-child {
+    border-top: none;
+}
+
+.addon-item input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+}
+
+.addon-item label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin: 0;
+    border: none !important;
+    background: white !important;
+}
+
+.addon-item label:hover {
+    background: #f8f9fa !important;
+}
+
+.addon-item input:checked ~ label {
+    background: rgba(255, 0, 255, 0.05) !important;
+    border-left: 4px solid #ff00ff !important;
+}
+
+.addon-info h6 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 0.25rem 0;
+    color: #212529;
+}
+
+.addon-unit {
+    font-size: 0.8rem;
+    color: #6c757d;
+    margin: 0 0 0.5rem 0;
+}
+
+.addon-pricing {
+    display: flex;
+    gap: 1rem;
+}
+
+.internal-price, .external-price {
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.internal-price {
+    color: #28a745;
+}
+
+.external-price {
+    color: #dc3545;
+}
+
+.addon-quantity {
+    min-width: 80px;
+}
+
+.addon-qty {
+    width: 70px;
+    height: 32px;
+    text-align: center;
+}
+
+/* ========================================
+   Extra Charges Section
+   ======================================== */
+.extra-charges-section {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: #f8f9fa;
+    border-radius: 12px;
+}
+
+.extra-charges-section h5 {
+    color: #495057;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.extra-charges-form {
+    margin-bottom: 1rem;
+}
+
+.extra-charges-list {
+    margin-top: 1rem;
+}
+
+.extra-charges-list table {
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.extra-charges-list thead th {
+    background: #ff00ff;
+    color: white;
+    border: none;
+    font-weight: 600;
+}
+
+.extra-charges-list tbody td {
+    vertical-align: middle;
+    border-color: #e9ecef;
+}
+
+/* ========================================
+   Personal Information Section
+   ======================================== */
+.personal-info-section {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 2px solid #e9ecef;
+}
+
+.personal-info-section h5 {
+    color: #495057;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.personal-info-section h5::before {
+    content: "";
+    width: 4px;
+    height: 20px;
+    background: #ff00ff;
+    border-radius: 2px;
+}
+
+/* ========================================
+   Form Styles
    ======================================== */
 .form-label {
     font-weight: 500;
@@ -324,25 +947,30 @@
 }
 
 /* ========================================
-   Step Actions - Compact Buttons
+   Step Actions
    ======================================== */
 .step-actions {
     display: flex;
     gap: 0.75rem;
     justify-content: flex-end;
-    margin-top: 1.5rem;
-    padding-top: 1rem;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
     border-top: 1px solid #e9ecef;
 }
 
 .step-actions .btn {
-    padding: 0.6rem 1.5rem;
+    padding: 0.7rem 1.8rem;
     font-weight: 500;
     border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.step-actions .btn:hover {
+    transform: translateY(-1px);
 }
 
 /* ========================================
-   Booking Summary Card - Sticky Right Panel
+   Booking Summary Card - Enhanced
    ======================================== */
 .booking-summary-card {
     background: white;
@@ -374,12 +1002,12 @@
     font-size: 1.3rem;
 }
 
-.summary-body {
+.summary-body, .summary-footer {
     padding: 1.25rem;
 }
 
 .summary-section {
-    margin-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
     padding-bottom: 1.25rem;
     border-bottom: 1px solid #e9ecef;
 }
@@ -396,6 +1024,7 @@
     color: #6c757d;
     text-transform: uppercase;
     margin-bottom: 0.75rem;
+    letter-spacing: 0.5px;
 }
 
 .summary-row {
@@ -439,7 +1068,7 @@
 }
 
 /* ========================================
-   Payment Options - Compact Grid
+   Payment Options - Enhanced Grid
    ======================================== */
 .payment-section {
     border-top: 1px solid #e9ecef;
@@ -499,14 +1128,9 @@
 }
 
 /* ========================================
-   Responsive Design
+   Responsive Design - Enhanced
    ======================================== */
-@media (max-width: 991px) {
-    .booking-summary-card {
-        position: static;
-        margin-top: 1.5rem;
-    }
-    
+@media (max-width: 1200px) {
     .step-indicators {
         padding: 0.75rem;
     }
@@ -517,12 +1141,43 @@
         font-size: 1rem;
     }
     
-    .time-slots-grid {
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    .step-label {
+        font-size: 0.7rem;
     }
 }
 
-@media (max-width: 576px) {
+@media (max-width: 991px) {
+    .booking-summary-card {
+        position: static;
+        margin-top: 1.5rem;
+    }
+    
+    .venues-grid,
+    .time-slots-grid {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    }
+    
+    .calendar-legend {
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .addon-pricing {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .step-actions {
+        flex-direction: column;
+    }
+    
+    .step-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 768px) {
     .hall-booking-create-page {
         padding: 0.5rem !important;
     }
@@ -532,20 +1187,130 @@
         padding: 1rem 0;
     }
     
+    .header-content {
+        flex-direction: column;
+        text-align: center;
+        gap: 0.5rem;
+    }
+    
     .header-content .title {
         font-size: 1.5rem;
     }
     
-    .step-label {
-        font-size: 0.7rem;
+    .step-indicators {
+        flex-wrap: wrap;
+        gap: 0.5rem;
     }
     
+    .step-line {
+        display: none;
+    }
+    
+    .step-indicator {
+        flex: 1 1 calc(50% - 0.25rem);
+        min-width: 120px;
+    }
+}
+
+@media (max-width: 576px) {
+    .venues-grid,
     .time-slots-grid {
         grid-template-columns: 1fr;
     }
     
+    .calendar-header h4 {
+        font-size: 1.2rem;
+    }
+    
+    .calendar-legend {
+        flex-direction: column;
+        gap: 0.75rem;
+        text-align: center;
+    }
+    
+    .legend-item {
+        justify-content: center;
+    }
+    
+    .step-indicator {
+        flex: 1 1 calc(33.333% - 0.25rem);
+        min-width: 100px;
+    }
+    
     .payment-options {
         grid-template-columns: 1fr;
+    }
+    
+    .addon-item label {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+    
+    .addon-quantity {
+        align-self: flex-end;
+    }
+    
+    .extra-charges-form .row {
+        flex-direction: column;
+    }
+    
+    .extra-charges-form .col-md-2 {
+        margin-top: 0.5rem;
+    }
+    
+    .step-indicator {
+        flex: 1 1 100%;
+    }
+    
+    .workflow-content {
+        padding: 1rem;
+    }
+    
+    .summary-body, .summary-footer {
+        padding: 1rem;
+    }
+}
+
+/* ========================================
+   Animation Enhancements
+   ======================================== */
+.addon-category-title i.bi-chevron-down {
+    transform: rotate(90deg);
+}
+
+.addon-items {
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        max-height: 0;
+    }
+    to {
+        opacity: 1;
+        max-height: 500px;
+    }
+}
+
+/* Step transition animations */
+.step-content {
+    transition: all 0.3s ease;
+}
+
+.step-content.active {
+    animation: stepSlideIn 0.4s ease;
+}
+
+@keyframes stepSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
     }
 }
 
@@ -566,4 +1331,53 @@
     position: absolute;
     border-radius: 50%;
     pointer-events: none;
+}
+
+/* ========================================
+   Loading States
+   ======================================== */
+.btn[disabled] {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.btn[disabled]:hover {
+    transform: none !important;
+}
+
+/* ========================================
+   Focus States for Accessibility
+   ======================================== */
+.time-slot-card:focus,
+.package-item label:focus,
+.addon-item label:focus {
+    outline: 2px solid #ff00ff;
+    outline-offset: 2px;
+}
+.booking-summary-card .summary-body{
+	max-height: 320px;
+    overflow-y: auto;
+}
+/* ========================================
+   Print Styles
+   ======================================== */
+@media print {
+    .hall-booking-create-page {
+        background: white;
+    }
+    
+    .page-header {
+        background: #666 !important;
+        color: white !important;
+        -webkit-print-color-adjust: exact;
+    }
+    
+    .booking-summary-card {
+        box-shadow: none;
+        border: 1px solid #ccc;
+    }
+    
+    .step-actions {
+        display: none;
+    }
 }

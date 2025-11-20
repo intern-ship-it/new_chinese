@@ -1,0 +1,1102 @@
+/* css/rom-booking.css - ROM Booking Module Styles with Animations */
+
+/* ========================================
+   ROM Booking Page Common Styles
+   ======================================== */
+.rom-booking-page {
+    padding: 1.5rem;
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ========================================
+   Page Header with Animated Background
+   ======================================== */
+.rom-booking-header {
+    position: relative;
+    background: linear-gradient(135deg, #ff00ff 0%, #cc00cc 20%, #996699 40%, #808000 80%, #9b9b4a 100%);
+    padding: 40px 0;
+    margin-bottom: 30px;
+    border-radius: 0 0 30px 30px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(255, 0, 255, 0.3);
+    animation: gradientShift 8s ease infinite;
+    background-size: 200% 200%;
+}
+
+.rom-booking-header-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 0.1) 25%,
+        transparent 25%,
+        transparent 50%,
+        rgba(255, 255, 255, 0.1) 50%,
+        rgba(255, 255, 255, 0.1) 75%,
+        transparent 75%,
+        transparent
+    );
+    background-size: 50px 50px;
+    opacity: 0.3;
+    animation: movePattern 20s linear infinite;
+}
+
+@keyframes gradientShift {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+@keyframes movePattern {
+    0% {
+        background-position: 0 0;
+    }
+    100% {
+        background-position: 50% 50%;
+    }
+}
+
+.rom-booking-header .container-fluid {
+    position: relative;
+    z-index: 1;
+}
+
+.rom-booking-title-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    color: white;
+}
+
+.rom-booking-header-icon {
+    font-size: 48px;
+    color: #ffd700;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+    animation: iconPulse 2s ease-in-out infinite;
+}
+
+@keyframes iconPulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+.rom-booking-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin: 0;
+    color: white;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.rom-booking-subtitle {
+    font-size: 1.1rem;
+    margin: 5px 0 0 0;
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 300;
+}
+
+.rom-booking-header .btn-outline-light {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(10px);
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.rom-booking-header .btn-outline-light:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* ========================================
+   Progress Stepper
+   ======================================== */
+.progress-stepper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 800px;
+    margin: 0 auto;
+    position: relative;
+}
+
+.progress-stepper::before {
+    content: '';
+    position: absolute;
+    top: 35px;
+    left: 60px;
+    right: 60px;
+    height: 3px;
+    background: #e9ecef;
+    z-index: 1;
+}
+
+.step-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    z-index: 2;
+    flex: 1;
+    max-width: 150px;
+}
+
+.step-circle {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: #e9ecef;
+    color: #6c757d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    transition: all 0.3s ease;
+    margin-bottom: 10px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.step-item.active .step-circle {
+    background: linear-gradient(135deg, #ff00ff, #cc00cc);
+    color: white;
+    transform: scale(1.1);
+    box-shadow: 0 8px 25px rgba(255, 0, 255, 0.3);
+}
+
+.step-item.completed .step-circle {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+    animation: completedBounce 0.6s ease;
+}
+
+@keyframes completedBounce {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+.step-item.completed .step-circle::before {
+    content: '\F26A'; /* Bootstrap check icon */
+    font-family: bootstrap-icons;
+    font-size: 20px;
+}
+
+.step-item.completed .step-circle i {
+    display: none;
+}
+
+.step-label {
+    text-align: center;
+    margin-top: 5px;
+}
+
+.step-label strong {
+    display: block;
+    font-size: 0.9rem;
+    color: #495057;
+    margin-bottom: 2px;
+}
+
+.step-label small {
+    color: #6c757d;
+    font-size: 0.75rem;
+}
+
+.step-item.active .step-label strong {
+    color: #ff00ff;
+    font-weight: 600;
+}
+
+/* ========================================
+   Section Headers with Gradient
+   ======================================== */
+.section-header-gradient {
+    background: linear-gradient(135deg, #ff00ff 0%, #cc00cc 20%, #996699 40%, #808000 80%, #9b9b4a 100%);
+    padding: 1rem 1.5rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 4px 15px rgba(255, 0, 255, 0.15);
+    animation: gradientShift 8s ease infinite;
+    background-size: 200% 200%;
+}
+
+.section-header-gradient i {
+    font-size: 1.5rem;
+    color: white;
+}
+
+.section-header-gradient span {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: white;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* ========================================
+   Form Check Cards (Venue/Session Selection)
+   ======================================== */
+.form-check-card {
+    position: relative;
+    padding: 0;
+    margin: 0;
+}
+
+.form-check-card .form-check-input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.form-check-card .form-check-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1.5rem;
+    border: 2px solid #dee2e6;
+    border-radius: 15px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-height: 180px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.form-check-card .form-check-label:hover {
+    border-color: #ff00ff;
+    background: rgba(255, 0, 255, 0.02);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(255, 0, 255, 0.1);
+}
+
+.form-check-card .form-check-input:checked + .form-check-label {
+    border-color: #ff00ff;
+    background: linear-gradient(135deg, rgba(255, 0, 255, 0.1), rgba(204, 0, 204, 0.1));
+    box-shadow: 0 8px 25px rgba(255, 0, 255, 0.2);
+}
+
+.form-check-card .form-check-label i {
+    font-size: 2.5rem;
+    color: #ff00ff;
+    margin-bottom: 1rem;
+}
+
+.form-check-card .form-check-label h5 {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    text-align: center;
+}
+
+.form-check-card .form-check-label p {
+    color: #6c757d;
+    margin: 0;
+    text-align: center;
+}
+
+/* Price tag for session cards */
+.price-tag {
+    background: linear-gradient(135deg, #ff00ff, #cc00cc);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-top: 1rem;
+    box-shadow: 0 4px 15px rgba(255, 0, 255, 0.3);
+}
+
+/* ========================================
+   Calendar Styles
+   ======================================== */
+.calendar-container {
+    background: white;
+    border-radius: 15px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.calendar-header h4 {
+    color: #495057;
+    font-weight: 600;
+    margin: 0;
+}
+
+.calendar-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+    margin-bottom: 10px;
+}
+
+.weekday {
+    text-align: center;
+    font-weight: 600;
+    color: #6c757d;
+    padding: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.calendar-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+}
+
+.calendar-day {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 500;
+    background: white;
+}
+
+.calendar-day:hover:not(.disabled) {
+    background: rgba(255, 0, 255, 0.1);
+    border-color: #ff00ff;
+    transform: scale(1.05);
+}
+
+.calendar-day.selected {
+    background: linear-gradient(135deg, #ff00ff, #cc00cc);
+    color: white;
+    border-color: #ff00ff;
+    box-shadow: 0 4px 15px rgba(255, 0, 255, 0.3);
+}
+
+.calendar-day.weekend {
+    background: #f8f9fa;
+    color: #adb5bd;
+}
+
+.calendar-day.disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+    background: #f8f9fa;
+    color: #adb5bd;
+}
+
+.calendar-day.today {
+    font-weight: 700;
+    color: #ff00ff;
+    border-color: #ff00ff;
+}
+
+.calendar-day.empty {
+    border: none;
+    cursor: default;
+}
+
+.calendar-legend {
+    margin-top: 1rem;
+    text-align: center;
+}
+
+.legend-item {
+    display: inline-flex;
+    align-items: center;
+    margin: 0 1rem;
+}
+
+.legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    margin-right: 0.5rem;
+}
+
+.legend-color.available {
+    background: white;
+    border: 1px solid #dee2e6;
+}
+
+.legend-color.disabled {
+    background: #f8f9fa;
+    border: 1px solid #adb5bd;
+}
+
+.legend-color.selected {
+    background: linear-gradient(135deg, #ff00ff, #cc00cc);
+}
+
+/* ========================================
+   Booking Summary Cards
+   ======================================== */
+.booking-summary-container {
+    position: sticky;
+    top: 2rem;
+}
+
+.booking-summary-card {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+}
+
+.booking-summary-header {
+    background: linear-gradient(135deg, #ff00ff 0%, #cc00cc 100%);
+    color: white;
+    border-radius: 15px 15px 0 0 !important;
+    padding: 1rem 1.5rem;
+}
+
+.booking-summary-header h5 {
+    margin: 0;
+    font-weight: 600;
+}
+
+.summary-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #f1f3f4;
+}
+
+.summary-item:last-child,
+.summary-item.total-amount {
+    border-bottom: none;
+}
+
+.summary-label {
+    font-weight: 500;
+    color: #495057;
+}
+
+.summary-value {
+    font-weight: 600;
+    color: #212529;
+}
+
+.summary-item.total-amount {
+    background: rgba(255, 0, 255, 0.05);
+    padding: 1rem;
+    margin: 0 -1.5rem -1.5rem;
+    border-radius: 0 0 15px 15px;
+}
+
+.summary-item.total-amount .summary-value {
+    color: #ff00ff;
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+/* ========================================
+   Payment Mode Card
+   ======================================== */
+.payment-mode-card {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+}
+
+.payment-mode-header {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+    border-radius: 15px 15px 0 0 !important;
+    padding: 1rem 1.5rem;
+}
+
+.payment-mode-header h5 {
+    margin: 0;
+    font-weight: 600;
+}
+
+.payment-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.payment-option {
+    margin: 0;
+}
+
+.payment-option .form-check-input {
+    margin-top: 0;
+}
+
+.payment-option .form-check-label {
+    padding: 0.75rem 1rem;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 500;
+    width: 100%;
+    margin-left: 1.5rem;
+}
+
+.payment-option .form-check-label:hover {
+    border-color: #28a745;
+    background: rgba(40, 167, 69, 0.05);
+}
+
+.payment-option .form-check-input:checked + .form-check-label {
+    border-color: #28a745;
+    background: rgba(40, 167, 69, 0.1);
+    color: #28a745;
+}
+
+.payment-option .form-check-label i {
+    font-size: 1.25rem;
+}
+
+.confirm-booking-section .btn-primary {
+    background: linear-gradient(135deg, #ff00ff, #cc00cc);
+    border: none;
+    font-weight: 600;
+    padding: 0.75rem;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(255, 0, 255, 0.3);
+    transition: all 0.3s ease;
+}
+
+.confirm-booking-section .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 0, 255, 0.4);
+}
+
+/* ========================================
+   Form Cards and Step Content
+   ======================================== */
+.rom-booking-form-card {
+    border: none;
+    border-radius: 20px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+}
+
+.rom-booking-form-card:hover {
+    box-shadow: 0 12px 40px rgba(255, 0, 255, 0.15);
+    transform: translateY(-3px);
+}
+
+.step-content {
+    padding: 1rem 0;
+}
+
+.step-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 2rem;
+    margin-top: 2rem;
+    border-top: 1px solid #e9ecef;
+}
+
+.step-actions .btn {
+    padding: 0.75rem 2rem;
+    font-weight: 600;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+.step-actions .btn-primary {
+    background: linear-gradient(135deg, #ff00ff, #cc00cc);
+    border: none;
+    box-shadow: 0 4px 15px rgba(255, 0, 255, 0.3);
+}
+
+.step-actions .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 0, 255, 0.4);
+}
+
+.step-actions .btn-outline-secondary {
+    border: 2px solid #6c757d;
+}
+
+.step-actions .btn-outline-secondary:hover {
+    background: #6c757d;
+    transform: translateY(-2px);
+}
+
+.step-actions .btn-success {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    border: none;
+    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+}
+
+.step-actions .btn-success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+}
+
+/* ========================================
+   Personal Details Modal
+   ======================================== */
+.modal-backdrop {
+    z-index: 1040 !important;
+}
+
+.modal {
+    z-index: 1050 !important;
+}
+
+#personalDetailsModal {
+    z-index: 1060 !important;
+}
+
+#personalDetailsModal .modal-dialog {
+    z-index: 1070 !important;
+}
+
+.modal-content {
+    border-radius: 15px;
+    box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);
+    border: none;
+    position: relative;
+    z-index: 1080;
+}
+
+.modal-header {
+    background: linear-gradient(135deg, #ff00ff, #cc00cc);
+    color: white;
+    border-radius: 15px 15px 0 0;
+    border-bottom: none;
+    padding: 1.5rem;
+}
+
+.modal-header .modal-title {
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.modal-header .btn-close {
+    filter: invert(1);
+    opacity: 0.8;
+}
+
+.modal-header .btn-close:hover {
+    opacity: 1;
+}
+
+.modal-body {
+    padding: 2rem;
+    background: white;
+    position: relative;
+}
+
+.modal-footer {
+    border-top: 1px solid #e9ecef;
+    padding: 1.5rem 2rem;
+    border-radius: 0 0 15px 15px;
+    background: white;
+}
+
+/* ========================================
+   Witnesses Section
+   ======================================== */
+.witnesses-section h5,
+.documents-section h5 {
+    color: #495057;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.witness-item .card {
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+.witness-item .card:hover {
+    border-color: #ff00ff;
+    box-shadow: 0 4px 15px rgba(255, 0, 255, 0.1);
+}
+
+.witness-item .card-header {
+    background: rgba(255, 0, 255, 0.05);
+    border-bottom: 1px solid #e9ecef;
+    border-radius: 10px 10px 0 0;
+    padding: 0.75rem 1rem;
+}
+
+.witness-item .card-header h6 {
+    color: #ff00ff;
+    font-weight: 600;
+}
+
+.witness-item .remove-witness {
+    transition: all 0.3s ease;
+}
+
+.witness-item .remove-witness:hover {
+    background: #dc3545;
+    color: white;
+    transform: scale(1.1);
+}
+
+/* ========================================
+   Documents Upload Section
+   ======================================== */
+.document-upload-item {
+    padding: 1rem;
+    border: 2px dashed #dee2e6;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.document-upload-item:hover {
+    border-color: #ff00ff;
+    background: rgba(255, 0, 255, 0.02);
+}
+
+.document-upload-item .form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.document-upload-item .form-control {
+    border: none;
+    background: transparent;
+    padding: 0.5rem 0;
+}
+
+.document-upload-item .form-control:focus {
+    box-shadow: none;
+    background: rgba(255, 0, 255, 0.05);
+}
+
+/* ========================================
+   Loading and Animation States
+   ======================================== */
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+    border-width: 0.15em;
+}
+
+.card-float {
+    animation: cardFloat 2s ease-in-out infinite;
+}
+
+@keyframes cardFloat {
+    0%, 100% {
+        transform: translateY(-5px);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+/* ========================================
+   Form Validation Styles
+   ======================================== */
+.was-validated .form-control:valid {
+    border-color: #28a745;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%2328a745' d='m2.3 6.73.58.58 4.25-4.25-.58-.58L2.83 6.18l-.58-.58-.58.58z'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 1rem 1rem;
+}
+
+.was-validated .form-control:invalid {
+    border-color: #dc3545;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath d='m5.8 3.6 2.4 2.4m0-2.4L5.8 6'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 1rem 1rem;
+}
+
+.invalid-feedback {
+    display: none;
+    color: #dc3545;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+.was-validated .form-control:invalid ~ .invalid-feedback {
+    display: block;
+}
+
+.valid-feedback {
+    display: none;
+    color: #28a745;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+.was-validated .form-control:valid ~ .valid-feedback {
+    display: block;
+}
+
+/* ========================================
+   Responsive Design
+   ======================================== */
+@media (max-width: 768px) {
+    .rom-booking-page {
+        padding: 1rem;
+    }
+    
+    .rom-booking-header {
+        padding: 30px 0;
+        border-radius: 0 0 20px 20px;
+        margin-bottom: 20px;
+    }
+    
+    .rom-booking-title-wrapper {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+    
+    .rom-booking-header-icon {
+        font-size: 36px;
+    }
+    
+    .rom-booking-title {
+        font-size: 1.8rem;
+    }
+    
+    .rom-booking-subtitle {
+        font-size: 0.9rem;
+    }
+    
+    /* Progress Stepper Mobile */
+    .progress-stepper {
+        flex-direction: column;
+        gap: 1rem;
+        max-width: none;
+    }
+    
+    .progress-stepper::before {
+        display: none;
+    }
+    
+    .step-item {
+        flex-direction: row;
+        max-width: none;
+        width: 100%;
+        gap: 1rem;
+    }
+    
+    .step-circle {
+        width: 50px;
+        height: 50px;
+        font-size: 18px;
+        margin-bottom: 0;
+        flex-shrink: 0;
+    }
+    
+    .step-label {
+        text-align: left;
+        margin-top: 0;
+    }
+    
+    /* Form Check Cards Mobile */
+    .form-check-card .form-check-label {
+        min-height: 120px;
+        padding: 1.5rem 1rem;
+    }
+    
+    .form-check-card .form-check-label i {
+        font-size: 2rem;
+    }
+    
+    .form-check-card .form-check-label h5 {
+        font-size: 1rem;
+    }
+    
+    /* Calendar Mobile */
+    .calendar-container {
+        padding: 1rem;
+    }
+    
+    .calendar-day {
+        font-size: 0.9rem;
+        padding: 0.5rem;
+    }
+    
+    /* Step Actions Mobile */
+    .step-actions {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .step-actions .btn {
+        width: 100%;
+        padding: 0.75rem;
+    }
+    
+    /* Modal Mobile */
+    .modal-dialog.modal-xl {
+        max-width: 95vw;
+        margin: 1rem;
+    }
+    
+    .modal-body {
+        padding: 1.5rem 1rem;
+    }
+    
+    /* Booking Summary Mobile */
+    .booking-summary-container {
+        margin-top: 2rem;
+        position: static;
+    }
+    
+    /* Witnesses Mobile */
+    .witness-item .card-body .row .col-md-4 {
+        margin-bottom: 1rem;
+    }
+    
+    /* Section Header Mobile */
+    .section-header-gradient {
+        padding: 0.875rem 1rem;
+        font-size: 1rem;
+    }
+    
+    .section-header-gradient i {
+        font-size: 1.25rem;
+    }
+    
+    .section-header-gradient span {
+        font-size: 1rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .rom-booking-title {
+        font-size: 1.5rem;
+    }
+    
+    .form-check-card .form-check-label {
+        min-height: 100px;
+        padding: 1rem 0.75rem;
+    }
+    
+    .calendar-header h4 {
+        font-size: 1.2rem;
+    }
+    
+    .modal-dialog.modal-xl {
+        max-width: 100vw;
+        margin: 0;
+        height: 100vh;
+    }
+    
+    .modal-content {
+        height: 100vh;
+        border-radius: 0;
+    }
+    
+    .modal-header {
+        border-radius: 0;
+    }
+    
+    .modal-footer {
+        border-radius: 0;
+    }
+}
+
+/* ========================================
+   Dark Mode Support (Optional)
+   ======================================== */
+@media (prefers-color-scheme: dark) {
+    .rom-booking-page {
+        background: #1a1a1a;
+        color: #e9ecef;
+    }
+    
+    .card {
+        background: #2d2d2d;
+        border-color: #404040;
+    }
+    
+    .form-control {
+        background: #2d2d2d;
+        border-color: #404040;
+        color: #e9ecef;
+    }
+    
+    .form-control:focus {
+        background: #2d2d2d;
+        border-color: #ff00ff;
+        color: #e9ecef;
+    }
+    
+    .calendar-day {
+        background: #2d2d2d;
+        border-color: #404040;
+        color: #e9ecef;
+    }
+    
+    .calendar-day:hover:not(.disabled) {
+        background: rgba(255, 0, 255, 0.2);
+    }
+}
+
+/* ========================================
+   Print Styles (Optional)
+   ======================================== */
+@media print {
+    .rom-booking-header,
+    .step-actions,
+    .booking-summary-container {
+        display: none;
+    }
+    
+    .rom-booking-page {
+        padding: 0;
+    }
+    
+    .card {
+        box-shadow: none;
+        border: 1px solid #000;
+    }
+}

@@ -53,6 +53,14 @@ use App\Http\Controllers\YearEndClosingController;
 use App\Http\Controllers\FundBudgetController;
 use App\Http\Controllers\FundBudgetTemplateController;
 use App\Http\Controllers\AccountingYearController;
+use App\Http\Controllers\PagodaTowerController;
+use App\Http\Controllers\PagodaBlockController;
+use App\Http\Controllers\PagodaLightController;
+use App\Http\Controllers\PagodaRegistrationController;
+use App\Http\Controllers\PagodaDevoteeController;
+use App\Http\Controllers\PagodaSettingsController;
+use App\Http\Controllers\PagodaReportsController;
+use App\Http\Controllers\MemberApplicationController;
 
 
 Route::prefix('v1')->group(function () {
@@ -329,17 +337,17 @@ Route::prefix('v1')->group(function () {
 							Route::get('/{id}', [ChartOfAccountsController::class, 'getLedgerDetails']);
 							Route::get('/{id}/view', [ChartOfAccountsController::class, 'viewLedger']);
 						});
-						
+
 						// Create permission
 						Route::middleware(['role:super_admin|admin'])->group(function () {
 							Route::post('/', [ChartOfAccountsController::class, 'storeLedger']);
 						});
-						
+
 						// Edit permission
 						Route::middleware(['role:super_admin|admin'])->group(function () {
 							Route::put('/{id}', [ChartOfAccountsController::class, 'updateLedger']);
 						});
-						
+
 						// Delete permission
 						Route::middleware(['role:super_admin|admin'])->group(function () {
 							Route::delete('/{id}', [ChartOfAccountsController::class, 'deleteLedger']);
@@ -443,11 +451,12 @@ Route::prefix('v1')->group(function () {
 					Route::get('/inventory/{ledgerId}/balance', [EntriesController::class, 'getInventoryBalance']);
 					Route::post('/generate-code', [EntriesController::class, 'generateCode']);
 
-						/* Route::get('/pending-approvals', [EntriesController::class, 'getPendingApprovals']);
-					Route::get('/pending-approvals/{id}', [EntriesController::class, 'getPendingApprovalDetail']);
-					Route::post('/{id}/approve', [EntriesController::class, 'processApproval']);
-					Route::get('/approval-history', [EntriesController::class, 'getApprovalHistory']);
-					Route::get('/approval-history/{id}', [EntriesController::class, 'getApprovalHistoryDetail']) */;
+					/* Route::get('/pending-approvals', [EntriesController::class, 'getPendingApprovals']);
+				Route::get('/pending-approvals/{id}', [EntriesController::class, 'getPendingApprovalDetail']);
+				Route::post('/{id}/approve', [EntriesController::class, 'processApproval']);
+				Route::get('/approval-history', [EntriesController::class, 'getApprovalHistory']);
+				Route::get('/approval-history/{id}', [EntriesController::class, 'getApprovalHistoryDetail']) */
+					;
 					Route::prefix('approval')->group(function () {
 						// View approvals
 						Route::get('/list', [EntriesApprovalController::class, 'getPendingApprovals']);
@@ -571,7 +580,7 @@ Route::prefix('v1')->group(function () {
 					Route::delete('/{id}', [UomController::class, 'destroy']);
 					Route::patch('/{id}/toggle-status', [UomController::class, 'toggleStatus']);
 				});
-            
+
 				// Stock Movements
 				Route::get('/stock', [StockMovementController::class, 'index']);
 				Route::post('/stock-in', [StockMovementController::class, 'stockIn']);
@@ -1207,6 +1216,251 @@ Route::prefix('v1')->group(function () {
 				Route::delete('/{id}', [FundBudgetTemplateController::class, 'destroy']);
 				Route::post('/{id}/activate', [FundBudgetTemplateController::class, 'activate']);
 				Route::post('/{id}/deactivate', [FundBudgetTemplateController::class, 'deactivate']);
+			});
+			// Special Occasions Routes
+			Route::prefix('special-occasions')->middleware(['auth:api', 'validate.temple.access'])->group(function () {
+				Route::get('/', [App\Http\Controllers\SpecialOccasionController::class, 'index']);
+				Route::post('/', [App\Http\Controllers\SpecialOccasionController::class, 'store']);
+				Route::get('/{id}', [App\Http\Controllers\SpecialOccasionController::class, 'show']);
+				Route::put('/{id}', [App\Http\Controllers\SpecialOccasionController::class, 'update']);
+				Route::delete('/{id}', [App\Http\Controllers\SpecialOccasionController::class, 'destroy']);
+				Route::patch('/{id}/status', [App\Http\Controllers\SpecialOccasionController::class, 'updateStatus']);
+				Route::post('/bookings', [App\Http\Controllers\SpecialOccasionController::class, 'storeBooking']);
+				Route::get('/bookings/history', [App\Http\Controllers\SpecialOccasionController::class, 'getBookingHistory']);
+			});
+
+
+
+
+			Route::prefix('pagoda')->group(function () {
+
+				// ========================================
+				// PAGODA TOWERS MANAGEMENT
+				// ========================================
+				Route::prefix('towers')->group(function () {
+					// List all towers with statistics
+					Route::get('/', [PagodaTowerController::class, 'index']);
+
+					// Get single tower details
+					Route::get('/{id}', [PagodaTowerController::class, 'show']);
+
+					// Get tower statistics dashboard
+					Route::get('/{id}/statistics', [PagodaTowerController::class, 'statistics']);
+
+					// Admin only routes
+					Route::middleware(['role:super_admin|admin'])->group(function () {
+						// Create new tower
+						Route::post('/', [PagodaTowerController::class, 'store']);
+
+						// Update tower
+						Route::put('/{id}', [PagodaTowerController::class, 'update']);
+
+						// Delete tower
+						Route::delete('/{id}', [PagodaTowerController::class, 'destroy']);
+					});
+				});
+
+				// ========================================
+				// PAGODA BLOCKS MANAGEMENT
+				// ========================================
+				Route::prefix('blocks')->group(function () {
+					// List all blocks (optionally filtered by tower)
+					Route::get('/', [PagodaBlockController::class, 'index']);
+
+					// Get blocks for specific tower
+					Route::get('/tower/{towerId}', [PagodaBlockController::class, 'index']);
+
+					// Get single block details
+					Route::get('/{id}', [PagodaBlockController::class, 'show']);
+
+					// Get light map for a block (floor visualization)
+					Route::get('/{id}/light-map', [PagodaBlockController::class, 'getLightMap']);
+
+					// Admin only routes
+					Route::middleware(['role:super_admin|admin'])->group(function () {
+						// Create new block (with optional auto-light generation)
+						Route::post('/', [PagodaBlockController::class, 'store']);
+
+						// Update block
+						Route::put('/{id}', [PagodaBlockController::class, 'update']);
+
+						// Delete block
+						Route::delete('/{id}', [PagodaBlockController::class, 'destroy']);
+
+						// Generate lights for a block
+						Route::post('/{id}/generate-lights', [PagodaBlockController::class, 'generateLights']);
+					});
+				});
+
+				// ========================================
+				// PAGODA LIGHTS (INVENTORY)
+				// ========================================
+				Route::prefix('lights')->group(function () {
+					// Search lights with filters
+					Route::get('/', [PagodaLightController::class, 'index']);
+
+					// Get single light details with registration history
+					Route::get('/{id}', [PagodaLightController::class, 'show']);
+
+					// Get next available light (for auto-assignment)
+					Route::get('/available/next', [PagodaLightController::class, 'getNextAvailable']);
+
+					// Check light availability by light number
+					Route::get('/check-availability/{lightNumber}', [PagodaLightController::class, 'checkAvailability']);
+
+					// Get light statistics
+					Route::get('/statistics/overview', [PagodaLightController::class, 'statistics']);
+				});
+
+				// ========================================
+				// PAGODA REGISTRATIONS (BOOKINGS)
+				// ========================================
+				Route::prefix('registrations')->group(function () {
+					// List all registrations with filters
+					Route::get('/', [PagodaRegistrationController::class, 'index']);
+
+					// Get single registration details
+					Route::get('/{id}', [PagodaRegistrationController::class, 'show']);
+
+					// Search registration by receipt number
+					Route::get('/search/receipt/{receiptNumber}', [PagodaRegistrationController::class, 'searchByReceipt']);
+
+					// Get expiring registrations
+					Route::get('/expiring/list', [PagodaRegistrationController::class, 'expiring']);
+
+					// Get registration statistics
+					Route::get('/statistics/overview', [PagodaRegistrationController::class, 'statistics']);
+
+					// Generate receipt number
+					Route::get('/generate/receipt-number', [PagodaRegistrationController::class, 'generateReceiptNumber']);
+
+					// Staff and admin can create registrations
+					Route::middleware(['role:super_admin|admin|staff'])->group(function () {
+						// Create new registration (main booking endpoint)
+						Route::post('/', [PagodaRegistrationController::class, 'store']);
+
+						// Update registration (limited fields)
+						Route::put('/{id}', [PagodaRegistrationController::class, 'update']);
+
+						// Renew registration
+						Route::post('/{id}/renew', [PagodaRegistrationController::class, 'renew']);
+
+						// Terminate registration
+						Route::post('/{id}/terminate', [PagodaRegistrationController::class, 'terminate']);
+					});
+				});
+
+				// ========================================
+				// PAGODA DEVOTEES MANAGEMENT
+				// ========================================
+				Route::prefix('devotees')->group(function () {
+					// List all devotees
+					Route::get('/', [PagodaDevoteeController::class, 'index']);
+
+					// Get single devotee details with registration history
+					Route::get('/{id}', [PagodaDevoteeController::class, 'show']);
+
+					// Search devotee by NRIC or contact
+					Route::post('/search', [PagodaDevoteeController::class, 'searchByNricOrContact']);
+
+					// Staff and admin routes
+					Route::middleware(['role:super_admin|admin|staff'])->group(function () {
+						// Create new devotee
+						Route::post('/', [PagodaDevoteeController::class, 'store']);
+
+						// Update devotee
+						Route::put('/{id}', [PagodaDevoteeController::class, 'update']);
+					});
+				});
+
+				// ========================================
+				// PAGODA SETTINGS
+				// ========================================
+				Route::prefix('settings')->group(function () {
+					// Get all settings
+					Route::get('/', [PagodaSettingsController::class, 'index']);
+
+					// Get single setting by key
+					Route::get('/{key}', [PagodaSettingsController::class, 'show']);
+
+					// Get booking configuration
+					Route::get('/config/booking', [PagodaSettingsController::class, 'getBookingConfig']);
+
+					// Admin only routes
+					Route::middleware(['role:super_admin|admin'])->group(function () {
+						// Create or update setting
+						Route::post('/', [PagodaSettingsController::class, 'store']);
+
+						// Bulk update settings
+						Route::post('/bulk-update', [PagodaSettingsController::class, 'bulkUpdate']);
+
+						// Delete setting
+						Route::delete('/{key}', [PagodaSettingsController::class, 'destroy']);
+					});
+				});
+
+				// ========================================
+				// REPORTS & ANALYTICS
+				// ========================================
+				Route::prefix('reports')->group(function () {
+					// Dashboard overview
+					Route::get('/dashboard', [PagodaReportsController::class, 'dashboard']);
+
+					// Revenue report
+					Route::get('/revenue', [PagodaReportsController::class, 'revenue']);
+
+					// Occupancy report
+					Route::get('/occupancy', [PagodaReportsController::class, 'occupancy']);
+
+					// Expiry forecast
+					Route::get('/expiry-forecast', [PagodaReportsController::class, 'expiryForecast']);
+
+					// Devotee analytics
+					Route::get('/devotees', [PagodaReportsController::class, 'devoteeAnalytics']);
+
+					// Export reports
+					Route::middleware(['role:super_admin|admin'])->group(function () {
+						Route::get('/export/registrations', [PagodaReportsController::class, 'exportRegistrations']);
+						Route::get('/export/revenue', [PagodaReportsController::class, 'exportRevenue']);
+						Route::get('/export/devotees', [PagodaReportsController::class, 'exportDevotees']);
+					});
+				});
+				// Add this section to your routes/api.php file
+
+				/*
+				|--------------------------------------------------------------------------
+				| Member Application Routes
+				|--------------------------------------------------------------------------
+				*/
+
+
+			});
+			Route::prefix('member-applications')->group(function () {
+				// Public route - Changed from POST to GET
+				Route::get('/validate-referral', [MemberApplicationController::class, 'validateReferral']);
+
+				// Protected routes
+				Route::middleware('auth:sanctum')->group(function () {
+					// List and statistics
+					Route::get('/', [MemberApplicationController::class, 'index']);
+					Route::get('/statistics', [MemberApplicationController::class, 'statistics']);
+
+					// CRUD operations
+					Route::post('/', [MemberApplicationController::class, 'store']);
+					Route::get('/{id}', [MemberApplicationController::class, 'show']);
+					Route::put('/{id}', [MemberApplicationController::class, 'update']);
+					Route::post('/{id}', [MemberApplicationController::class, 'update']); // For form-data with _method
+					Route::delete('/{id}', [MemberApplicationController::class, 'destroy']);
+
+					// Workflow actions
+					Route::post('/{id}/verify-referral', [MemberApplicationController::class, 'verifyReferral']);
+					Route::post('/{id}/schedule-interview', [MemberApplicationController::class, 'scheduleInterview']);
+					Route::post('/{id}/complete-interview', [MemberApplicationController::class, 'completeInterview']);
+					Route::post('/{id}/approve', [MemberApplicationController::class, 'approve']);
+					Route::post('/{id}/reject', [MemberApplicationController::class, 'reject']);
+					Route::post('/{id}/process-refund', [MemberApplicationController::class, 'processRefund']);
+					Route::post('/{id}/change-status', [MemberApplicationController::class, 'changeStatus']);
+				});
 			});
 		});
 	});
