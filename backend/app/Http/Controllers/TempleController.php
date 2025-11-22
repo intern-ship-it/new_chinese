@@ -120,11 +120,14 @@ class TempleController extends Controller
             $cacheKey = "system_settings_{$temple['id']}";
             
             // Get from cache or database
-            $settings = Cache::remember($cacheKey, 3600, function () {
+            /* $settings = Cache::remember($cacheKey, 3600, function () {
                 return SystemSetting::where('type', 'SYSTEM')
                     ->pluck('value', 'key')
                     ->toArray();
-            });
+            }); */
+			$settings = SystemSetting::where('type', 'SYSTEM')
+                    ->pluck('value', 'key')
+                    ->toArray();
             
             // Add temple ID and database name (not stored in settings)
             $settings['temple_id'] = $temple['id'];

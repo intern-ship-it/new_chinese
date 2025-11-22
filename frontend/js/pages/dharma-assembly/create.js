@@ -4,29 +4,122 @@
 (function($, window) {
     'use strict';
     
+	if (!window.DharmaAssemblySharedModule) {
+        window.DharmaAssemblySharedModule = {
+            moduleId: 'dharma-assembly',
+			eventNamespace: 'dharma-assembly',
+            cssId: 'dharma-assembly-css',
+            cssPath: '/css/dharma-assembly.css',
+            activePages: new Set(),
+            
+            // Load shared CSS (only once per module)
+            loadCSS: function() {
+                if (!document.getElementById(this.cssId)) {
+                    const link = document.createElement('link');
+                    link.id = this.cssId;
+                    link.rel = 'stylesheet';
+                    link.href = this.cssPath;
+                    document.head.appendChild(link);
+                    console.log('Dharma Assembly CSS loaded');
+                }
+            },
+            
+            // Register a page as active
+            registerPage: function(pageId) {
+                this.activePages.add(pageId);
+                this.loadCSS(); // Ensure CSS is loaded
+                console.log(`Dharma Assembly page registered: ${pageId} (Total: ${this.activePages.size})`);
+            },
+            
+            // Unregister a page
+            unregisterPage: function(pageId) {
+                this.activePages.delete(pageId);
+                console.log(`Dharma Assembly page unregistered: ${pageId} (Remaining: ${this.activePages.size})`);
+                
+                // If no more pages active, cleanup CSS
+                if (this.activePages.size === 0) {
+                    this.cleanup();
+                }
+            },
+            
+            // Check if any pages are active
+            hasActivePages: function() {
+                return this.activePages.size > 0;
+            },
+            
+            // Get active pages
+            getActivePages: function() {
+                return Array.from(this.activePages);
+            },
+            
+            // Cleanup module resources
+            cleanup: function() {
+                // Remove CSS
+                const cssLink = document.getElementById(this.cssId);
+                if (cssLink) {
+                    cssLink.remove();
+                    console.log('Dharma Assembly CSS removed');
+                }
+                
+                // Cleanup GSAP animations
+                if (typeof gsap !== 'undefined') {
+                    gsap.killTweensOf("*");
+                }
+                
+                // Remove all dharma-assembly-related event listeners
+                $(document).off('.' + this.eventNamespace);
+                $(window).off('.' + this.eventNamespace);
+                
+                this.activePages.clear();
+                console.log('Dharma Assembly module cleaned up');
+            }
+        };
+    }
+	
     window.DharmaAssemblyCreatePage = {
         assemblyType: 'longevity', // Default type: longevity, departed, merit
+		pageId: 'dharma-assembly-create',
+        eventNamespace: window.DharmaAssemblySharedModule.eventNamespace,
         currentStep: 1,
         totalSteps: 3,
         personalDetails: null,
         
         // Page initialization
         init: function(params) {
-            this.loadCSS();
+            window.DharmaAssemblySharedModule.registerPage(this.pageId);
             this.render();
             this.initAnimations();
             this.bindEvents();
         },
         
-        // Load CSS dynamically
-        loadCSS: function() {
-            if (!document.getElementById('dharma-assembly-css')) {
-                const link = document.createElement('link');
-                link.id = 'dharma-assembly-css';
-                link.rel = 'stylesheet';
-                link.href = '/css/dharma-assembly.css';
-                document.head.appendChild(link);
+		// Page cleanup
+        cleanup: function() {
+            console.log(`Cleaning up ${this.pageId}...`);
+            
+            // Unregister from shared module
+            window.DharmaAssemblySharedModule.unregisterPage(this.pageId);
+            
+            // Cleanup page-specific events (with page namespace)
+            $(document).off(`.${this.eventNamespace}`);
+            $(window).off(`.${this.eventNamespace}`);
+            
+            // Cleanup page-specific animations
+            if (typeof gsap !== 'undefined') {
+                gsap.killTweensOf(`.${this.pageId}-page *`);
             }
+            
+            // Clear any intervals/timeouts
+            if (this.intervals) {
+                this.intervals.forEach(interval => clearInterval(interval));
+                this.intervals = [];
+            }
+            
+            if (this.timeouts) {
+                this.timeouts.forEach(timeout => clearTimeout(timeout));
+                this.timeouts = [];
+            }
+            
+            console.log(`${this.pageId} cleanup completed`);
         },
         
         // Render page HTML
@@ -915,7 +1008,7 @@
             const self = this;
             
             // Assembly type tabs
-            $('.assembly-tabs button').on('shown.bs.tab', function(e) {
+            $('.assembly-tabs button').on('shown.bs.tab.' + this.eventNamespace, function(e) {
                 const newType = $(this).data('type');
                 self.assemblyType = newType;
                 self.currentStep = 1;
@@ -929,12 +1022,12 @@
             });
             
             // Add Personal Details button
-            $(document).on('click', '#btnAddPersonalDetails', function() {
+            $(document).on('click.' + this.eventNamespace, '#btnAddPersonalDetails', function() {
                 $('#personalDetailsModal').modal('show');
             });
             
             // Save Personal Details
-            $('#btnSavePersonalDetails').on('click', function() {
+            $('#btnSavePersonalDetails').on('click.' + this.eventNamespace, function() {
                 const nameChinese = $('#modalNameChinese').val().trim();
                 const nameEnglish = $('#modalNameEnglish').val().trim();
                 const nric = $('#modalNric').val().trim();
@@ -961,7 +1054,7 @@
             });
             
             // Next button
-            $('#btnNext').on('click', function() {
+            $('#btnNext').on('click.' + this.eventNamespace, function() {
                 if (self.validateCurrentStep()) {
                     self.currentStep++;
                     self.loadStepContent();
@@ -972,7 +1065,7 @@
             });
             
             // Previous button
-            $('#btnPrevious').on('click', function() {
+            $('#btnPrevious').on('click.' + this.eventNamespace, function() {
                 self.currentStep--;
                 self.loadStepContent();
                 
@@ -981,7 +1074,7 @@
             });
             
             // Dedicatees checkboxes (show/hide individual name fields)
-            $(document).on('change', '.dedicatee-checkbox', function() {
+            $(document).on('change.' + this.eventNamespace, '.dedicatee-checkbox', function() {
                 const checkboxId = $(this).attr('id');
                 const nameField = $('#' + checkboxId + '_name_field');
                 
@@ -1001,7 +1094,7 @@
             });
             
             // Free will meal option (show/hide amount field)
-            $(document).on('change', 'input[name="meal_option"]', function() {
+            $(document).on('change.' + this.eventNamespace, 'input[name="meal_option"]', function() {
                 const value = $(this).val();
                 if (value === 'free_will_meal') {
                     $('#freeWillAmountField').slideDown();
@@ -1011,7 +1104,7 @@
             });
             
             // Form submission
-            $('#occasionForm').on('submit', function(e) {
+            $('#occasionForm').on('submit.' + this.eventNamespace, function(e) {
                 e.preventDefault();
                 
                 if (self.validateCurrentStep()) {
@@ -1020,12 +1113,13 @@
             });
             
             // Cancel button
-            $('#btnCancel').on('click', function() {
+            $('#btnCancel').on('click.' + this.eventNamespace, function() {
+				self.cleanup();
                 TempleRouter.navigate('dharma-assembly');
             });
             
             // Radio card selection animation
-            $(document).on('change', 'input[type="radio"]', function() {
+            $(document).on('change.' + this.eventNamespace, 'input[type="radio"]', function() {
                 const $parent = $(this).closest('.form-check-card');
                 const $siblings = $parent.siblings('.form-check-card');
                 
@@ -1051,14 +1145,14 @@
             });
             
             // Input focus animations
-            $('.modal').on('shown.bs.modal', function() {
-                $(this).find('.form-control').on('focus', function() {
+            $('.modal').on('shown.bs.modal.' + this.eventNamespace, function() {
+                $(this).find('.form-control').on('focus.' + this.eventNamespace, function() {
                     gsap.to($(this), {
                         scale: 1.02,
                         duration: 0.2,
                         ease: 'power1.out'
                     });
-                }).on('blur', function() {
+                }).on('blur.' + this.eventNamespace, function() {
                     gsap.to($(this), {
                         scale: 1,
                         duration: 0.2
@@ -1176,6 +1270,7 @@
                 
                 // Navigate back
                 setTimeout(() => {
+					self.cleanup();
                     TempleRouter.navigate('dharma-assembly');
                 }, 1500);
             }, 1500);

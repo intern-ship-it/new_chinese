@@ -527,6 +527,13 @@
                         data: null,
                         orderable: false,
                         render: function(data) {
+                            // Show print button only for confirmed/completed bookings
+                            const showPrintBtn = ['confirmed', 'completed'].includes(data.status);
+                            const printButton = showPrintBtn ? 
+                                `<button class="btn btn-outline-info btn-print" data-id="${data.id}" title="Print Receipt">
+                                    <i class="bi bi-printer"></i>
+                                </button>` : '';
+                            
                             return `
                                 <div class="btn-group btn-group-sm">
                                     <button class="btn btn-outline-primary btn-view" data-id="${data.id}" title="View Details">
@@ -538,6 +545,7 @@
                                     <button class="btn btn-outline-warning btn-status" data-id="${data.id}" title="Update Status">
                                         <i class="bi bi-arrow-repeat"></i>
                                     </button>
+                                    ${printButton}
                                     <button class="btn btn-outline-danger btn-delete" data-id="${data.id}" title="Delete Booking">
                                         <i class="bi bi-trash"></i>
                                     </button>
@@ -835,6 +843,33 @@
             window.print();
         },
         
+        // Print booking receipt
+        printBookingReceipt: function(bookingId) {
+            const self = this;
+            
+            // Check if the receipt print page is already loaded
+            if (window.RomReceiptPrintPage) {
+                // Navigate to receipt print page
+                self.cleanup();
+                TempleRouter.navigate('rom-booking/print', { id: bookingId });
+            } else {
+                // Load receipt print script and then navigate
+                TempleCore.showLoading(true);
+                const script = document.createElement('script');
+                script.src = '/js/pages/rom-booking/print.js';
+                script.onload = function() {
+                    TempleCore.showLoading(false);
+                    self.cleanup();
+                    TempleRouter.navigate('rom-booking/print', { id: bookingId });
+                };
+                script.onerror = function() {
+                    TempleCore.showLoading(false);
+                    TempleCore.showToast('Error loading receipt printer', 'error');
+                };
+                document.head.appendChild(script);
+            }
+        },
+        
         // Bind events
         bindEvents: function() {
             const self = this;
@@ -883,6 +918,12 @@
             $('#romBookingsTable').on('click.' + this.eventNamespace, '.btn-delete', function() {
                 const bookingId = $(this).data('id');
                 self.deleteBooking(bookingId);
+            });
+            
+            // Print receipt button
+            $('#romBookingsTable').on('click.' + this.eventNamespace, '.btn-print', function() {
+                const bookingId = $(this).data('id');
+                self.printBookingReceipt(bookingId);
             });
             
             // Modal buttons

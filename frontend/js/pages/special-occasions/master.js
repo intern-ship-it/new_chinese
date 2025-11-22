@@ -10,6 +10,7 @@
         occasions: [],
         selectedOccasion: null,
         editMode: false,
+        modal: null,
 
         // Page initialization
         init: function (params) {
@@ -18,6 +19,34 @@
             this.render();
             this.bindEvents();
             this.loadOccasions();
+        },
+        // ← ADD THIS ENTIRE CLEANUP FUNCTION HERE
+        cleanup: function () {
+            // Remove all event listeners
+            $(document).off('click', '#btnAddOccasion');
+            $(document).off('click', '#btnAddOption');
+            $(document).off('click', '.btn-remove-option');
+            $(document).off('submit', '#occasionForm');
+            $(document).off('click', '.btn-edit');
+            $(document).off('click', '.btn-delete');
+            $(document).off('click', '.btn-toggle-status');
+            $(document).off('change', '#filterStatus');
+            $(document).off('change', '#filterLanguage');
+            $(document).off('keyup', '#searchInput');
+            $(document).off('click', '#btnResetFilters');
+            $(document).off('hidden.bs.modal', '#occasionModal');
+
+            // Destroy modal if exists
+            if (this.modal) {
+                this.modal.dispose();
+                this.modal = null;
+            }
+
+            // Clear data
+            this.occasions = [];
+            this.selectedOccasion = null;
+            this.permissions = {};
+            this.editMode = false;
         },
 
         // Load CSS dynamically
@@ -217,12 +246,13 @@
             `;
         },
 
+
         // Bind events
         bindEvents: function () {
             const self = this;
 
-            // Add occasion button
-            $('#btnAddOccasion').on('click', function () {
+            // Add occasion button - USE DELEGATED EVENT
+            $(document).on('click', '#btnAddOccasion', function () {
                 self.openModal();
             });
 
@@ -237,7 +267,7 @@
             });
 
             // Form submission
-            $('#occasionForm').on('submit', function (e) {
+            $(document).on('submit', '#occasionForm', function (e) {
                 e.preventDefault();
                 self.saveOccasion();
             });
@@ -261,20 +291,28 @@
                 self.toggleStatus(id, currentStatus);
             });
 
-            // Filters
-            $('#filterStatus, #filterLanguage').on('change', function () {
+            // Filters - USE DELEGATED EVENTS
+            $(document).on('change', '#filterStatus, #filterLanguage', function () {
                 self.loadOccasions();
             });
 
-            $('#searchInput').on('keyup', debounce(function () {
+            $(document).on('keyup', '#searchInput', debounce(function () {
                 self.loadOccasions();
             }, 500));
 
-            $('#btnResetFilters').on('click', function () {
+            $(document).on('click', '#btnResetFilters', function () {
                 $('#filterStatus').val('');
                 $('#filterLanguage').val('');
                 $('#searchInput').val('');
                 self.loadOccasions();
+            });
+
+            // Modal hidden event - cleanup
+            $(document).on('hidden.bs.modal', '#occasionModal', function () {
+                $('#occasionForm')[0].reset();
+                $('#optionsContainer').empty();
+                self.editMode = false;
+                self.selectedOccasion = null;
             });
         },
 
@@ -369,6 +407,7 @@
             $('#occasionsTableBody').html(html);
         },
 
+
         // Open modal
         openModal: function (mode = 'add', data = null) {
             this.editMode = mode === 'edit';
@@ -382,8 +421,8 @@
                 this.resetForm();
             }
 
-            const modal = new bootstrap.Modal(document.getElementById('occasionModal'));
-            modal.show();
+            this.modal = new bootstrap.Modal(document.getElementById('occasionModal'));  // ← Store modal instance
+            this.modal.show();
         },
 
         // Populate form for editing
@@ -473,6 +512,7 @@
                     if (response.success) {
                         TempleCore.showToast(response.message, 'success');
                         bootstrap.Modal.getInstance(document.getElementById('occasionModal')).hide();
+                        self.modal.hide();
                         self.loadOccasions(); // ← Make sure this line exists
                     }
                 })

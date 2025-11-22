@@ -127,8 +127,11 @@
             // List of known shared modules to check
             const sharedModules = [
                 'DonationsSharedModule',
-                'HallBookingSharedModule', 
-                'SpecialOccasionsSharedModule'
+                'HallSharedModule',
+                'RomSharedModule',
+                'DharmaAssemblySharedModule',
+                'BuddhaLampSharedModule',
+                'OccasionsSharedModule'
             ];
             
             sharedModules.forEach(moduleName => {

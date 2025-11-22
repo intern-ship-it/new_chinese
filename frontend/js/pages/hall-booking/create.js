@@ -1381,9 +1381,44 @@
             setTimeout(() => {
                 this.showSuccessAnimation();
                 TempleCore.showToast('Booking confirmed successfully!', 'success');
-                setTimeout(() => {
+				const confirmHtml = `
+					<div class="modal fade" id="bookingSuccessModal" tabindex="-1">
+						<div class="modal-dialog">
+							<div class="modal-content">
+								<div class="modal-header bg-success text-white">
+									<h5 class="modal-title">
+										<i class="bi bi-check-circle"></i> Booking Confirmed
+									</h5>
+									<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+								</div>
+								<div class="modal-body text-center">
+									<h6>Your hall booking has been confirmed!</h6>
+									<p class="text-muted">Booking Number: <strong>${'HB20241001'}</strong></p>
+									<p>Would you like to print the receipt now?</p>
+								</div>
+								<div class="modal-footer">
+									<button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="TempleRouter.navigate('hall-booking')">
+										Close
+									</button>
+									<button type="button" class="btn btn-success" onclick="TempleRouter.navigate('hall-booking/print')">
+										<i class="bi bi-printer"></i> Print Receipt
+									</button>
+								</div>
+							</div>
+						</div>
+					</div>
+				`;
+    
+				$('body').append(confirmHtml);
+				$('#bookingSuccessModal').modal('show');
+				
+				// Remove modal after closing
+				$('#bookingSuccessModal').on('hidden.bs.modal', function() {
+					$(this).remove();
+				});
+                /* setTimeout(() => {
                     TempleRouter.navigate('hall-booking/listing');
-                }, 2000);
+                }, 2000); */
             }, 1500);
         },
         

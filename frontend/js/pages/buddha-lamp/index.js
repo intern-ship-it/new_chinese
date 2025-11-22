@@ -1,30 +1,123 @@
 // js/pages/buddha-lamp/index.js
-// Buddha Lamp Booking Listing Page with GSAP + AOS animations
+// Buddha Lamp Booking Listing Page with GSAP + AOS animations + Print Features
 
 (function($, window) {
     'use strict';
     
+	if (!window.BuddhaLampSharedModule) {
+        window.BuddhaLampSharedModule = {
+            moduleId: 'buddha-lamp',
+			eventNamespace: 'buddha-lamp',
+            cssId: 'buddha-lamp-css',
+            cssPath: '/css/buddha-lamp.css',
+            activePages: new Set(),
+            
+            // Load shared CSS (only once per module)
+            loadCSS: function() {
+                if (!document.getElementById(this.cssId)) {
+                    const link = document.createElement('link');
+                    link.id = this.cssId;
+                    link.rel = 'stylesheet';
+                    link.href = this.cssPath;
+                    document.head.appendChild(link);
+                    console.log('Buddha Lamp CSS loaded');
+                }
+            },
+            
+            // Register a page as active
+            registerPage: function(pageId) {
+                this.activePages.add(pageId);
+                this.loadCSS(); // Ensure CSS is loaded
+                console.log(`Buddha Lamp page registered: ${pageId} (Total: ${this.activePages.size})`);
+            },
+            
+            // Unregister a page
+            unregisterPage: function(pageId) {
+                this.activePages.delete(pageId);
+                console.log(`Buddha Lamp page unregistered: ${pageId} (Remaining: ${this.activePages.size})`);
+                
+                // If no more pages active, cleanup CSS
+                if (this.activePages.size === 0) {
+                    this.cleanup();
+                }
+            },
+            
+            // Check if any pages are active
+            hasActivePages: function() {
+                return this.activePages.size > 0;
+            },
+            
+            // Get active pages
+            getActivePages: function() {
+                return Array.from(this.activePages);
+            },
+            
+            // Cleanup module resources
+            cleanup: function() {
+                // Remove CSS
+                const cssLink = document.getElementById(this.cssId);
+                if (cssLink) {
+                    cssLink.remove();
+                    console.log('Buddha Lamp CSS removed');
+                }
+                
+                // Cleanup GSAP animations
+                if (typeof gsap !== 'undefined') {
+                    gsap.killTweensOf("*");
+                }
+                
+                // Remove all buddha-lamp-related event listeners
+                $(document).off('.' + this.eventNamespace);
+                $(window).off('.' + this.eventNamespace);
+                
+                this.activePages.clear();
+                console.log('Buddha Lamp module cleaned up');
+            }
+        };
+    }
+	
     window.BuddhaLampPage = {
         dataTable: null,
+		pageId: 'buddha-lamp-list',
+        eventNamespace: window.BuddhaLampSharedModule.eventNamespace,
         
         // Page initialization
         init: function(params) {
-            this.loadCSS();
+            window.BuddhaLampSharedModule.registerPage(this.pageId);
             this.render();
             this.initAnimations();
             this.bindEvents();
             this.loadData();
         },
         
-        // Load CSS dynamically
-        loadCSS: function() {
-            if (!document.getElementById('buddha-lamp-css')) {
-                const link = document.createElement('link');
-                link.id = 'buddha-lamp-css';
-                link.rel = 'stylesheet';
-                link.href = '/css/buddha-lamp.css';
-                document.head.appendChild(link);
+        // Page cleanup
+        cleanup: function() {
+            console.log(`Cleaning up ${this.pageId}...`);
+            
+            // Unregister from shared module
+            window.BuddhaLampSharedModule.unregisterPage(this.pageId);
+            
+            // Cleanup page-specific events (with page namespace)
+            $(document).off(`.${this.eventNamespace}`);
+            $(window).off(`.${this.eventNamespace}`);
+            
+            // Cleanup page-specific animations
+            if (typeof gsap !== 'undefined') {
+                gsap.killTweensOf(`.${this.pageId}-page *`);
             }
+            
+            // Clear any intervals/timeouts
+            if (this.intervals) {
+                this.intervals.forEach(interval => clearInterval(interval));
+                this.intervals = [];
+            }
+            
+            if (this.timeouts) {
+                this.timeouts.forEach(timeout => clearTimeout(timeout));
+                this.timeouts = [];
+            }
+            
+            console.log(`${this.pageId} cleanup completed`);
         },
         
         // Render page HTML
@@ -36,7 +129,7 @@
                         <div class="buddha-lamp-header-bg"></div>
                         <div class="container-fluid">
                             <div class="row align-items-center">
-                                <div class="col-md-8">
+                                <div class="col-md-6">
                                     <div class="buddha-lamp-title-wrapper">
                                         <i class="bi bi-brightness-high-fill buddha-lamp-header-icon"></i>
                                         <div>
@@ -45,10 +138,15 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="col-md-4 text-md-end">
-                                    <button class="btn btn-outline-light btn-lg" id="btnAddNew">
-                                        <i class="bi bi-plus-circle"></i> New Booking
-                                    </button>
+                                <div class="col-md-6 text-md-end">
+                                    <div class="btn-group" role="group">
+                                        <button class="btn btn-outline-light btn-lg" id="btnPrintReport">
+                                            <i class="bi bi-file-text"></i> Print Report
+                                        </button>
+                                        <button class="btn btn-outline-light btn-lg" id="btnAddNew">
+                                            <i class="bi bi-plus-circle"></i> New Booking
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -188,7 +286,7 @@
             const self = this;
             
             // Add new booking button
-            $('#btnAddNew').on('click', function() {
+            $('#btnAddNew').on('click.' + this.eventNamespace, function() {
                 gsap.to(this, {
                     scale: 0.95,
                     duration: 0.1,
@@ -196,13 +294,28 @@
                     repeat: 1,
                     ease: 'power2.inOut',
                     onComplete: () => {
+						self.cleanup();
                         TempleRouter.navigate('buddha-lamp/create');
                     }
                 });
             });
             
+            // Print Report button
+            $('#btnPrintReport').on('click.' + this.eventNamespace, function() {
+                gsap.to(this, {
+                    scale: 0.95,
+                    duration: 0.1,
+                    yoyo: true,
+                    repeat: 1,
+                    ease: 'power2.inOut',
+                    onComplete: () => {
+                        self.openReportPrint();
+                    }
+                });
+            });
+            
             // Apply filter button
-            $('#btnApplyFilter').on('click', function() {
+            $('#btnApplyFilter').on('click.' + this.eventNamespace, function() {
                 self.applyFilters();
             });
             
@@ -259,13 +372,16 @@
                         render: function(data, type, row) {
                             return `
                                 <div class="btn-group btn-group-sm" role="group">
-                                    <button class="btn btn-outline-primary btn-view" data-id="${row.id}">
+                                    <button class="btn btn-outline-info btn-print" data-id="${row.id}" title="Print Receipt">
+                                        <i class="bi bi-printer"></i>
+                                    </button>
+                                    <button class="btn btn-outline-primary btn-view" data-id="${row.id}" title="View">
                                         <i class="bi bi-eye"></i>
                                     </button>
-                                    <button class="btn btn-outline-success btn-edit" data-id="${row.id}">
+                                    <button class="btn btn-outline-success btn-edit" data-id="${row.id}" title="Edit">
                                         <i class="bi bi-pencil"></i>
                                     </button>
-                                    <button class="btn btn-outline-danger btn-delete" data-id="${row.id}">
+                                    <button class="btn btn-outline-danger btn-delete" data-id="${row.id}" title="Delete">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </div>
@@ -320,8 +436,8 @@
         generateSampleData: function() {
             const data = [];
             const paymentMethods = ['cash', 'cheque', 'ebanking', 'card', 'duitnow'];
-            const chineseNames = ['李明', '王芳', '张伟', '刘静', '陈杰'];
-            const englishNames = ['Li Ming', 'Wang Fang', 'Zhang Wei', 'Liu Jing', 'Chen Jie'];
+            const chineseNames = ['李明华', '王芳', '张伟', '刘静', '陈杰'];
+            const englishNames = ['Li Ming Hua', 'Wang Fang', 'Zhang Wei', 'Liu Jing', 'Chen Jie'];
             
             for (let i = 1; i <= 50; i++) {
                 const randomIndex = Math.floor(Math.random() * chineseNames.length);
@@ -360,20 +476,26 @@
         bindTableActions: function() {
             const self = this;
             
+            // Print Receipt button
+            $('.btn-print').off('click').on('click.' + this.eventNamespace, function() {
+                const id = $(this).data('id');
+                self.printReceipt(id);
+            });
+            
             // View button
-            $('.btn-view').off('click').on('click', function() {
+            $('.btn-view').off('click').on('click.' + this.eventNamespace, function() {
                 const id = $(this).data('id');
                 self.viewBooking(id);
             });
             
             // Edit button
-            $('.btn-edit').off('click').on('click', function() {
+            $('.btn-edit').off('click').on('click.' + this.eventNamespace, function() {
                 const id = $(this).data('id');
                 self.editBooking(id);
             });
             
             // Delete button
-            $('.btn-delete').off('click').on('click', function() {
+            $('.btn-delete').off('click').on('click.' + this.eventNamespace, function() {
                 const id = $(this).data('id');
                 self.deleteBooking(id);
             });
@@ -395,6 +517,51 @@
 			);
         },
         
+        // Print Receipt
+        printReceipt: function(id) {
+            console.log('Print receipt for booking:', id);
+			const self = this;
+            // Show loading animation on the print button
+            const $printBtn = $(`.btn-print[data-id="${id}"]`);
+            const originalHtml = $printBtn.html();
+            $printBtn.html('<i class="bi bi-hourglass-split"></i>').prop('disabled', true);
+            
+            // Animate button
+            gsap.to($printBtn[0], {
+                scale: 0.9,
+                duration: 0.1,
+                yoyo: true,
+                repeat: 1,
+                onComplete: () => {
+					self.cleanup();
+                    // Navigate to print page
+                    TempleRouter.navigate('buddha-lamp/print', { id: id });
+                    
+                    // Reset button after short delay
+                    setTimeout(() => {
+                        $printBtn.html(originalHtml).prop('disabled', false);
+                    }, 1000);
+                }
+            });
+            
+            TempleCore.showToast('Opening receipt print...', 'info');
+        },
+        
+        // Open Report Print
+        openReportPrint: function() {
+            console.log('Opening Buddha Lamp report print...');
+            
+            // Get current filters
+            const filters = {
+                dateFrom: $('#filterDateFrom').val(),
+                dateTo: $('#filterDateTo').val(),
+                paymentMethod: $('#filterPaymentMethod').val()
+            };
+            this.cleanup();
+            // Navigate to report print page
+            TempleRouter.navigate('buddha-lamp/report', filters);
+        },
+        
         // View booking
         viewBooking: function(id) {
             console.log('View booking:', id);
@@ -406,6 +573,7 @@
         editBooking: function(id) {
             console.log('Edit booking:', id);
             // Implement edit logic
+			this.cleanup();
             TempleRouter.navigate('buddha-lamp/edit', { id: id });
         },
         

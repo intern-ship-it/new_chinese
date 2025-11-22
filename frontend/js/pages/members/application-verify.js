@@ -586,21 +586,25 @@
     },
 
     // Bind events
+
     bindEvents: function () {
       const self = this;
-
-      // Referral verification
       $(document).on("click", ".verify-referral-btn", function () {
-        const referralNum = $(this).data("referral");
-        self.showVerifyReferralModal(referralNum);
+        const referralId = $(this).data("referral-id");
+        self.showVerifyReferralModal(referralId);
       });
+      // Referral verification
+      // $(document).on("click", ".verify-referral-btn", function () {
+      //   const referralNum = $(this).data("referral");
+      //   self.showVerifyReferralModal(referralNum);
+      // });
 
       $("#confirmVerifyReferralBtn").on("click", function () {
         self.verifyReferral();
       });
 
-      // Interview management
-      $("#scheduleInterviewBtn").on("click", function () {
+      // Interview management - FIXED: Use delegated binding
+      $(document).on("click", "#scheduleInterviewBtn", function () {
         $("#scheduleInterviewModal").modal("show");
       });
 
@@ -608,7 +612,7 @@
         self.scheduleInterview();
       });
 
-      $("#completeInterviewBtn").on("click", function () {
+      $(document).on("click", "#completeInterviewBtn", function () {
         $("#completeInterviewModal").modal("show");
       });
 
@@ -616,25 +620,29 @@
         self.completeInterview();
       });
 
-      // Approve/Reject
-      $("#approveApplicationBtn").on("click", function () {
+      // Approve/Reject - FIXED: Use delegated binding for dynamic buttons
+      $(document).on("click", "#approveApplicationBtn", function () {
+        console.log("Approve button clicked"); // Debug log
         $("#approveApplicationModal").modal("show");
       });
 
       $("#confirmApproveBtn").on("click", function () {
+        console.log("Confirming approval"); // Debug log
         self.approveApplication();
       });
 
-      $("#rejectApplicationBtn").on("click", function () {
+      $(document).on("click", "#rejectApplicationBtn", function () {
+        console.log("Reject button clicked"); // Debug log
         $("#rejectApplicationModal").modal("show");
       });
 
       $("#confirmRejectBtn").on("click", function () {
+        console.log("Confirming rejection"); // Debug log
         self.rejectApplication();
       });
 
-      // Refund processing
-      $("#refundEligible").on("change", function () {
+      // Refund processing - FIXED: Use delegated binding
+      $(document).on("change", "#refundEligible", function () {
         if ($(this).is(":checked")) {
           $("#refundDetailsSection").show();
         } else {
@@ -642,7 +650,7 @@
         }
       });
 
-      $("#processRefundBtn").on("click", function () {
+      $(document).on("click", "#processRefundBtn", function () {
         self.showProcessRefundModal();
       });
 
@@ -650,8 +658,8 @@
         self.processRefund();
       });
 
-      // Save notes
-      $("#saveNotesBtn").on("click", function () {
+      // Save notes - FIXED: Use delegated binding
+      $(document).on("click", "#saveNotesBtn", function () {
         self.saveAdminNotes();
       });
     },
@@ -774,11 +782,40 @@
     // Display referral details
     displayReferralDetails: function () {
       const app = this.application;
+      let html = "";
 
-      const ref1HTML = this.getReferralCardHTML(1, app);
-      const ref2HTML = this.getReferralCardHTML(2, app);
+      // Check if we have referrals array (new structure) or old fields
+      if (app.referrals && app.referrals.length > 0) {
+        // NEW: Dynamic referrals
+        app.referrals.forEach((referral, index) => {
+          html += this.getReferralCardHTML(referral, index + 1);
+        });
+      } else {
+        // OLD: Legacy support for old referral_1_* and referral_2_* fields
+        if (app.referral_1_name) {
+          const ref1 = {
+            id: null, // No ID for old structure
+            referral_name: app.referral_1_name,
+            referral_member_id: app.referral_1_member_id,
+            verified: app.referral_1_verified,
+            verified_at: app.referral_1_verified_at,
+          };
+          html += this.getReferralCardHTML(ref1, 1);
+        }
 
-      $("#referralDetails").html(ref1HTML + ref2HTML);
+        if (app.referral_2_name) {
+          const ref2 = {
+            id: null,
+            referral_name: app.referral_2_name,
+            referral_member_id: app.referral_2_member_id,
+            verified: app.referral_2_verified,
+            verified_at: app.referral_2_verified_at,
+          };
+          html += this.getReferralCardHTML(ref2, 2);
+        }
+      }
+
+      $("#referralDetails").html(html);
 
       // Animate referral cards
       gsap.from(".referral-card", {
@@ -789,58 +826,60 @@
         ease: "power2.out",
       });
     },
-
     // Get referral card HTML
-    getReferralCardHTML: function (num, app) {
-      const verified = app[`referral_${num}_verified`];
-      const name = app[`referral_${num}_name`];
-      const memberId = app[`referral_${num}_member_id`];
-      const verifiedAt = app[`referral_${num}_verified_at`];
+    getReferralCardHTML: function (referral, num) {
+      const app = this.application;
+      const verified = referral.verified;
+      const name = referral.referral_name;
+      const memberId = referral.referral_member_id;
+      const verifiedAt = referral.verified_at;
+      const referralId = referral.id; // Will be null for old structure
 
       const cardClass = verified ? "verified" : "not-verified";
       const statusBadge = verified
-        ? '<span class="verify-badge bg-success text-white"><i class="bi bi-check-circle"></i> Verified</span>'
-        : '<span class="verify-badge bg-danger text-white"><i class="bi bi-x-circle"></i> Not Verified</span>';
+        ? '<span class="verify-badge bg-success text-white"><i class="bi bi-check-circle"></i> Verified / 已验证</span>'
+        : '<span class="verify-badge bg-danger text-white"><i class="bi bi-x-circle"></i> Not Verified / 未验证</span>';
 
       return `
-                <div class="referral-card ${cardClass}">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <h6><i class="bi bi-person-check"></i> Referral ${num}</h6>
-                        ${statusBadge}
-                    </div>
-                    <div class="detail-row">
-                        <div class="detail-label">Name:</div>
-                        <div class="detail-value">${name || "-"}</div>
-                    </div>
-                    <div class="detail-row">
-                        <div class="detail-label">Member ID / IC:</div>
-                        <div class="detail-value">${memberId || "-"}</div>
-                    </div>
-                    ${
-                      verified
-                        ? `
-                        <div class="detail-row">
-                            <div class="detail-label">Verified At:</div>
-                            <div class="detail-value">${this.formatDateTime(
-                              verifiedAt
-                            )}</div>
-                        </div>
-                    `
-                        : ""
-                    }
-                    ${
-                      !verified &&
-                      (app.status === "SUBMITTED" ||
-                        app.status === "UNDER_VERIFICATION")
-                        ? `
-                        <button class="btn btn-sm btn-success mt-2 verify-referral-btn" data-referral="${num}">
-                            <i class="bi bi-check-circle"></i> Verify Referral
-                        </button>
-                    `
-                        : ""
-                    }
+        <div class="referral-card ${cardClass}">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <h6><i class="bi bi-person-check"></i> Referral ${num} / 推荐人 ${num}</h6>
+                ${statusBadge}
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Name / 姓名:</div>
+                <div class="detail-value">${name || "-"}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Member ID / IC / 会员编号:</div>
+                <div class="detail-value">${memberId || "-"}</div>
+            </div>
+            ${
+              verified
+                ? `
+                <div class="detail-row">
+                    <div class="detail-label">Verified At / 验证时间:</div>
+                    <div class="detail-value">${this.formatDateTime(
+                      verifiedAt
+                    )}</div>
                 </div>
-            `;
+            `
+                : ""
+            }
+            ${
+              !verified &&
+              referralId &&
+              (app.status === "SUBMITTED" ||
+                app.status === "UNDER_VERIFICATION")
+                ? `
+                <button class="btn btn-sm btn-success mt-2 verify-referral-btn" data-referral-id="${referralId}">
+                    <i class="bi bi-check-circle"></i> Verify Referral / 验证推荐人
+                </button>
+            `
+                : ""
+            }
+        </div>
+    `;
     },
 
     // Display document details
@@ -1188,30 +1227,32 @@
     },
 
     // Show verify referral modal
-    showVerifyReferralModal: function (referralNum) {
+    showVerifyReferralModal: function (referralId) {
       const app = this.application;
-      const name = app[`referral_${referralNum}_name`];
-      const memberId = app[`referral_${referralNum}_member_id`];
+      const referral = app.referrals.find((r) => r.id === referralId);
+
+      if (!referral) return;
 
       const content = `
-                <div class="alert alert-info">
-                    <strong>Referral ${referralNum}</strong><br>
-                    Name: ${name}<br>
-                    Member ID / IC: ${memberId}
-                </div>
-                <p>Confirm that you have verified this referral member is active and in good standing.</p>
-            `;
+        <div class="alert alert-info">
+            <strong>Referral</strong><br>
+            Name / 姓名: ${referral.referral_name}<br>
+            Member ID / IC / 会员编号: ${referral.referral_member_id}
+        </div>
+        <p>Confirm that you have verified this referral member is active and in good standing.<br>
+        确认您已验证此推荐会员处于活跃且良好状态。</p>
+    `;
 
       $("#referralVerifyContent").html(content);
       $("#referralVerifyNotes").val("");
-      $("#confirmVerifyReferralBtn").data("referral", referralNum);
+      $("#confirmVerifyReferralBtn").data("referral-id", referralId);
       $("#verifyReferralModal").modal("show");
     },
 
     // Verify referral
     verifyReferral: function () {
       const self = this;
-      const referralNum = $("#confirmVerifyReferralBtn").data("referral");
+      const referralId = $("#confirmVerifyReferralBtn").data("referral-id");
       const notes = $("#referralVerifyNotes").val();
 
       TempleCore.showLoading(true);
@@ -1219,19 +1260,25 @@
       TempleAPI.post(
         `/member-applications/${this.applicationId}/verify-referral`,
         {
-          referral_number: referralNum,
+          referral_id: referralId, // Changed from referral_number
           notes: notes,
         }
       )
         .done(function (response) {
           if (response.success) {
             $("#verifyReferralModal").modal("hide");
-            TempleCore.showToast("Referral verified successfully", "success");
+            TempleCore.showToast(
+              "Referral verified successfully / 推荐人验证成功",
+              "success"
+            );
             self.loadApplicationData();
           }
         })
         .fail(function (xhr) {
-          TempleCore.showToast("Failed to verify referral", "error");
+          TempleCore.showToast(
+            "Failed to verify referral / 验证推荐人失败",
+            "error"
+          );
         })
         .always(function () {
           TempleCore.showLoading(false);

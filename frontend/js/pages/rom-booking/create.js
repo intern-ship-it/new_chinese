@@ -1083,10 +1083,9 @@
             setTimeout(() => {
                 TempleCore.showToast('ROM booking created successfully!', 'success');
                 
-                setTimeout(() => {
-					self.cleanup();
-                    TempleRouter.navigate('rom-booking');
-                }, 1500);
+                // Show receipt print confirmation
+                self.showReceiptPrintConfirmation();
+                
             }, 2000);
             
             // Actual API call (commented out for frontend-only demo)
@@ -1095,9 +1094,8 @@
                 .done(function(response) {
                     if (response.success) {
                         TempleCore.showToast('ROM booking created successfully!', 'success');
-                        setTimeout(() => {
-                            TempleRouter.navigate('rom-booking');
-                        }, 1500);
+                        // Show receipt print confirmation
+                        self.showReceiptPrintConfirmation(response.data.id);
                     }
                 })
                 .fail(function(error) {
@@ -1105,6 +1103,101 @@
                     $btn.prop('disabled', false).html(originalText);
                 });
             */
+        },
+        
+        // Show receipt print confirmation dialog
+        showReceiptPrintConfirmation: function(bookingId) {
+            const self = this;
+            const simulatedBookingId = bookingId || 'ROM' + Date.now(); // Simulate booking ID
+            
+            // Create confirmation modal
+            const modalHTML = `
+                <div class="modal fade" id="receiptPrintModal" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header bg-success text-white">
+                                <h5 class="modal-title">
+                                    <i class="bi bi-check-circle"></i> Booking Confirmed!
+                                </h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body text-center">
+                                <div class="mb-3">
+                                    <i class="bi bi-heart-fill text-success" style="font-size: 48px;"></i>
+                                </div>
+                                <h4>ROM Booking Created Successfully!</h4>
+                                <p class="text-muted">Booking ID: <strong>${simulatedBookingId}</strong></p>
+                                <p>Would you like to print the official receipt now?</p>
+                            </div>
+                            <div class="modal-footer justify-content-center">
+                                <button type="button" class="btn btn-secondary" id="btnLater">
+                                    <i class="bi bi-x-circle"></i> Print Later
+                                </button>
+                                <button type="button" class="btn btn-primary" id="btnPrintReceipt">
+                                    <i class="bi bi-printer"></i> Print Receipt
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Remove existing modal if any
+            $('#receiptPrintModal').remove();
+            
+            // Add modal to body
+            $('body').append(modalHTML);
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('receiptPrintModal'));
+            modal.show();
+            
+            // Bind events
+            $('#btnPrintReceipt').on('click.' + this.eventNamespace, function() {
+                modal.hide();
+                self.printReceipt(simulatedBookingId);
+            });
+            
+            $('#btnLater').on('click.' + this.eventNamespace, function() {
+                modal.hide();
+                setTimeout(() => {
+                    self.cleanup();
+                    TempleRouter.navigate('rom-booking');
+                }, 300);
+            });
+            
+            // Auto navigate when modal is hidden without printing
+            $('#receiptPrintModal').on('hidden.bs.modal.' + this.eventNamespace, function() {
+                setTimeout(() => {
+                    self.cleanup();
+                    TempleRouter.navigate('rom-booking');
+                }, 300);
+            });
+        },
+        
+        // Print receipt
+        printReceipt: function(bookingId) {
+            const self = this;
+            
+            if (window.RomReceiptPrintPage) {
+                // Navigate to receipt print page
+                self.cleanup();
+                TempleRouter.navigate('rom-booking/receipt/print', { id: bookingId });
+            } else {
+                // Load receipt print script and then navigate
+                const script = document.createElement('script');
+                script.src = '/js/pages/rom-booking/receipt/print.js';
+                script.onload = function() {
+                    self.cleanup();
+                    TempleRouter.navigate('rom-booking/receipt/print', { id: bookingId });
+                };
+                script.onerror = function() {
+                    TempleCore.showToast('Error loading receipt printer', 'error');
+                    self.cleanup();
+                    TempleRouter.navigate('rom-booking');
+                };
+                document.head.appendChild(script);
+            }
         },
         
         // Bind general events

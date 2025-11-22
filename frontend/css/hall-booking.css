@@ -17,8 +17,7 @@
 
 /* Header Styles for Listing Page */
 .hall-booking-header {
-    background: linear-gradient(135deg, #ff00ff 0%, #cc00cc 20%, #996699 40%, #808000 80%, #9b9b4a 100%);
-    padding: 2rem 0;
+    background: linear-gradient(135deg, var(--primary-color) 0%, #e5521c 20%, #e19c2e 40%, var(--secondary-color) 80%, #e3b038 100%);    padding: 2rem 0;
     margin-bottom: 2rem;
     position: relative;
     overflow: hidden;
@@ -113,7 +112,7 @@
 
 .filter-card .form-control:focus,
 .filter-card .form-select:focus {
-    border-color: #ff00ff;
+    border-color: var(--primary-color);
     box-shadow: 0 0 0 0.15rem rgba(255, 0, 255, 0.1);
     outline: none;
 }
@@ -127,7 +126,7 @@
 }
 
 #bookingsTable thead th {
-    background: linear-gradient(135deg, #ff00ff, #cc00cc);
+    background: linear-gradient(135deg, var(--primary-color), #e5521c);
     color: white;
     border: none;
     padding: 1rem 0.75rem;
@@ -197,7 +196,7 @@
 }
 
 .dataTables_wrapper .dataTables_filter input:focus {
-    border-color: #ff00ff;
+    border-color: var(--primary-color);
     outline: none;
 }
 
@@ -217,13 +216,13 @@
 }
 
 .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
-    background: #ff00ff;
+    background: var(--primary-color);
     color: white;
     transform: translateY(-1px);
 }
 
 .dataTables_wrapper .dataTables_paginate .paginate_button.current {
-    background: #ff00ff;
+    background: var(--primary-color);
     color: white;
 }
 
@@ -231,7 +230,7 @@
    Page Header - Compact Design
    ======================================== */
 .page-header {
-    background: linear-gradient(135deg, #ff00ff 0%, #cc00cc 20%, #996699 40%, #808000 80%, #9b9b4a 100%);
+    background: linear-gradient(135deg, var(--primary-color) 0%, #e5521c 20%, #e19c2e 40%, var(--secondary-color) 80%, #e3b038 100%);
     padding: 1.5rem 0;
     margin: -1rem -1rem 1.5rem -1rem;
     border-radius: 0 0 20px 20px;
@@ -310,9 +309,9 @@
 }
 
 .step-indicator.active .step-number {
-    background: linear-gradient(135deg, #ff00ff, #cc00cc);
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
     color: white;
-    border-color: #ff00ff;
+    border-color: var(--primary-color);
     box-shadow: 0 4px 15px rgba(255, 0, 255, 0.3);
     transform: scale(1.1);
 }
@@ -393,7 +392,7 @@
 }
 
 .step-title i {
-    color: #ff00ff;
+    color: var(--primary-color);
 }
 
 /* ========================================
@@ -417,20 +416,20 @@
 }
 
 .venue-card:hover {
-    border-color: #ff00ff;
+    border-color: var(--primary-color);
     transform: translateY(-2px);
     box-shadow: 0 4px 15px rgba(255, 0, 255, 0.15);
 }
 
 .venue-card.selected {
-    border-color: #ff00ff;
+    border-color: var(--primary-color);
     background: linear-gradient(135deg, rgba(255, 0, 255, 0.1) 0%, rgba(128, 128, 0, 0.1) 100%);
     box-shadow: 0 4px 20px rgba(255, 0, 255, 0.25);
 }
 
 .venue-icon {
     font-size: 2.5rem;
-    color: #ff00ff;
+    color: var(--primary-color);
     margin-bottom: 1rem;
 }
 
@@ -516,7 +515,7 @@
 }
 
 .calendar-day.selected {
-    background: #ff00ff !important;
+    background: var(--primary-color) !important;
     color: white;
     font-weight: 600;
 }
@@ -524,7 +523,7 @@
 .calendar-day.today {
     background: rgba(255, 0, 255, 0.1);
     font-weight: 600;
-    border: 2px solid #ff00ff;
+    border: 2px solid var(--primary-color);
 }
 
 .calendar-day.past {
@@ -582,7 +581,7 @@
 }
 
 .legend-indicator.selected {
-    background: #ff00ff;
+    background: var(--primary-color);
 }
 
 /* ========================================
@@ -606,20 +605,20 @@
 }
 
 .time-slot-card:hover {
-    border-color: #ff00ff;
+    border-color: var(--primary-color);
     transform: translateY(-2px);
     box-shadow: 0 4px 15px rgba(255, 0, 255, 0.15);
 }
 
 .time-slot-card.selected {
-    border-color: #ff00ff;
+    border-color: var(--primary-color);
     background: linear-gradient(135deg, rgba(255, 0, 255, 0.1) 0%, rgba(128, 128, 0, 0.1) 100%);
     box-shadow: 0 4px 20px rgba(255, 0, 255, 0.25);
 }
 
 .time-icon {
     font-size: 2rem;
-    color: #ff00ff;
+    color: var(--primary-color);
     margin-bottom: 0.5rem;
 }
 
@@ -639,7 +638,7 @@
 .time-slot-card .price {
     font-size: 1.1rem;
     font-weight: 700;
-    color: #ff00ff;
+    color: var(--primary-color);
     margin: 0.5rem 0 0 0;
 }
 
@@ -689,19 +688,19 @@
 }
 
 .package-item label:hover {
-    border-color: #ff00ff;
+    border-color: var(--primary-color);
     background: rgba(255, 0, 255, 0.02);
 }
 
 .package-item input:checked ~ label {
-    border-color: #ff00ff;
+    border-color: var(--primary-color);
     background: linear-gradient(135deg, rgba(255, 0, 255, 0.08) 0%, rgba(128, 128, 0, 0.08) 100%);
     box-shadow: 0 2px 10px rgba(255, 0, 255, 0.15);
 }
 
 .package-item label i {
     font-size: 1.8rem;
-    color: #ff00ff;
+    color: var(--primary-color);
     margin-top: 0.2rem;
 }
 
@@ -726,7 +725,7 @@
 }
 
 .package-item label strong {
-    color: #ff00ff;
+    color: var(--primary-color);
     font-size: 1rem;
 }
 
@@ -803,7 +802,7 @@
 
 .addon-item input:checked ~ label {
     background: rgba(255, 0, 255, 0.05) !important;
-    border-left: 4px solid #ff00ff !important;
+    border-left: 4px solid var(--primary-color) !important;
 }
 
 .addon-info h6 {
@@ -881,7 +880,7 @@
 }
 
 .extra-charges-list thead th {
-    background: #ff00ff;
+    background: var(--primary-color);
     color: white;
     border: none;
     font-weight: 600;
@@ -914,7 +913,7 @@
     content: "";
     width: 4px;
     height: 20px;
-    background: #ff00ff;
+    background: var(--primary-color);
     border-radius: 2px;
 }
 
@@ -941,7 +940,7 @@
 }
 
 .form-control:focus, .form-select:focus {
-    border-color: #ff00ff;
+    border-color: var(--primary-color);
     box-shadow: 0 0 0 0.15rem rgba(255, 0, 255, 0.1);
     outline: none;
 }
@@ -983,7 +982,7 @@
 }
 
 .summary-header, .payment-header {
-    background: linear-gradient(135deg, #ff00ff, #cc00cc);
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
     color: white;
     padding: 1rem 1.25rem;
     border-radius: 15px 15px 0 0;
@@ -995,7 +994,7 @@
 
 .payment-header {
     border-radius: 0;
-    background: linear-gradient(135deg, #808000, #9b9b4a);
+    background: linear-gradient(135deg, var(--secondary-color), #e3b038);
 }
 
 .summary-header i, .payment-header i {
@@ -1064,7 +1063,7 @@
 .summary-total strong {
     font-size: 1.5rem;
     font-weight: 700;
-    color: #ff00ff;
+    color: var(--primary-color);
 }
 
 /* ========================================
@@ -1119,12 +1118,12 @@
 }
 
 .payment-option input:checked ~ .payment-content {
-    border-color: #ff00ff;
+    border-color: var(--primary-color);
     background: rgba(255, 0, 255, 0.05);
 }
 
 .payment-option input:checked ~ .payment-content i {
-    color: #ff00ff;
+    color: var(--primary-color);
 }
 
 /* ========================================
@@ -1351,7 +1350,7 @@
 .time-slot-card:focus,
 .package-item label:focus,
 .addon-item label:focus {
-    outline: 2px solid #ff00ff;
+    outline: 2px solid var(--primary-color);
     outline-offset: 2px;
 }
 .booking-summary-card .summary-body{

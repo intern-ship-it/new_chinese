@@ -195,9 +195,11 @@
 .form-check-card {
     position: relative;
     padding: 0;
-    margin: 0;
+    margin: 0 10px;
+    height: 100%;
+    background: transparent;
+    border-radius: 12px;
 }
-
 .form-check-card .form-check-input {
     position: absolute;
     opacity: 0;
@@ -209,7 +211,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 1.5rem 1rem;
+    padding: 1rem 1rem;
     border: 2px solid #dee2e6;
     border-radius: 12px;
     background: #fff;
@@ -218,6 +220,7 @@
     min-height: 120px;
     text-align: center;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    height:100%;
 }
 
 .form-check-card .form-check-label i {
@@ -235,26 +238,26 @@
 
 /* Hover State with Animation */
 .form-check-card:hover .form-check-label {
-    border-color: #ff00ff;
+    border-color: var(--primary-color);
     box-shadow: 0 8px 20px rgba(255, 0, 255, 0.15);
     transform: translateY(-4px) scale(1.02);
 }
 
 .form-check-card:hover .form-check-label i {
-    color: #ff00ff;
+    color: var(--primary-color);
     transform: scale(1.15) rotate(5deg);
 }
 
 /* Checked State with Gradient Background */
 .form-check-card .form-check-input:checked ~ .form-check-label {
-    border-color: #ff00ff;
+    border-color: var(--primary-color);
     background: linear-gradient(135deg, rgba(255, 0, 255, 0.08) 0%, rgba(128, 128, 0, 0.08) 100%);
     box-shadow: 0 8px 25px rgba(255, 0, 255, 0.25);
     transform: scale(1.05);
 }
 
 .form-check-card .form-check-input:checked ~ .form-check-label i {
-    color: #ff00ff;
+    color: var(--primary-color);
     transform: scale(1.2);
     animation: iconBounce 0.6s ease;
 }
@@ -269,13 +272,13 @@
 }
 
 .form-check-card .form-check-input:checked ~ .form-check-label span {
-    color: #ff00ff;
+    color: var(--primary-color);
     font-weight: 600;
 }
 
 /* Focus State */
 .form-check-card .form-check-input:focus ~ .form-check-label {
-    outline: 2px solid #ff00ff;
+    outline: 2px solid var(--primary-color);
     outline-offset: 2px;
 }
 
@@ -292,7 +295,7 @@
 
 .form-control:focus,
 .form-select:focus {
-    border-color: #ff00ff;
+    border-color: var(--primary-color);
     box-shadow: 0 0 0 0.2rem rgba(255, 0, 255, 0.15);
     outline: none;
 }
@@ -356,13 +359,13 @@
    Buttons
    ======================================== */
 .btn-primary {
-    background: linear-gradient(135deg, #ff00ff 0%, #cc00cc 100%);
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
     border: none;
     transition: all 0.3s ease;
 }
 
 .btn-primary:hover {
-    background: linear-gradient(135deg, #cc00cc 0%, #990099 100%);
+    background: linear-gradient(135deg, var(--secondary-color) 0%, var(--primary-color) 100%);
     transform: translateY(-2px);
     box-shadow: 0 8px 20px rgba(255, 0, 255, 0.3);
 }
@@ -372,13 +375,13 @@
 }
 
 .btn-outline-primary {
-    color: #ff00ff;
-    border-color: #ff00ff;
+    color: var(--primary-color);
+    border-color: var(--primary-color);
 }
 
 .btn-outline-primary:hover {
-    background: #ff00ff;
-    border-color: #ff00ff;
+    background: var(--primary-color);
+    border-color: var(--primary-color);
     color: #fff;
 }
 
@@ -433,12 +436,12 @@
 
 /* Stat Card Variants */
 .stat-card-primary {
-    border-left: 4px solid #ff00ff;
+    border-left: 4px solid var(--primary-color);
 }
 
 .stat-card-primary .stat-card-icon {
     background: linear-gradient(135deg, rgba(255, 0, 255, 0.1) 0%, rgba(255, 0, 255, 0.05) 100%);
-    color: #ff00ff;
+    color: var(--primary-color);
 }
 
 .stat-card-success {
@@ -502,7 +505,7 @@
 }
 
 #donationsTable thead th {
-    background: linear-gradient(135deg, #ff00ff 0%, #cc00cc 100%);
+    background: linear-gradient(135deg, var(--primary-color) 0%, #e5521c 100%);
     color: #fff;
     font-weight: 600;
     border: none;
@@ -552,7 +555,7 @@
 }
 
 .dataTables_filter input:focus {
-    border-color: #ff00ff;
+    border-color: var(--primary-color);
     outline: none;
     box-shadow: 0 0 0 0.2rem rgba(255, 0, 255, 0.15);
 }
@@ -563,20 +566,20 @@
 }
 
 .dataTables_paginate .page-link {
-    color: #ff00ff;
+    color: var(--primary-color);
     border-color: #dee2e6;
     transition: all 0.2s ease;
 }
 
 .dataTables_paginate .page-link:hover {
-    background: #ff00ff;
-    border-color: #ff00ff;
+    background: var(--primary-color);
+    border-color: var(--primary-color);
     color: #fff;
 }
 
 .dataTables_paginate .page-item.active .page-link {
-    background: #ff00ff;
-    border-color: #ff00ff;
+    background: var(--primary-color);
+    border-color: var(--primary-color);
 }
 
 /* ========================================
@@ -696,7 +699,7 @@
     width: 3rem;
     height: 3rem;
     border: 4px solid #f3f3f3;
-    border-top: 4px solid #ff00ff;
+    border-top: 4px solid var(--primary-color);
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
@@ -723,12 +726,12 @@
 }
 
 .table-responsive::-webkit-scrollbar-thumb {
-    background: #ff00ff;
+    background: var(--primary-color);
     border-radius: 4px;
 }
 
 .table-responsive::-webkit-scrollbar-thumb:hover {
-    background: #cc00cc;
+    background: var(--secondary-color);
 }
 
 /* ========================================
@@ -784,15 +787,15 @@
    Utility Classes
    ======================================== */
 .text-primary {
-    color: #ff00ff !important;
+    color: var(--primary-color) !important;
 }
 
 .bg-primary {
-    background-color: #ff00ff !important;
+    background-color: var(--primary-color) !important;
 }
 
 .border-primary {
-    border-color: #ff00ff !important;
+    border-color: var(--primary-color) !important;
 }
 
 .shadow-sm {

@@ -1,28 +1,122 @@
 // js/pages/buddha-lamp/create.js
-// Buddha Lamp Booking Create Page with GSAP + AOS animations
+// Buddha Lamp Booking Create Page with GSAP + AOS animations + Receipt Print
 
 (function($, window) {
     'use strict';
     
+	if (!window.BuddhaLampSharedModule) {
+        window.BuddhaLampSharedModule = {
+            moduleId: 'buddha-lamp',
+			eventNamespace: 'buddha-lamp',
+            cssId: 'buddha-lamp-css',
+            cssPath: '/css/buddha-lamp.css',
+            activePages: new Set(),
+            
+            // Load shared CSS (only once per module)
+            loadCSS: function() {
+                if (!document.getElementById(this.cssId)) {
+                    const link = document.createElement('link');
+                    link.id = this.cssId;
+                    link.rel = 'stylesheet';
+                    link.href = this.cssPath;
+                    document.head.appendChild(link);
+                    console.log('Buddha Lamp CSS loaded');
+                }
+            },
+            
+            // Register a page as active
+            registerPage: function(pageId) {
+                this.activePages.add(pageId);
+                this.loadCSS(); // Ensure CSS is loaded
+                console.log(`Buddha Lamp page registered: ${pageId} (Total: ${this.activePages.size})`);
+            },
+            
+            // Unregister a page
+            unregisterPage: function(pageId) {
+                this.activePages.delete(pageId);
+                console.log(`Buddha Lamp page unregistered: ${pageId} (Remaining: ${this.activePages.size})`);
+                
+                // If no more pages active, cleanup CSS
+                if (this.activePages.size === 0) {
+                    this.cleanup();
+                }
+            },
+            
+            // Check if any pages are active
+            hasActivePages: function() {
+                return this.activePages.size > 0;
+            },
+            
+            // Get active pages
+            getActivePages: function() {
+                return Array.from(this.activePages);
+            },
+            
+            // Cleanup module resources
+            cleanup: function() {
+                // Remove CSS
+                const cssLink = document.getElementById(this.cssId);
+                if (cssLink) {
+                    cssLink.remove();
+                    console.log('Buddha Lamp CSS removed');
+                }
+                
+                // Cleanup GSAP animations
+                if (typeof gsap !== 'undefined') {
+                    gsap.killTweensOf("*");
+                }
+                
+                // Remove all buddha-lamp-related event listeners
+                $(document).off('.' + this.eventNamespace);
+                $(window).off('.' + this.eventNamespace);
+                
+                this.activePages.clear();
+                console.log('Buddha Lamp module cleaned up');
+            }
+        };
+    }
+	
     window.BuddhaLampCreatePage = {
+		pageId: 'buddha-lamp-create',
+        eventNamespace: window.BuddhaLampSharedModule.eventNamespace,
+        
         // Page initialization
         init: function(params) {
-            this.loadCSS();
+            window.BuddhaLampSharedModule.registerPage(this.pageId);
             this.render();
             this.initAnimations();
             this.bindEvents();
             this.initializePlugins();
         },
         
-        // Load CSS dynamically
-        loadCSS: function() {
-            if (!document.getElementById('buddha-lamp-css')) {
-                const link = document.createElement('link');
-                link.id = 'buddha-lamp-css';
-                link.rel = 'stylesheet';
-                link.href = '/css/buddha-lamp.css';
-                document.head.appendChild(link);
+        // Page cleanup
+        cleanup: function() {
+            console.log(`Cleaning up ${this.pageId}...`);
+            
+            // Unregister from shared module
+            window.BuddhaLampSharedModule.unregisterPage(this.pageId);
+            
+            // Cleanup page-specific events (with page namespace)
+            $(document).off(`.${this.eventNamespace}`);
+            $(window).off(`.${this.eventNamespace}`);
+            
+            // Cleanup page-specific animations
+            if (typeof gsap !== 'undefined') {
+                gsap.killTweensOf(`.${this.pageId}-page *`);
             }
+            
+            // Clear any intervals/timeouts
+            if (this.intervals) {
+                this.intervals.forEach(interval => clearInterval(interval));
+                this.intervals = [];
+            }
+            
+            if (this.timeouts) {
+                this.timeouts.forEach(timeout => clearTimeout(timeout));
+                this.timeouts = [];
+            }
+            
+            console.log(`${this.pageId} cleanup completed`);
         },
         
         // Render page HTML
@@ -302,7 +396,7 @@
             const self = this;
             
             // RM 5000 preset checkbox
-            $('#amount5000').on('change', function() {
+            $('#amount5000').on('change.' + this.eventNamespace, function() {
                 const $card = $('#amount5000Card');
                 const $customAmount = $('input[name="amount"]');
                 
@@ -345,14 +439,14 @@
             });
             
             // Custom amount input
-            $('input[name="amount"]').on('input', function() {
+            $('input[name="amount"]').on('input.' + this.eventNamespace, function() {
                 if ($(this).val() !== '') {
                     $('#amount5000').prop('checked', false).trigger('change');
                 }
             });
             
             // Form submission
-            $('#buddhaLampForm').on('submit', function(e) {
+            $('#buddhaLampForm').on('submit.' + this.eventNamespace, function(e) {
                 e.preventDefault();
                 
                 // Custom validation for amount
@@ -386,7 +480,7 @@
             });
             
             // Cancel button
-            $('#btnCancel').on('click', function() {
+            $('#btnCancel').on('click.' + this.eventNamespace, function() {
                 if (confirm('Are you sure you want to cancel? All unsaved data will be lost.')) {
                     // Animate page exit
                     gsap.to('.buddha-lamp-form-card', {
@@ -394,6 +488,7 @@
                         y: -50,
                         duration: 0.3,
                         onComplete: () => {
+							self.cleanup();
                             TempleRouter.navigate('buddha-lamp');
                         }
                     });
@@ -401,12 +496,12 @@
             });
             
             // Reset button
-            $('#btnReset').on('click', function() {
+            $('#btnReset').on('click.' + this.eventNamespace, function() {
                 self.resetForm();
             });
             
             // Radio card selection animation
-            $(document).on('change', 'input[type="radio"][name="payment_method"]', function() {
+            $(document).on('change.' + this.eventNamespace, 'input[type="radio"][name="payment_method"]', function() {
                 const $parent = $(this).closest('.form-check-card');
                 const $siblings = $parent.siblings('.form-check-card');
                 
@@ -432,13 +527,13 @@
             });
             
             // Input field animations on focus
-            $('.form-control').on('focus', function() {
+            $('.form-control').on('focus.' + this.eventNamespace, function() {
                 gsap.to($(this), {
                     scale: 1.02,
                     duration: 0.2,
                     ease: 'power1.out'
                 });
-            }).on('blur', function() {
+            }).on('blur.' + this.eventNamespace, function() {
                 gsap.to($(this), {
                     scale: 1,
                     duration: 0.2
@@ -446,25 +541,25 @@
             });
             
             // Button hover animations
-            $('.btn').hover(
-                function() {
-                    gsap.to($(this), {
-                        scale: 1.05,
-                        duration: 0.2,
-                        ease: 'power1.out'
-                    });
-                },
-                function() {
-                    gsap.to($(this), {
-                        scale: 1,
-                        duration: 0.2
-                    });
-                }
-            );
+            $('.btn')
+			.on('mouseenter.' + this.eventNamespace, function() {
+				gsap.to($(this), {
+					scale: 1.05,
+					duration: 0.2,
+					ease: 'power1.out'
+				});
+			})
+			.on('mouseleave.' + this.eventNamespace, function() {
+				gsap.to($(this), {
+					scale: 1,
+					duration: 0.2
+				});
+			});
         },
         
         // Submit form
         submitForm: function() {
+            const self = this;
             const formData = this.getFormData();
             
             // Show loading state
@@ -485,13 +580,9 @@
                     ease: 'power2.inOut'
                 });
                 
-                // Show success message
-                TempleCore.showToast('Buddha Lamp booking recorded successfully!', 'success');
+                // Show success message with print options
+                self.showSuccessDialog(formData);
                 
-                // Redirect to listing page
-                setTimeout(() => {
-                    TempleRouter.navigate('buddha-lamp');
-                }, 1500);
             }, 1500);
             
             // Actual implementation:
@@ -499,10 +590,8 @@
             TempleAPI.post('/buddha-lamp', formData)
                 .done(function(response) {
                     if (response.success) {
-                        TempleCore.showToast('Buddha Lamp booking recorded successfully!', 'success');
-                        setTimeout(() => {
-                            TempleRouter.navigate('buddha-lamp');
-                        }, 1500);
+                        // Show success dialog with print options
+                        self.showSuccessDialog(response.data);
                     }
                 })
                 .fail(function(error) {
@@ -515,12 +604,107 @@
             */
         },
         
+        // Show success dialog with print options
+        showSuccessDialog: function(bookingData) {
+            const self = this;
+            
+            // Create success modal HTML
+            const modalHtml = `
+                <div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content border-0 shadow-lg">
+                            <div class="modal-body text-center p-5">
+                                <div class="success-icon mb-4">
+                                    <i class="bi bi-check-circle-fill text-success" style="font-size: 4rem;"></i>
+                                </div>
+                                <h3 class="text-success mb-3">🏮 Booking Successful! 预订成功！</h3>
+                                <p class="mb-4">Your Buddha Lamp booking has been recorded successfully.<br>
+                                <strong>Booking ID: ${bookingData.booking_code || 'BL' + Date.now()}</strong></p>
+                                
+                                <div class="d-grid gap-2">
+                                    <button type="button" class="btn btn-primary btn-lg" id="btnPrintReceipt">
+                                        <i class="bi bi-printer"></i> Print Receipt 打印收据
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" id="btnBackToList">
+                                        <i class="bi bi-list-ul"></i> Back to Bookings 返回预订列表
+                                    </button>
+                                </div>
+                                
+                                <div class="mt-4 text-muted">
+                                    <small>
+                                        <i class="bi bi-info-circle"></i> 
+                                        You can print the receipt now or later from the bookings list.
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Remove any existing modal
+            $('#successModal').remove();
+            
+            // Add modal to body
+            $('body').append(modalHtml);
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('successModal'), {
+                backdrop: 'static',
+                keyboard: false
+            });
+            modal.show();
+            
+            // Animate modal entrance
+            $('#successModal').on('shown.bs.modal.' + this.eventNamespace, function() {
+                gsap.from('.modal-content', {
+                    scale: 0.8,
+                    opacity: 0,
+                    duration: 0.3,
+                    ease: 'back.out(1.2)'
+                });
+                
+                gsap.from('.success-icon i', {
+                    scale: 0,
+                    rotation: 180,
+                    duration: 0.5,
+                    delay: 0.2,
+                    ease: 'back.out(1.5)'
+                });
+            });
+            
+            // Bind modal events
+            $('#btnPrintReceipt').on('click.' + this.eventNamespace, function() {
+                modal.hide();
+                
+                // Store booking data temporarily for print page
+                sessionStorage.setItem('temp_booking_data', JSON.stringify(bookingData));
+                self.cleanup();
+                // Navigate to print receipt
+                TempleRouter.navigate('buddha-lamp/print', { 
+                    id: bookingData.booking_code || 'BL' + Date.now() 
+                });
+            });
+            
+            $('#btnBackToList').on('click.' + this.eventNamespace, function() {
+                modal.hide();
+                self.cleanup();
+                TempleRouter.navigate('buddha-lamp');
+            });
+            
+            // Auto cleanup when modal is hidden
+            $('#successModal').on('hidden.bs.modal.' + this.eventNamespace, function() {
+                $('#successModal').remove();
+            });
+        },
+        
         // Get form data
         getFormData: function() {
             const amount5000Checked = $('#amount5000').is(':checked');
             const customAmount = $('input[name="amount"]').val();
             
             const formData = {
+                booking_code: 'BL' + Date.now(), // Generate temporary booking code
                 name_chinese: $('input[name="name_chinese"]').val(),
                 name_english: $('input[name="name_english"]').val(),
                 nric: $('input[name="nric"]').val(),
@@ -529,7 +713,8 @@
                 booking_date: $('input[name="booking_date"]').val(),
                 amount: amount5000Checked ? 5000.00 : parseFloat(customAmount),
                 payment_method: $('input[name="payment_method"]:checked').val(),
-                notes: $('textarea[name="notes"]').val()
+                notes: $('textarea[name="notes"]').val(),
+                created_at: new Date().toISOString()
             };
             
             return formData;

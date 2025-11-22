@@ -18,6 +18,33 @@
             this.attachEvents();
         },
 
+        // Cleanup function
+        cleanup: function () {
+            // Remove all event listeners
+            $(document).off('shown.bs.tab', '#registrationsTabs button[data-bs-toggle="tab"]');
+            $(document).off('click', '#btnApplyFilters');
+            $(document).off('click', '#btnClearFilters');
+            $(document).off('click', '#btnClearFiltersNoResults');
+            $(document).off('click', '#btnResetFilters');
+            $(document).off('keypress', '#searchInput');
+            $(document).off('change', '#perPageSelect');
+            $(document).off('click', '#paginationContainer .page-link');
+            $(document).off('click', '.btn-view-reg');
+            $(document).off('click', '.btn-renew-reg');
+            $(document).off('click', '.btn-terminate-reg');
+            $(document).off('click', '.btn-print-receipt');
+            $(document).off('click', '#btnNewRegistration');
+            $(document).off('click', '#btnExportRegistrations');
+
+            // Remove any modals
+            $('#registrationModal').remove();
+
+            // Clear data
+            this.currentFilters = {};
+            this.currentPage = 1;
+            this.perPage = 25;
+        },
+
         // Render page structure
         render: function () {
             const html = `
@@ -277,6 +304,7 @@
             // Load registrations
             PagodaAPI.registrations.getAll(params)
                 .done(function (response) {
+                    console.log('Registrations Response:', response);
                     if (response.success && response.data) {
                         self.renderRegistrationsTable(response.data);
                         self.renderPagination(response.data);
@@ -285,6 +313,7 @@
                     }
                 })
                 .fail(function (xhr) {
+                    console.error('Failed to load registrations:', xhr);
                     TempleUtils.handleAjaxError(xhr, 'Failed to load registrations');
                     self.showNoResults();
                 })
@@ -300,17 +329,24 @@
         loadStatistics: function () {
             PagodaAPI.registrations.getStatistics()
                 .done(function (response) {
+                    console.log('Statistics Response:', response);
                     if (response.success && response.data) {
                         const stats = response.data;
-                        $('#statActive').text(stats.active || 0);
-                        $('#statExpiring').text(stats.expiring_soon || 0);
-                        $('#statExpired').text(stats.expired || 0);
-                        $('#statThisMonth').text(stats.this_month || 0);
+                        // FIX: Use correct field names from API
+                        $('#statActive').text(stats.active_registrations || 0);
+                        $('#statExpiring').text(stats.expiring_in_30_days || 0);
+                        $('#statExpired').text(stats.expired_registrations || 0);
+                        $('#statThisMonth').text(stats.total_registrations || 0); // Use total as fallback
                     }
+                })
+                .fail(function (error) {
+                    console.error('Statistics load error:', error);
+                    // Set default values on error
+                    $('#statActive, #statExpiring, #statExpired, #statThisMonth').text('0');
                 });
         },
 
-        // Render registrations table
+        // Render registrations table - FIXED DATA ACCESS
         renderRegistrationsTable: function (data) {
             const registrations = data.data || [];
             const total = data.total || 0;
@@ -323,8 +359,15 @@
             }
 
             const rows = registrations.map(reg => {
+                // FIXED: Safely access nested objects
+                const lightCode = reg.light_code || reg.light?.light_code || 'N/A';
+                const lightNumber = reg.light_number || reg.light?.light_number || '-';
+                const devoteeName = reg.devotee?.name_english || reg.devotee_name_english || 'Unknown';
+                const devoteeContact = reg.devotee?.contact_no || reg.devotee_contact_no || 'N/A';
+                const paymentMethod = reg.payment_method || 'N/A';
+
                 const statusBadge = this.getStatusBadge(reg.status);
-                const daysRemaining = reg.days_until_expiry;
+                const daysRemaining = reg.days_until_expiry || 0;
                 const expiryBadge = daysRemaining <= 7 ? 'text-danger fw-bold' :
                     daysRemaining <= 30 ? 'text-warning' : '';
 
@@ -335,17 +378,17 @@
                         </td>
                         <td>
                             <div>
-                                <strong>${reg.devotee.name_english}</strong>
+                                <strong>${devoteeName}</strong>
                                 <br>
                                 <small class="text-muted">
-                                    <i class="bi bi-telephone me-1"></i>${reg.devotee.contact_no}
+                                    <i class="bi bi-telephone me-1"></i>${devoteeContact}
                                 </small>
                             </div>
                         </td>
                         <td>
-                            <code class="light-code">${reg.light.light_code}</code>
+                            <code class="light-code">${lightCode}</code>
                             <br>
-                            <small class="text-muted">#${reg.light.light_number}</small>
+                            <small class="text-muted">#${lightNumber}</small>
                         </td>
                         <td class="text-center">
                             <small>${moment(reg.offer_date).format('DD/MM/YYYY')}</small>
@@ -355,10 +398,10 @@
                             ${daysRemaining > 0 ? `<br><small class="text-muted">${daysRemaining} days</small>` : ''}
                         </td>
                         <td class="text-end">
-                            <strong>${PagodaAPI.utils.formatCurrency(reg.merit_amount)}</strong>
+                            <strong>SGD ${parseFloat(reg.merit_amount || 0).toFixed(2)}</strong>
                         </td>
                         <td>
-                            <small class="text-capitalize">${reg.payment_method.replace('_', ' ')}</small>
+                            <small class="text-capitalize">${paymentMethod.replace('_', ' ')}</small>
                         </td>
                         <td>${statusBadge}</td>
                         <td>
@@ -486,40 +529,40 @@
             $('#paginationContainer').html(paginationHtml);
         },
 
-        // Attach event handlers
+        // Attach event handlers - USING DELEGATED EVENTS
         attachEvents: function () {
             const self = this;
 
             // Tab changes
-            $('#registrationsTabs button[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) {
+            $(document).on('shown.bs.tab', '#registrationsTabs button[data-bs-toggle="tab"]', function (e) {
                 const target = $(e.target).attr('data-bs-target');
                 self.handleTabChange(target);
             });
 
             // Apply filters
-            $('#btnApplyFilters').on('click', function () {
+            $(document).on('click', '#btnApplyFilters', function () {
                 self.applyFilters();
             });
 
             // Clear filters
-            $('#btnClearFilters, #btnClearFiltersNoResults').on('click', function () {
+            $(document).on('click', '#btnClearFilters, #btnClearFiltersNoResults', function () {
                 self.clearFilters();
             });
 
             // Reset filters
-            $('#btnResetFilters').on('click', function () {
+            $(document).on('click', '#btnResetFilters', function () {
                 self.clearFilters();
             });
 
             // Search on Enter
-            $('#searchInput').on('keypress', function (e) {
+            $(document).on('keypress', '#searchInput', function (e) {
                 if (e.which === 13) {
                     self.applyFilters();
                 }
             });
 
             // Per page change
-            $('#perPageSelect').on('change', function () {
+            $(document).on('change', '#perPageSelect', function () {
                 self.perPage = parseInt($(this).val());
                 self.currentPage = 1;
                 self.loadRegistrations();
@@ -561,33 +604,37 @@
             });
 
             // New registration
-            $('#btnNewRegistration').on('click', function () {
+            $(document).on('click', '#btnNewRegistration', function () {
                 TempleRouter.navigate('auspicious-light/entry');
             });
 
             // Export
-            $('#btnExportRegistrations').on('click', function () {
+            $(document).on('click', '#btnExportRegistrations', function () {
                 self.exportRegistrations();
             });
         },
 
         // Handle tab change
         handleTabChange: function (target) {
+            // Clear existing filters first
+            this.currentFilters = {};
+
             // Update filters based on tab
             switch (target) {
                 case '#active-registrations':
                     this.currentFilters.status = 'active';
+                    console.log('Switching to Active tab with filter:', this.currentFilters);
                     break;
                 case '#expiring-registrations':
                     this.currentFilters.expiring_within_days = 30;
-                    delete this.currentFilters.status;
+                    console.log('Switching to Expiring tab with filter:', this.currentFilters);
                     break;
                 case '#expired-registrations':
                     this.currentFilters.status = 'expired';
+                    console.log('Switching to Expired tab with filter:', this.currentFilters);
                     break;
                 default:
-                    delete this.currentFilters.status;
-                    delete this.currentFilters.expiring_within_days;
+                    console.log('Switching to All tab - no filters');
             }
 
             this.currentPage = 1;
@@ -648,8 +695,21 @@
                 });
         },
 
-        // Show registration modal
+        // Show registration modal - FIXED DATA ACCESS
         showRegistrationModal: function (reg) {
+            const self = this;
+
+            // FIXED: Safely access nested objects
+            const lightCode = reg.light_code || reg.light?.light_code || 'N/A';
+            const lightNumber = reg.light_number || reg.light?.light_number || '-';
+            const devoteeName = reg.devotee?.name_english || reg.devotee_name_english || 'Unknown';
+            const devoteeChineseName = reg.devotee?.name_chinese || reg.devotee_name_chinese || '-';
+            const devoteeNric = reg.devotee?.nric || reg.devotee_nric || 'N/A';
+            const devoteeContact = reg.devotee?.contact_no || reg.devotee_contact_no || 'N/A';
+            const devoteeEmail = reg.devotee?.email || reg.devotee_email || '-';
+            const paymentMethod = reg.payment_method || 'N/A';
+            const daysUntilExpiry = reg.days_until_expiry || 0;
+
             const modalHtml = `
                 <div class="modal fade" id="registrationModal" tabindex="-1">
                     <div class="modal-dialog modal-lg">
@@ -675,11 +735,11 @@
                                             </tr>
                                             <tr>
                                                 <td class="text-muted">Light Code:</td>
-                                                <td><code class="light-code">${reg.light.light_code}</code></td>
+                                                <td><code class="light-code">${lightCode}</code></td>
                                             </tr>
                                             <tr>
                                                 <td class="text-muted">Light Number:</td>
-                                                <td>${reg.light.light_number}</td>
+                                                <td>${lightNumber}</td>
                                             </tr>
                                             <tr>
                                                 <td class="text-muted">Status:</td>
@@ -696,23 +756,23 @@
                                         <table class="table table-sm table-borderless">
                                             <tr>
                                                 <td class="text-muted" width="40%">Name (English):</td>
-                                                <td><strong>${reg.devotee.name_english}</strong></td>
+                                                <td><strong>${devoteeName}</strong></td>
                                             </tr>
                                             <tr>
                                                 <td class="text-muted">Name (Chinese):</td>
-                                                <td>${reg.devotee.name_chinese || '-'}</td>
+                                                <td>${devoteeChineseName}</td>
                                             </tr>
                                             <tr>
                                                 <td class="text-muted">NRIC:</td>
-                                                <td>${reg.devotee.nric}</td>
+                                                <td>${devoteeNric}</td>
                                             </tr>
                                             <tr>
                                                 <td class="text-muted">Contact:</td>
-                                                <td>${reg.devotee.contact_no}</td>
+                                                <td>${devoteeContact}</td>
                                             </tr>
                                             <tr>
                                                 <td class="text-muted">Email:</td>
-                                                <td>${reg.devotee.email || '-'}</td>
+                                                <td>${devoteeEmail}</td>
                                             </tr>
                                         </table>
                                     </div>
@@ -725,11 +785,11 @@
                                         <table class="table table-sm table-borderless">
                                             <tr>
                                                 <td class="text-muted" width="40%">Merit Amount:</td>
-                                                <td><strong class="text-success fs-5">${PagodaAPI.utils.formatCurrency(reg.merit_amount)}</strong></td>
+                                                <td><strong class="text-success fs-5">SGD ${parseFloat(reg.merit_amount).toFixed(2)}</strong></td>
                                             </tr>
                                             <tr>
                                                 <td class="text-muted">Payment Method:</td>
-                                                <td class="text-capitalize">${reg.payment_method.replace('_', ' ')}</td>
+                                                <td class="text-capitalize">${paymentMethod.replace('_', ' ')}</td>
                                             </tr>
                                             ${reg.payment_reference ? `
                                             <tr>
@@ -757,8 +817,8 @@
                                             <tr>
                                                 <td class="text-muted">Days Until Expiry:</td>
                                                 <td>
-                                                    ${reg.days_until_expiry > 0 ?
-                    `<span class="badge bg-info">${reg.days_until_expiry} days</span>` :
+                                                    ${daysUntilExpiry > 0 ?
+                    `<span class="badge bg-info">${daysUntilExpiry} days</span>` :
                     '<span class="badge bg-danger">Expired</span>'}
                                                 </td>
                                             </tr>
@@ -784,11 +844,11 @@
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                <button type="button" class="btn btn-outline-primary" onclick="PagodaRegistrationsPage.printReceipt(${reg.id})">
+                                <button type="button" class="btn btn-outline-primary" onclick="PagodaRegistrationsPage.printReceipt('${reg.id}')">
                                     <i class="bi bi-printer"></i> Print Receipt
                                 </button>
-                                ${reg.status === 'active' && reg.days_until_expiry <= 60 ? `
-                                    <button type="button" class="btn btn-success" onclick="PagodaRegistrationsPage.renewRegistration(${reg.id})">
+                                ${reg.status === 'active' && daysUntilExpiry <= 60 ? `
+                                    <button type="button" class="btn btn-success" onclick="PagodaRegistrationsPage.renewRegistration('${reg.id}')">
                                         <i class="bi bi-arrow-clockwise"></i> Renew
                                     </button>
                                 ` : ''}
@@ -820,10 +880,10 @@
                         <div class="mb-3">
                             <label class="form-label">Merit Amount</label>
                             <select class="form-select" id="renewMeritAmount">
-                                <option value="38">RM 38</option>
-                                <option value="60" selected>RM 60</option>
-                                <option value="100">RM 100</option>
-                                <option value="300">RM 300</option>
+                                <option value="38">SGD 38</option>
+                                <option value="60" selected>SGD 60</option>
+                                <option value="100">SGD 100</option>
+                                <option value="300">SGD 300</option>
                             </select>
                         </div>
                         <div class="mb-3">
@@ -917,23 +977,430 @@
                 }
             });
         },
-
         // Print receipt
         printReceipt: function (id) {
-            TempleUtils.showInfo('Receipt printing functionality coming soon');
-            // TODO: Implement receipt generation and printing
+            const self = this;
+
+            TempleUtils.showLoading('Generating receipt...');
+
+            PagodaAPI.registrations.getById(id)
+                .done(function (response) {
+                    console.log('Receipt data:', response);
+                    if (response.success && response.data) {
+                        self.generateReceiptHTML(response.data);
+                    } else {
+                        TempleUtils.showError('Failed to load receipt data');
+                    }
+                })
+                .fail(function (xhr) {
+                    TempleUtils.handleAjaxError(xhr, 'Failed to load receipt data');
+                })
+                .always(function () {
+                    TempleUtils.hideLoading();
+                });
+        },
+
+        generateReceiptHTML: function (reg) {
+            // DEBUG
+            console.log('Generating receipt for:', reg);
+
+            // Safely access data with better fallbacks
+            const receiptNumber = reg.receipt_number || 'PENDING';
+            const lightCode = reg.light_code || reg.light?.light_code || 'N/A';
+            const lightNumber = reg.light_number || reg.light?.light_number || '-';
+            const devoteeName = reg.devotee?.name_english || reg.devotee_name_english || 'Unknown';
+            const devoteeChineseName = reg.devotee?.name_chinese || reg.devotee_name_chinese || '';
+            const devoteeContact = reg.devotee?.contact_no || reg.devotee_contact_no || 'N/A';
+            const paymentMethod = reg.payment_method || 'N/A';
+            const staffName = reg.staff_name || 'Administrator';
+            const meritAmount = reg.merit_amount || 0;
+
+            const receiptHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Receipt - ${receiptNumber}</title>
+            <style>
+                @media print {
+                    @page { margin: 0; }
+                    body { margin: 1cm; }
+                }
+                body {
+                    font-family: Arial, sans-serif;
+                    max-width: 800px;
+                    margin: 0 auto;
+                    padding: 20px;
+                }
+                .header {
+                    text-align: center;
+                    border-bottom: 3px solid #000;
+                    padding-bottom: 20px;
+                    margin-bottom: 20px;
+                }
+                .header h1 {
+                    margin: 0;
+                    font-size: 24px;
+                    color: #333;
+                }
+                .header h2 {
+                    margin: 5px 0;
+                    font-size: 18px;
+                    color: #666;
+                }
+                .receipt-info {
+                    margin: 20px 0;
+                    background: #f5f5f5;
+                    padding: 15px;
+                    border-radius: 5px;
+                }
+                .info-row {
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 8px 0;
+                    border-bottom: 1px solid #ddd;
+                }
+                .info-row:last-child {
+                    border-bottom: none;
+                }
+                .label {
+                    font-weight: bold;
+                    color: #555;
+                }
+                .value {
+                    color: #333;
+                }
+                .section-title {
+                    font-size: 16px;
+                    font-weight: bold;
+                    margin-top: 20px;
+                    margin-bottom: 10px;
+                    color: #333;
+                    border-bottom: 2px solid #666;
+                    padding-bottom: 5px;
+                }
+                .amount {
+                    font-size: 24px;
+                    font-weight: bold;
+                    color: #28a745;
+                    text-align: center;
+                    margin: 20px 0;
+                    padding: 15px;
+                    background: #f0f9f4;
+                    border-radius: 5px;
+                }
+                .footer {
+                    margin-top: 40px;
+                    text-align: center;
+                    font-size: 12px;
+                    color: #666;
+                    border-top: 2px solid #000;
+                    padding-top: 20px;
+                }
+                .print-button {
+                    text-align: center;
+                    margin: 20px 0;
+                }
+                .print-button button {
+                    padding: 10px 30px;
+                    font-size: 16px;
+                    background: #007bff;
+                    color: white;
+                    border: none;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    margin: 0 5px;
+                }
+                .print-button button:hover {
+                    background: #0056b3;
+                }
+                .print-button .btn-close {
+                    background: #6c757d;
+                }
+                .print-button .btn-close:hover {
+                    background: #5a6268;
+                }
+                @media print {
+                    .print-button { display: none; }
+                }
+            </style>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+        </head>
+        <body>
+            <div class="header">
+                <h1>天后宫</h1>
+                <h2>Thean Hou Temple</h2>
+                <h2>Pagoda Auspicious Light Registration Receipt</h2>
+                <h2>平安灯登记收据</h2>
+            </div>
+
+            <div class="receipt-info">
+                <div class="info-row">
+                    <span class="label">Receipt Number:</span>
+                    <span class="value"><strong>${receiptNumber}</strong></span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Date Issued:</span>
+                    <span class="value"><script>document.write(moment('${reg.created_at}').format('DD MMMM YYYY'))</script></span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Staff:</span>
+                    <span class="value">${staffName}</span>
+                </div>
+            </div>
+
+            <div class="section-title">Devotee Information / 信徒资料</div>
+            <div class="receipt-info">
+                <div class="info-row">
+                    <span class="label">Name (English):</span>
+                    <span class="value">${devoteeName}</span>
+                </div>
+                ${devoteeChineseName ? `
+                <div class="info-row">
+                    <span class="label">Name (Chinese):</span>
+                    <span class="value">${devoteeChineseName}</span>
+                </div>
+                ` : ''}
+                <div class="info-row">
+                    <span class="label">Contact Number:</span>
+                    <span class="value">${devoteeContact}</span>
+                </div>
+            </div>
+
+            <div class="section-title">Light Information / 灯位资料</div>
+            <div class="receipt-info">
+                <div class="info-row">
+                    <span class="label">Light Code:</span>
+                    <span class="value"><strong>${lightCode}</strong></span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Light Number:</span>
+                    <span class="value">${lightNumber}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Light Option:</span>
+                    <span class="value">${reg.light_option === 'new_light' ? 'New Light / 新灯' : 'Family Light / 全家灯'}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Offer Date:</span>
+                    <span class="value"><script>document.write(moment('${reg.offer_date}').format('DD MMMM YYYY'))</script></span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Expiry Date:</span>
+                    <span class="value"><script>document.write(moment('${reg.expiry_date}').format('DD MMMM YYYY'))</script></span>
+                </div>
+            </div>
+
+            <div class="section-title">Payment Information / 付款资料</div>
+            <div class="receipt-info">
+                <div class="info-row">
+                    <span class="label">Payment Method:</span>
+                    <span class="value">${paymentMethod.replace('_', ' ').toUpperCase()}</span>
+                </div>
+                ${reg.payment_reference ? `
+                <div class="info-row">
+                    <span class="label">Reference:</span>
+                    <span class="value">${reg.payment_reference}</span>
+                </div>
+                ` : ''}
+            </div>
+
+            <div class="amount">
+                Merit Amount / 功德金<br>
+                SGD ${parseFloat(meritAmount).toFixed(2)}
+            </div>
+
+            ${reg.remarks ? `
+            <div class="section-title">Remarks / 备注</div>
+            <div class="receipt-info">
+                <p style="margin: 0;">${reg.remarks}</p>
+            </div>
+            ` : ''}
+
+            <div class="footer">
+                <p>Thank you for your generous contribution!</p>
+                <p>谢谢您的慷慨捐献!</p>
+                <p style="margin-top: 15px;">
+                    This is a computer-generated receipt. No signature required.<br>
+                    For enquiries, please contact: +60 3-2274 7088
+                </p>
+            </div>
+
+            <div class="print-button">
+                <button onclick="window.print()">Print Receipt</button>
+                <button class="btn-close" onclick="window.close()">Close</button>
+            </div>
+        </body>
+        </html>
+    `;
+
+            // Open in new window
+            const printWindow = window.open('', '_blank', 'width=800,height=600');
+            printWindow.document.write(receiptHTML);
+            printWindow.document.close();
+
+            // Auto print after loading
+            printWindow.onload = function () {
+                setTimeout(function () {
+                    printWindow.focus();
+                    // Uncomment to auto-print on load
+                    // printWindow.print();
+                }, 250);
+            };
         },
 
         // Export registrations
         exportRegistrations: function () {
-            TempleUtils.showInfo('Export functionality coming soon');
-            // TODO: Implement export
+            const self = this;
+
+            Swal.fire({
+                title: 'Export Registrations',
+                html: `
+            <div class="text-start">
+                <p>Choose export format:</p>
+                <div class="mb-3">
+                    <label class="form-label">Format</label>
+                    <select class="form-select" id="exportFormat">
+                        <option value="csv">CSV (Excel Compatible)</option>
+                        <option value="json">JSON</option>
+                    </select>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="exportAllPages" checked>
+                    <label class="form-check-label" for="exportAllPages">
+                        Export all pages (current filters applied)
+                    </label>
+                </div>
+            </div>
+        `,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Export',
+                cancelButtonText: 'Cancel',
+                preConfirm: () => {
+                    return {
+                        format: $('#exportFormat').val(),
+                        allPages: $('#exportAllPages').is(':checked')
+                    };
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    self.processExport(result.value.format, result.value.allPages);
+                }
+            });
         },
 
-        // Cleanup
-        destroy: function () {
-            // Cleanup
-        }
+        // Process export
+        processExport: function (format, allPages) {
+            const self = this;
+
+            const params = allPages ? {
+                per_page: 10000, // Large number to get all
+                ...this.currentFilters
+            } : {
+                page: this.currentPage,
+                per_page: this.perPage,
+                ...this.currentFilters
+            };
+
+            TempleUtils.showLoading('Exporting data...');
+
+            PagodaAPI.registrations.getAll(params)
+                .done(function (response) {
+                    if (response.success && response.data) {
+                        const registrations = response.data.data || [];
+
+                        if (format === 'csv') {
+                            self.exportToCSV(registrations);
+                        } else {
+                            self.exportToJSON(registrations);
+                        }
+
+                        TempleUtils.showSuccess(`Exported ${registrations.length} registrations`);
+                    }
+                })
+                .fail(function (xhr) {
+                    TempleUtils.handleAjaxError(xhr, 'Failed to export data');
+                })
+                .always(function () {
+                    TempleUtils.hideLoading();
+                });
+        },
+
+        // Export to CSV
+        exportToCSV: function (registrations) {
+            const headers = [
+                'Receipt Number',
+                'Devotee Name',
+                'Devotee Contact',
+                'Light Code',
+                'Light Number',
+                'Light Option',
+                'Merit Amount',
+                'Payment Method',
+                'Offer Date',
+                'Expiry Date',
+                'Status',
+                'Remarks'
+            ];
+
+            const rows = registrations.map(reg => {
+                const devoteeName = reg.devotee?.name_english || reg.devotee_name_english || '';
+                const devoteeContact = reg.devotee?.contact_no || reg.devotee_contact_no || '';
+                const lightCode = reg.light_code || reg.light?.light_code || '';
+                const lightNumber = reg.light_number || reg.light?.light_number || '';
+
+                return [
+                    reg.receipt_number,
+                    devoteeName,
+                    devoteeContact,
+                    lightCode,
+                    lightNumber,
+                    reg.light_option,
+                    reg.merit_amount,
+                    reg.payment_method,
+                    moment(reg.offer_date).format('YYYY-MM-DD'),
+                    moment(reg.expiry_date).format('YYYY-MM-DD'),
+                    reg.status,
+                    (reg.remarks || '').replace(/"/g, '""') // Escape quotes
+                ];
+            });
+
+            // Build CSV
+            let csv = headers.join(',') + '\n';
+            rows.forEach(row => {
+                csv += row.map(field => `"${field}"`).join(',') + '\n';
+            });
+
+            // Download
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+
+            link.setAttribute('href', url);
+            link.setAttribute('download', `pagoda_registrations_${moment().format('YYYYMMDD_HHmmss')}.csv`);
+            link.style.visibility = 'hidden';
+
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        },
+
+        // Export to JSON
+        exportToJSON: function (registrations) {
+            const json = JSON.stringify(registrations, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+
+            link.setAttribute('href', url);
+            link.setAttribute('download', `pagoda_registrations_${moment().format('YYYYMMDD_HHmmss')}.json`);
+            link.style.visibility = 'hidden';
+
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        },
     };
 
 })(jQuery, window);

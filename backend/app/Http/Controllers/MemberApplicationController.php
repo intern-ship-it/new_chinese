@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
+use App\Models\MemberApplicationReferral;
 
 class MemberApplicationController extends Controller
 {
@@ -144,19 +145,17 @@ class MemberApplicationController extends Controller
                 'createdBy',
                 'approvedBy',
                 'rejectedBy',
-                'referral1User',
-                'referral2User'
+                'referrals.referralUser', // Load referrals
             ])->findOrFail($id);
 
             $transformed = $this->transformApplication($application);
 
             return $this->successResponse($transformed, 'Application retrieved successfully');
         } catch (\Exception $e) {
-            Log::error('Error fetching application: ' . $e->getMessage());
+            \Log::error('Error fetching application: ' . $e->getMessage());
             return $this->errorResponse('Failed to retrieve application: ' . $e->getMessage());
         }
     }
-
     /**
      * Create new application
      */
@@ -167,27 +166,23 @@ class MemberApplicationController extends Controller
             'email' => 'required|email|max:255',
             'mobile_code' => 'nullable|string|max:10',
             'mobile_no' => 'required|string|max:20',
-            'alternate_mobile' => 'nullable|string|max:20',
-            'date_of_birth' => 'nullable|date',
-            'gender' => 'nullable|in:MALE,FEMALE,OTHER',
-            'address' => 'nullable|string',
-            'city' => 'nullable|string|max:100',
-            'state' => 'nullable|string|max:100',
-            'country' => 'nullable|string|max:100',
-            'pincode' => 'nullable|string|max:10',
-            'id_proof_type' => 'nullable|string|max:50',
-            'id_proof_number' => 'nullable|string|max:100',
-            'member_type_id' => 'nullable|uuid|exists:member_types,id',
-            'occupation' => 'nullable|string|max:100',
-            'qualification' => 'nullable|string|max:100',
-            'annual_income' => 'nullable|string|max:50',
-            'referral_1_name' => 'required|string|max:255',
-            'referral_1_member_id' => 'required|string|max:100',
-            'referral_2_name' => 'required|string|max:255',
-            'referral_2_member_id' => 'required|string|max:100',
+
+            // Dynamic referrals validation
+            'referrals' => 'required|array|min:2', // Minimum 2 referrals
+            'referrals.*.referral_name' => 'required|string|max:255',
+            'referrals.*.referral_member_id' => 'required|string|max:100',
+            'referrals.*.referral_user_id' => 'required|uuid|exists:users,id',
+
+            // Documents
+            'id_proof_document' => 'file|mimes:jpg,jpeg,png,pdf|max:5120',
+            'profile_photo' => 'image|mimes:jpg,jpeg,png|max:2048',
+
+            // Payment
             'payment_method' => 'nullable|string|max:50',
             'payment_reference' => 'nullable|string|max:255',
             'payment_date' => 'nullable|date',
+            'entry_fee_amount' => 'nullable|numeric',
+            'entry_fee_paid' => 'nullable|boolean',
             'status' => 'nullable|in:PENDING_SUBMISSION,SUBMITTED',
         ]);
 
@@ -197,15 +192,20 @@ class MemberApplicationController extends Controller
 
         DB::beginTransaction();
         try {
-            // Generate temporary member ID: TMP-YYYY-XXXX
+            // Generate temporary member ID
             $tempId = $this->generateTempMemberId();
 
-            $data = $request->except(['id_proof_document', 'profile_photo']);
+            // Get data without referrals and files
+            $data = $request->except(['referrals', 'id_proof_document', 'profile_photo']);
             $data['temp_member_id'] = $tempId;
             $data['created_by'] = Auth::id();
-            $data['entry_fee_amount'] = 51.00;
 
-            // Set payment status
+            // Set entry fee
+            if (!isset($data['entry_fee_amount'])) {
+                $data['entry_fee_amount'] = 51.00;
+            }
+
+            // Set submission time if status is SUBMITTED
             if ($request->status === 'SUBMITTED') {
                 $data['entry_fee_paid'] = true;
                 $data['submitted_at'] = Carbon::now();
@@ -214,7 +214,7 @@ class MemberApplicationController extends Controller
             // Create application
             $application = MemberApplication::create($data);
 
-            // Upload documents if provided
+            // Upload documents
             if ($request->hasFile('id_proof_document')) {
                 $documentPath = $this->s3Service->uploadFile(
                     $request->file('id_proof_document'),
@@ -233,15 +233,40 @@ class MemberApplicationController extends Controller
 
             $application->save();
 
+            // IMPORTANT: Create referrals
+            $referrals = $request->input('referrals', []);
+            foreach ($referrals as $index => $referralData) {
+                MemberApplicationReferral::create([
+                    'member_application_id' => $application->id,
+                    'sequence_number' => $index + 1,
+                    'referral_name' => $referralData['referral_name'],
+                    'referral_member_id' => $referralData['referral_member_id'],
+                    'referral_user_id' => $referralData['referral_user_id'],
+                    'verified' => true, // Auto-verified since user_id provided
+                    'verified_at' => Carbon::now(),
+                    'verified_by' => Auth::id(),
+                ]);
+            }
+
             DB::commit();
 
-            $transformed = $this->transformApplication($application->fresh(['memberType', 'createdBy']));
+            // Load relationships for response
+            $application->load('referrals.referralUser');
+            $transformed = $this->transformApplication($application);
 
             return $this->successResponse($transformed, 'Application created successfully', 201);
+
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error creating application: ' . $e->getMessage());
-            return $this->errorResponse('Failed to create application: ' . $e->getMessage());
+            \Log::error('Error creating application: ' . $e->getMessage());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
+
+            $errorMessage = 'Failed to create application';
+            if (config('app.debug')) {
+                $errorMessage .= ': ' . $e->getMessage();
+            }
+
+            return $this->errorResponse($errorMessage, 500);
         }
     }
 
@@ -320,7 +345,6 @@ class MemberApplicationController extends Controller
         try {
             $memberId = $request->member_id;
 
-            // Search in users table by member_code in member_details or by id_proof_number
             $user = User::where('user_type', 'MEMBER')
                 ->where('is_active', true)
                 ->where(function ($query) use ($memberId) {
@@ -344,7 +368,7 @@ class MemberApplicationController extends Controller
                 'valid' => false,
             ], 'Invalid or inactive member');
         } catch (\Exception $e) {
-            Log::error('Error validating referral: ' . $e->getMessage());
+            \Log::error('Error validating referral: ' . $e->getMessage());
             return $this->errorResponse('Failed to validate referral: ' . $e->getMessage());
         }
     }
@@ -355,7 +379,7 @@ class MemberApplicationController extends Controller
     public function verifyReferral(Request $request, $id)
     {
         $validator = Validator::make($request->all(), [
-            'referral_number' => 'required|in:1,2',
+            'referral_id' => 'required|uuid|exists:member_application_referrals,id',
             'notes' => 'nullable|string',
         ]);
 
@@ -366,32 +390,36 @@ class MemberApplicationController extends Controller
         DB::beginTransaction();
         try {
             $application = MemberApplication::findOrFail($id);
-            $referralNum = $request->referral_number;
+            $referral = MemberApplicationReferral::where('id', $request->referral_id)
+                ->where('member_application_id', $id)
+                ->firstOrFail();
 
             // Update verification status
-            $application->{  "referral_{$referralNum}_verified"} = true;
-            $application->{"referral_{$referralNum}_verified_at"} = Carbon::now();
-            $application->{"referral_{$referralNum}_verified_by"} = Auth::id();
+            $referral->verified = true;
+            $referral->verified_at = Carbon::now();
+            $referral->verified_by = Auth::id();
+            $referral->verification_notes = $request->notes;
+            $referral->save();
 
-            // Update status if both referrals are verified
-            if ($application->referral_1_verified && $application->referral_2_verified) {
+            // Update application status if all referrals verified
+            if ($application->all_referrals_verified) {
                 $application->status = 'UNDER_VERIFICATION';
+                $application->save();
             }
-
-            $application->save();
 
             DB::commit();
 
-            $transformed = $this->transformApplication($application->fresh());
+            $application->load('referrals.referralUser');
+            $transformed = $this->transformApplication($application);
 
             return $this->successResponse($transformed, 'Referral verified successfully');
+
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error verifying referral: ' . $e->getMessage());
+            \Log::error('Error verifying referral: ' . $e->getMessage());
             return $this->errorResponse('Failed to verify referral: ' . $e->getMessage());
         }
     }
-
     /**
      * Schedule interview
      */
@@ -781,6 +809,11 @@ class MemberApplicationController extends Controller
 
         if ($application->profile_photo) {
             $data['profile_photo'] = $this->s3Service->getSignedUrl($application->profile_photo);
+        }
+
+        // Include referrals in response
+        if ($application->relationLoaded('referrals')) {
+            $data['referrals'] = $application->referrals->toArray();
         }
 
         return $data;

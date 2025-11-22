@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -129,7 +130,7 @@ class User extends Authenticatable implements JWTSubject
     {
         return $this->hasOne(AgentDetail::class);
     }
-	public function memberDetail()
+    public function memberDetail()
     {
         return $this->hasOne(MemberDetail::class);
     }
@@ -173,33 +174,33 @@ class User extends Authenticatable implements JWTSubject
         $position = $this->getOrganizationPosition();
         return $position && in_array($position->name, ['president', 'vice_president']);
     }
-	
-	/**
-	 * Get the signature for the member.
-	 */
-	public function signature()
-	{
-		return $this->hasOne(MemberSignature::class, 'user_id');
-	}
 
-	/**
-	 * Check if user has a signature
-	 */
-	public function hasSignature()
-	{
-		return $this->signature()->exists();
-	}
+    /**
+     * Get the signature for the member.
+     */
+    public function signature()
+    {
+        return $this->hasOne(MemberSignature::class, 'user_id');
+    }
 
-	/**
-	 * Get signature URL with signed URL if needed
-	 */
-	public function getSignatureUrlAttribute()
-	{
-		if ($this->signature && $this->signature->signature_url) {
-			// You can use the S3Service here to generate signed URL
-			// Or return the path and handle signed URL generation in controller
-			return $this->signature->signature_url;
-		}
-		return null;
-	}
+    /**
+     * Check if user has a signature
+     */
+    public function hasSignature()
+    {
+        return $this->signature()->exists();
+    }
+
+    /**
+     * Get signature URL with signed URL if needed
+     */
+    public function getSignatureUrlAttribute()
+    {
+        if ($this->signature && $this->signature->signature_url) {
+            // You can use the S3Service here to generate signed URL
+            // Or return the path and handle signed URL generation in controller
+            return $this->signature->signature_url;
+        }
+        return null;
+    }
 }

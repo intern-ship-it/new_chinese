@@ -33,7 +33,7 @@ class PagodaDevoteeController extends Controller
             $devotees = $query->paginate($perPage);
 
             // Transform data
-            $devotees->getCollection()->transform(function($devotee) {
+            $devotees->getCollection()->transform(function ($devotee) {
                 return [
                     'id' => $devotee->id,
                     'name_english' => $devotee->name_english,
@@ -49,7 +49,6 @@ class PagodaDevoteeController extends Controller
             });
 
             return $this->successResponse($devotees, 'Devotees retrieved successfully');
-
         } catch (\Exception $e) {
             return $this->errorResponse('Failed to retrieve devotees: ' . $e->getMessage(), 500);
         }
@@ -63,7 +62,7 @@ class PagodaDevoteeController extends Controller
         try {
             $devotee = PagodaDevotee::with([
                 'user',
-                'registrations' => function($q) {
+                'registrations' => function ($q) {
                     $q->orderBy('created_at', 'desc');
                 }
             ])->findOrFail($id);
@@ -90,7 +89,7 @@ class PagodaDevoteeController extends Controller
                     'active_registrations' => $devotee->activeRegistrations()->count(),
                     'total_merit_contributed' => $devotee->registrations()->sum('merit_amount')
                 ],
-                'registrations' => $devotee->registrations->map(function($reg) {
+                'registrations' => $devotee->registrations->map(function ($reg) {
                     return [
                         'id' => $reg->id,
                         'light_number' => $reg->light_number,
@@ -105,7 +104,6 @@ class PagodaDevoteeController extends Controller
             ];
 
             return $this->successResponse($data, 'Devotee details retrieved successfully');
-
         } catch (\Exception $e) {
             return $this->notFoundResponse('Devotee not found');
         }
@@ -139,7 +137,6 @@ class PagodaDevoteeController extends Controller
                 'Devotee created successfully',
                 201
             );
-
         } catch (\Exception $e) {
             return $this->errorResponse('Failed to create devotee: ' . $e->getMessage(), 500);
         }
@@ -172,9 +169,75 @@ class PagodaDevoteeController extends Controller
                 $devotee->fresh(),
                 'Devotee updated successfully'
             );
-
         } catch (\Exception $e) {
             return $this->notFoundResponse('Devotee not found');
+        }
+    }
+
+    /**
+     * Search devotees by NRIC, Contact, or Name
+     */
+    /**
+     * Search devotees by NRIC, Contact, or Name
+     */
+    public function search(Request $request)
+    {
+        try {
+            // Option 1: Accept generic 'query' and search all fields
+            if ($request->has('query')) {
+                $query = $request->input('query'); // ✅ FIXED: Get string value, not InputBag
+
+                $devotees = PagodaDevotee::where(function ($q) use ($query) {
+                    $q->where('name_english', 'ILIKE', "%{$query}%")
+                        ->orWhere('name_chinese', 'ILIKE', "%{$query}%")
+                        ->orWhere('nric', 'ILIKE', "%{$query}%")
+                        ->orWhere('contact_no', 'ILIKE', "%{$query}%")
+                        ->orWhere('email', 'ILIKE', "%{$query}%");
+                })
+                    ->orderBy('created_at', 'desc')
+                    ->get();
+
+                return $this->successResponse(
+                    $devotees,
+                    count($devotees) > 0
+                        ? count($devotees) . ' devotee(s) found'
+                        : 'No devotees found'
+                );
+            }
+
+            // Option 2: Accept specific fields
+            $validator = Validator::make($request->all(), [
+                'nric' => 'required_without:contact_no|string',
+                'contact_no' => 'required_without:nric|string',
+                'name' => 'nullable|string'
+            ]);
+
+            if ($validator->fails()) {
+                return $this->validationErrorResponse($validator->errors());
+            }
+
+            $queryBuilder = PagodaDevotee::query();
+
+            if ($request->has('nric')) {
+                $queryBuilder->where('nric', $request->nric);
+            }
+
+            if ($request->has('contact_no')) {
+                $queryBuilder->where('contact_no', 'ILIKE', "%{$request->contact_no}%");
+            }
+
+            if ($request->has('name')) {
+                $queryBuilder->where(function ($q) use ($request) {
+                    $q->where('name_english', 'ILIKE', "%{$request->name}%")
+                        ->orWhere('name_chinese', 'ILIKE', "%{$request->name}%");
+                });
+            }
+
+            $devotees = $queryBuilder->orderBy('created_at', 'desc')->get();
+
+            return $this->successResponse($devotees, 'Devotees found');
+        } catch (\Exception $e) {
+            return $this->errorResponse('Search failed: ' . $e->getMessage(), 500);
         }
     }
 
@@ -217,7 +280,6 @@ class PagodaDevoteeController extends Controller
                 'address' => $devotee->address,
                 'active_registrations_count' => $devotee->activeRegistrations()->count()
             ], 'Devotee found');
-
         } catch (\Exception $e) {
             return $this->errorResponse('Search failed: ' . $e->getMessage(), 500);
         }

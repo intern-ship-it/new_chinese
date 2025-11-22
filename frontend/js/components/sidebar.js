@@ -59,11 +59,34 @@
         text: "Buddha Lamp",
         permission: "view_bookings",
       },
+      // {
+      //   id: "donations/list",
+      //   icon: "gift",
+      //   text: "Donation",
+      //   permission: "view_bookings",
+      // },
+
+      //donation with submenu
       {
-        id: "donations/list",
-        icon: "gift",
+        id: "donation",
+        icon: "heart-fill",
         text: "Donation",
-        permission: "view_bookings",
+        permission: "view_donations",
+        hasSubmenu: true,
+        submenu: [
+          {
+            id: "donations/list",
+            icon: "list-ul",
+            text: "Donation List",
+            permission: "donations.view",
+          },
+          {
+            id: "donation/masters",
+            icon: "gear",
+            text: "Master Settings",
+            permission: "donation_masters.view",
+          },
+        ],
       },
       // { id: 'special-occasions', icon: 'calendar-event', text: 'Special Occasions', permission: 'view_bookings' },
       {
@@ -125,7 +148,7 @@
             permission: "view_bookings",
           },
           {
-            id: "pagoda/reports",
+            id: "auspicious-light/index",
             icon: "graph-up",
             text: "Reports",
             permission: "view_reports",
@@ -138,6 +161,7 @@
           },
         ],
       },
+      //dharma-assembly
       {
         id: "dharma-assembly",
         icon: "people",
@@ -146,10 +170,74 @@
       },
 
       {
+        id: "dharma-assembly",
+        icon: "calendar-heart",
+        text: "Dharma Assembly",
+        permission: "view_bookings",
+        hasSubmenu: true,
+        submenu: [
+          {
+            id: "dharma-assembly",
+            icon: "calendar-check",
+            text: "Bookings",
+            permission: "view_bookings",
+          },
+          {
+            id: "dharma-assembly/master",
+            icon: "gear",
+            text: "Master Settings",
+            permission: "view_bookings",
+          },
+        ],
+      },
+
+      {
+        id: "rom-booking",
+        icon: "heart-fill",
+        text: "Rom Booking",
+        permission: "view_bookings",
+      },
+
+      {
         id: "hall-booking/create",
         icon: "building",
         text: "Hall Booking",
         permission: "view_bookings",
+      },
+
+      // Hall booking Master setting
+      {
+        id: "hall-booking",
+        icon: "building",
+        text: "Hall Booking Settings",
+        permission: "view_bookings",
+        hasSubmenu: true,
+        submenu: [
+          {
+            id: "hall-booking/venue-master",
+            icon: "building",
+            text: "Venue Master",
+            permission: "view_bookings",
+          },
+          {
+            id: "hall-booking/session-master",
+            icon: "clock-history",
+            text: "Session Master",
+            permission: "view_bookings",
+          },
+          {
+            id: "hall-booking/package-master",
+            icon: "box-seam",
+            text: "Package Master",
+            permission: "view_bookings",
+          },
+          {
+            id: "hall-booking/addon-services",
+            icon: "layers-fill",
+            text: "Add-On Services",
+            permission: "view_bookings",
+          },
+        ],
       },
       {
         id: "users",

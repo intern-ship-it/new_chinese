@@ -138,9 +138,9 @@
                             ` : ''}
 
                             <div class="d-flex justify-content-between align-items-center">
-                                <span class="badge ${tower.is_active ? 'bg-success' : 'bg-secondary'}">
-                                    ${tower.is_active ? 'Active' : 'Inactive'}
-                                </span>
+                            <span class="badge ${tower.status === 'active' ? 'bg-success' : 'bg-secondary'}">
+    ${tower.status === 'active' ? 'Active' : 'Inactive'}
+</span>
                                 <button class="btn btn-sm btn-outline-primary btn-view-blocks" data-id="${tower.id}">
                                     <i class="bi bi-grid-3x3"></i> View Blocks
                                 </button>
@@ -195,33 +195,33 @@
             }
 
             const tableRows = blocks.map(block => `
-                <tr>
-                    <td><strong>${block.block_name}</strong></td>
-                    <td><code>${block.block_code}</code></td>
-                    <td>${block.tower ? block.tower.tower_name : '-'}</td>
-                    <td class="text-center">${block.total_floors || 0}</td>
-                    <td class="text-center">${block.lights_per_floor || 0}</td>
-                    <td class="text-center"><strong>${block.total_lights || 0}</strong></td>
-                    <td>
-                        <span class="badge ${block.is_active ? 'bg-success' : 'bg-secondary'}">
-                            ${block.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                    </td>
-                    <td>
-                        <div class="btn-group btn-group-sm">
-                            <button class="btn btn-outline-primary btn-view-block" data-id="${block.id}" title="View">
-                                <i class="bi bi-eye"></i>
-                            </button>
-                            <button class="btn btn-outline-secondary btn-edit-block" data-id="${block.id}" title="Edit">
-                                <i class="bi bi-pencil"></i>
-                            </button>
-                            <button class="btn btn-outline-danger btn-delete-block" data-id="${block.id}" title="Delete">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            `).join('');
+    <tr>
+        <td><strong>${block.block_name}</strong></td>
+        <td><code>${block.block_code}</code></td>
+        <td><strong>${block.tower_name || block.tower?.tower_name || '-'}</strong></td>
+        <td class="text-center">${block.total_floors || 0}</td>
+        <td class="text-center">${block.rags_per_floor || block.lights_per_floor || 0}</td>
+        <td class="text-center"><strong>${block.total_capacity || block.total_lights || 0}</strong></td>
+        <td>
+            <span class="badge ${block.status === 'active' ? 'bg-success' : 'bg-secondary'}">
+                ${block.status === 'active' ? 'Active' : 'Inactive'}
+            </span>
+        </td>
+        <td>
+            <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-primary btn-view-block" data-id="${block.id}" title="View">
+                    <i class="bi bi-eye"></i>
+                </button>
+                <button class="btn btn-outline-secondary btn-edit-block" data-id="${block.id}" title="Edit">
+                    <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn btn-outline-danger btn-delete-block" data-id="${block.id}" title="Delete">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        </td>
+    </tr>
+`).join('');
 
             const html = `
                 <div class="card" data-aos="fade-up">
@@ -276,13 +276,20 @@
                 </div>
             `);
         },
-
+        // Detach all event handlers
+        detachEvents: function () {
+            // Remove all namespaced events
+            $(document).off('.pagodaTowers');
+        },
         // Attach event handlers
         attachEvents: function () {
             const self = this;
 
-            // View toggle
-            $(document).on('click', '[data-view]', function () {
+            // ✅ IMPORTANT: Remove old event handlers first to prevent duplicates
+            this.detachEvents();
+
+            // View toggle - Use namespaced events
+            $(document).on('click.pagodaTowers', '[data-view]', function () {
                 const view = $(this).data('view');
                 $('.btn-group [data-view]').removeClass('active');
                 $(this).addClass('active');
@@ -296,7 +303,7 @@
             });
 
             // Refresh
-            $('#btnRefresh').on('click', function () {
+            $(document).on('click.pagodaTowers', '#btnRefresh', function () {
                 if (self.currentView === 'towers') {
                     self.loadTowers();
                 } else {
@@ -305,48 +312,48 @@
             });
 
             // Add tower
-            $(document).on('click', '#btnAddTower, #btnAddTowerNoResults', function () {
+            $(document).on('click.pagodaTowers', '#btnAddTower, #btnAddTowerNoResults', function () {
                 self.showTowerModal();
             });
 
             // Add block
-            $(document).on('click', '#btnAddBlock, #btnAddBlockNoResults', function () {
+            $(document).on('click.pagodaTowers', '#btnAddBlock, #btnAddBlockNoResults', function () {
                 self.showBlockModal();
             });
 
             // Edit tower
-            $(document).on('click', '.btn-edit-tower', function () {
+            $(document).on('click.pagodaTowers', '.btn-edit-tower', function () {
                 const id = $(this).data('id');
                 self.editTower(id);
             });
 
             // Delete tower
-            $(document).on('click', '.btn-delete-tower', function () {
+            $(document).on('click.pagodaTowers', '.btn-delete-tower', function () {
                 const id = $(this).data('id');
                 self.deleteTower(id);
             });
 
             // View blocks for tower
-            $(document).on('click', '.btn-view-blocks', function () {
+            $(document).on('click.pagodaTowers', '.btn-view-blocks', function () {
                 const towerId = $(this).data('id');
                 $('#btnViewBlocks').click();
                 self.loadBlocks(towerId);
             });
 
             // View block
-            $(document).on('click', '.btn-view-block', function () {
+            $(document).on('click.pagodaTowers', '.btn-view-block', function () {
                 const id = $(this).data('id');
                 self.viewBlock(id);
             });
 
             // Edit block
-            $(document).on('click', '.btn-edit-block', function () {
+            $(document).on('click.pagodaTowers', '.btn-edit-block', function () {
                 const id = $(this).data('id');
                 self.editBlock(id);
             });
 
             // Delete block
-            $(document).on('click', '.btn-delete-block', function () {
+            $(document).on('click.pagodaTowers', '.btn-delete-block', function () {
                 const id = $(this).data('id');
                 self.deleteBlock(id);
             });
@@ -388,9 +395,10 @@
                                         </div>
                                         <div class="col-12">
                                             <div class="form-check form-switch">
-                                                <input class="form-check-input" type="checkbox" name="is_active" 
-                                                       ${!tower || tower.is_active ? 'checked' : ''}>
-                                                <label class="form-check-label">Active</label>
+                                                <input class="form-check-input" type="checkbox" name="is_active"
+               id="towerActive"
+               ${!tower || tower.status === 'active' ? 'checked' : ''}>
+        <label class="form-check-label" for="towerActive">Active</label>
                                             </div>
                                         </div>
                                     </div>
@@ -419,7 +427,7 @@
                     tower_name: $('input[name="tower_name"]').val(),
                     tower_code: $('input[name="tower_code"]').val(),
                     description: $('textarea[name="description"]').val(),
-                    is_active: $('input[name="is_active"]').is(':checked')
+                    status: $('input[name="is_active"]').is(':checked') ? 'active' : 'inactive'
                 };
 
                 TempleUtils.showLoading(isEdit ? 'Updating tower...' : 'Creating tower...');
@@ -458,7 +466,10 @@
             PagodaAPI.towers.getById(id)
                 .done(function (response) {
                     if (response.success && response.data) {
-                        self.showTowerModal(response.data);
+                        // ✅ FIXED: Extract tower from nested response
+                        const tower = response.data.tower || response.data;
+                        console.log('Editing tower:', tower);
+                        self.showTowerModal(tower);
                     }
                 })
                 .fail(function (xhr) {
@@ -512,90 +523,134 @@
                 .done(function (response) {
                     const towers = Array.isArray(response.data) ? response.data : response.data.data || [];
 
-                    const towerOptions = towers.map(t =>
-                        `<option value="${t.id}" ${block && block.tower_id === t.id ? 'selected' : ''}>${t.tower_name}</option>`
+                    console.log('Towers loaded for dropdown:', towers);
+
+                    // ✅ FIXED: Filter by status property, not is_active
+                    const activeTowers = towers.filter(t => t.status === 'active' || t.is_active);
+
+                    console.log('Active towers:', activeTowers);
+
+                    if (activeTowers.length === 0) {
+                        TempleUtils.showWarning('No active towers found. Please create a tower first.');
+                        return;
+                    }
+
+                    const towerOptions = activeTowers.map(t =>
+                        `<option value="${t.id}" ${block && block.tower_id === t.id ? 'selected' : ''}>
+                    ${t.tower_name} (${t.tower_code})
+                </option>`
                     ).join('');
 
                     const modalHtml = `
-                        <div class="modal fade" id="blockModal" tabindex="-1">
-                            <div class="modal-dialog">
-                                <div class="modal-content">
-                                    <div class="modal-header bg-primary text-white">
-                                        <h5 class="modal-title">
-                                            <i class="bi bi-grid-3x3 me-2"></i>
-                                            ${isEdit ? 'Edit Block' : 'Add New Block'}
-                                        </h5>
-                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                                    </div>
-                                    <form id="blockForm">
-                                        <div class="modal-body">
-                                            <div class="row g-3">
-                                                <div class="col-12">
-                                                    <label class="form-label">Tower *</label>
-                                                    <select class="form-select" name="tower_id" required>
-                                                        <option value="">Select Tower</option>
-                                                        ${towerOptions}
-                                                    </select>
-                                                </div>
-                                                <div class="col-12">
-                                                    <label class="form-label">Block Name *</label>
-                                                    <input type="text" class="form-control" name="block_name" 
-                                                           value="${block ? block.block_name : ''}" required>
-                                                </div>
-                                                <div class="col-12">
-                                                    <label class="form-label">Block Code *</label>
-                                                    <input type="text" class="form-control" name="block_code" 
-                                                           value="${block ? block.block_code : ''}" 
-                                                           placeholder="e.g., A, B, C" required>
-                                                </div>
-                                                <div class="col-6">
-                                                    <label class="form-label">Total Floors *</label>
-                                                    <input type="number" class="form-control" name="total_floors" 
-                                                           value="${block ? block.total_floors : ''}" min="1" required>
-                                                </div>
-                                                <div class="col-6">
-                                                    <label class="form-label">Lights per Floor *</label>
-                                                    <input type="number" class="form-control" name="lights_per_floor" 
-                                                           value="${block ? block.lights_per_floor : ''}" min="1" required>
-                                                </div>
-                                                <div class="col-12">
-                                                    <label class="form-label">Description</label>
-                                                    <textarea class="form-control" name="description" rows="2">${block ? (block.description || '') : ''}</textarea>
-                                                </div>
-                                                <div class="col-12">
-                                                    <div class="form-check form-switch">
-                                                        <input class="form-check-input" type="checkbox" name="auto_generate_lights" 
-                                                               ${!isEdit ? 'checked' : ''}>
-                                                        <label class="form-check-label">Auto-generate lights</label>
-                                                    </div>
-                                                </div>
-                                                <div class="col-12">
-                                                    <div class="form-check form-switch">
-                                                        <input class="form-check-input" type="checkbox" name="is_active" 
-                                                               ${!block || block.is_active ? 'checked' : ''}>
-                                                        <label class="form-check-label">Active</label>
-                                                    </div>
-                                                </div>
+                <div class="modal fade" id="blockModal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable"> <!-- ✅ Made scrollable -->
+                        <div class="modal-content" style="max-height: 90vh;"> <!-- ✅ Added max height -->
+                            <div class="modal-header bg-primary text-white">
+                                <h5 class="modal-title">
+                                    <i class="bi bi-grid-3x3 me-2"></i>
+                                    ${isEdit ? 'Edit Block' : 'Add New Block'}
+                                </h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <form id="blockForm">
+                                <div class="modal-body" style="max-height: 70vh; overflow-y: auto;"> <!-- ✅ Scrollable body -->
+                                    <div class="row g-3">
+                                        <!-- Tower Selection (FIRST AND VISIBLE) -->
+                                        <div class="col-12">
+                                            <label class="form-label fw-bold">
+                                                <i class="bi bi-building text-primary me-1"></i>
+                                                Tower * <span class="text-danger">(Required)</span>
+                                            </label>
+                                            <select class="form-select form-select-lg" name="tower_id" required>
+                                                <option value="">-- Select Tower --</option>
+                                                ${towerOptions}
+                                            </select>
+                                            <small class="text-muted">Select the tower this block belongs to</small>
+                                        </div>
+
+                                        <!-- Block Name -->
+                                        <div class="col-12">
+                                            <label class="form-label">Block Name *</label>
+                                            <input type="text" class="form-control" name="block_name" 
+                                                   value="${block ? block.block_name : ''}" 
+                                                   placeholder="e.g., Block A" required>
+                                        </div>
+
+                                        <!-- Block Code -->
+                                        <div class="col-12">
+                                            <label class="form-label">Block Code *</label>
+                                            <input type="text" class="form-control" name="block_code" 
+                                                   value="${block ? block.block_code : ''}" 
+                                                   placeholder="e.g., A, B, C, B1, B2" required>
+                                        </div>
+
+                                        <!-- Floors and Lights per Floor -->
+                                        <div class="col-6">
+                                            <label class="form-label">Total Floors *</label>
+                                            <input type="number" class="form-control" name="total_floors" 
+                                                   value="${block ? block.total_floors : '70'}" 
+                                                   min="1" max="200" required>
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="form-label">Lights per Floor *</label>
+                                            <input type="number" class="form-control" name="lights_per_floor" 
+                                                   value="${block ? (block.rags_per_floor || block.lights_per_floor) : '100'}" 
+                                                   min="1" max="500" required>
+                                        </div>
+
+                                        <!-- Description -->
+                                        <div class="col-12">
+                                            <label class="form-label">Description</label>
+                                            <textarea class="form-control" name="description" rows="2" 
+                                                      placeholder="Optional description...">${block ? (block.description || '') : ''}</textarea>
+                                        </div>
+
+                                        <!-- Auto-generate lights -->
+                                        <div class="col-12">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" name="auto_generate_lights" 
+                                                       id="autoGenerateLights" ${!isEdit ? 'checked' : ''}>
+                                                <label class="form-check-label" for="autoGenerateLights">
+                                                    Auto-generate lights (Creates all light slots automatically)
+                                                </label>
                                             </div>
                                         </div>
-                                        <div class="modal-footer">
-                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                            <button type="submit" class="btn btn-primary">
-                                                <i class="bi bi-check-circle"></i> ${isEdit ? 'Update' : 'Create'} Block
-                                            </button>
-                                        </div>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                    `;
 
+                                        <!-- Active status -->
+                                        <div class="col-12">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" name="is_active" 
+                                                       id="blockActive" ${!block || block.status === 'active' || block.is_active ? 'checked' : ''}>
+                                                <label class="form-check-label" for="blockActive">Active</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-check-circle"></i> ${isEdit ? 'Update' : 'Create'} Block
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+                    // Remove any existing modals
                     $('#blockModal').remove();
+                    $('.modal-backdrop').remove();
+
                     $('body').append(modalHtml);
                     const modal = new bootstrap.Modal(document.getElementById('blockModal'));
                     modal.show();
 
-                    $('#blockForm').on('submit', function (e) {
+                    // Log dropdown content for debugging
+                    console.log('Tower dropdown options count:', $('#blockModal select[name="tower_id"] option').length);
+
+                    // Form submit handler
+                    $('#blockForm').one('submit', function (e) {
                         e.preventDefault();
 
                         const formData = {
@@ -608,6 +663,13 @@
                             auto_generate_lights: $('input[name="auto_generate_lights"]').is(':checked'),
                             is_active: $('input[name="is_active"]').is(':checked')
                         };
+
+                        console.log('Submitting block data:', formData);
+
+                        if (!formData.tower_id || isNaN(formData.tower_id)) {
+                            TempleUtils.showWarning('Please select a tower');
+                            return;
+                        }
 
                         TempleUtils.showLoading(isEdit ? 'Updating block...' : 'Creating block...');
 
@@ -631,12 +693,16 @@
                             });
                     });
 
-                    $('#blockModal').on('hidden.bs.modal', function () {
+                    // Cleanup
+                    $('#blockModal').one('hidden.bs.modal', function () {
                         $(this).remove();
+                        $('.modal-backdrop').remove();
                     });
+                })
+                .fail(function (xhr) {
+                    TempleUtils.handleAjaxError(xhr, 'Failed to load towers');
                 });
         },
-
         // View block details
         viewBlock: function (id) {
             TempleRouter.navigate('pagoda/lights', { block_id: id });
@@ -695,10 +761,17 @@
             });
         },
 
-        // Cleanup
         destroy: function () {
-            // Cleanup
+            // Remove all event handlers
+            this.detachEvents();
+
+            // Remove any open modals
+            $('#towerModal').remove();
+            $('#blockModal').remove();
+
+            console.log('Pagoda Towers page destroyed');
         }
+
     };
 
 })(jQuery, window);

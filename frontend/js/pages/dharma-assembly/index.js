@@ -1,15 +1,87 @@
 // js/pages/dharma-assembly/index.js
-// Special Occasions Dharma Assembly Listing Page with GSAP + AOS animations
+// Special Occasions Dharma Assembly Listing Page with GSAP + AOS animations + Print functionality
 
 (function($, window) {
     'use strict';
-    
+    if (!window.DharmaAssemblySharedModule) {
+        window.DharmaAssemblySharedModule = {
+            moduleId: 'dharma-assembly',
+			eventNamespace: 'dharma-assembly',
+            cssId: 'dharma-assembly-css',
+            cssPath: '/css/dharma-assembly.css',
+            activePages: new Set(),
+            
+            // Load shared CSS (only once per module)
+            loadCSS: function() {
+                if (!document.getElementById(this.cssId)) {
+                    const link = document.createElement('link');
+                    link.id = this.cssId;
+                    link.rel = 'stylesheet';
+                    link.href = this.cssPath;
+                    document.head.appendChild(link);
+                    console.log('Dharma Assembly CSS loaded');
+                }
+            },
+            
+            // Register a page as active
+            registerPage: function(pageId) {
+                this.activePages.add(pageId);
+                this.loadCSS(); // Ensure CSS is loaded
+                console.log(`Dharma Assembly page registered: ${pageId} (Total: ${this.activePages.size})`);
+            },
+            
+            // Unregister a page
+            unregisterPage: function(pageId) {
+                this.activePages.delete(pageId);
+                console.log(`Dharma Assembly page unregistered: ${pageId} (Remaining: ${this.activePages.size})`);
+                
+                // If no more pages active, cleanup CSS
+                if (this.activePages.size === 0) {
+                    this.cleanup();
+                }
+            },
+            
+            // Check if any pages are active
+            hasActivePages: function() {
+                return this.activePages.size > 0;
+            },
+            
+            // Get active pages
+            getActivePages: function() {
+                return Array.from(this.activePages);
+            },
+            
+            // Cleanup module resources
+            cleanup: function() {
+                // Remove CSS
+                const cssLink = document.getElementById(this.cssId);
+                if (cssLink) {
+                    cssLink.remove();
+                    console.log('Dharma Assembly CSS removed');
+                }
+                
+                // Cleanup GSAP animations
+                if (typeof gsap !== 'undefined') {
+                    gsap.killTweensOf("*");
+                }
+                
+                // Remove all dharma-assembly-related event listeners
+                $(document).off('.' + this.eventNamespace);
+                $(window).off('.' + this.eventNamespace);
+                
+                this.activePages.clear();
+                console.log('Dharma Assembly module cleaned up');
+            }
+        };
+    }
+	
     window.DharmaAssemblyPage = {
         dataTable: null,
-        
+        pageId: 'dharma-assembly-list',
+        eventNamespace: window.DharmaAssemblySharedModule.eventNamespace,
         // Page initialization
         init: function(params) {
-            this.loadCSS();
+            window.DharmaAssemblySharedModule.registerPage(this.pageId);
             this.render();
             this.initAnimations();
             this.initDataTable();
@@ -17,15 +89,34 @@
             this.loadStats();
         },
         
-        // Load CSS dynamically
-        loadCSS: function() {
-            if (!document.getElementById('dharma-assembly-css')) {
-                const link = document.createElement('link');
-                link.id = 'dharma-assembly-css';
-                link.rel = 'stylesheet';
-                link.href = '/css/dharma-assembly.css';
-                document.head.appendChild(link);
+        // Page cleanup
+        cleanup: function() {
+            console.log(`Cleaning up ${this.pageId}...`);
+            
+            // Unregister from shared module
+            window.DharmaAssemblySharedModule.unregisterPage(this.pageId);
+            
+            // Cleanup page-specific events (with page namespace)
+            $(document).off(`.${this.eventNamespace}`);
+            $(window).off(`.${this.eventNamespace}`);
+            
+            // Cleanup page-specific animations
+            if (typeof gsap !== 'undefined') {
+                gsap.killTweensOf(`.${this.pageId}-page *`);
             }
+            
+            // Clear any intervals/timeouts
+            if (this.intervals) {
+                this.intervals.forEach(interval => clearInterval(interval));
+                this.intervals = [];
+            }
+            
+            if (this.timeouts) {
+                this.timeouts.forEach(timeout => clearTimeout(timeout));
+                this.timeouts = [];
+            }
+            
+            console.log(`${this.pageId} cleanup completed`);
         },
         
         // Render page HTML
@@ -37,7 +128,7 @@
                         <div class="occasion-header-bg"></div>
                         <div class="container-fluid">
                             <div class="row align-items-center">
-                                <div class="col-md-8">
+                                <div class="col-md-6">
                                     <div class="occasion-title-wrapper">
                                         <i class="bi bi-calendar-event-fill occasion-header-icon"></i>
                                         <div>
@@ -46,10 +137,15 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="col-md-4 text-md-end">
-                                    <button class="btn btn-outline-light btn-lg" id="btnNewOccasion">
-                                        <i class="bi bi-plus-circle"></i> New Registration
-                                    </button>
+                                <div class="col-md-6 text-md-end">
+                                    <div class="header-buttons">
+                                        <button class="btn btn-outline-light btn-lg me-2" id="btnViewReport">
+                                            <i class="bi bi-file-text"></i> View Report
+                                        </button>
+                                        <button class="btn btn-outline-light btn-lg" id="btnNewOccasion">
+                                            <i class="bi bi-plus-circle"></i> New Registration
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -336,6 +432,9 @@
                                     <button class="btn btn-primary btn-edit" data-id="${data}" title="Edit">
                                         <i class="bi bi-pencil"></i>
                                     </button>
+                                    <button class="btn btn-success btn-print" data-id="${data}" title="Print Receipt">
+                                        <i class="bi bi-printer"></i>
+                                    </button>
                                     <button class="btn btn-danger btn-delete" data-id="${data}" title="Delete">
                                         <i class="bi bi-trash"></i>
                                     </button>
@@ -372,7 +471,7 @@
                     details: {
                         nric: '800101-01-1234',
                         email: 'wong@example.com',
-                        option: 'Chief Patron 法华坛功德主',
+                        option: 'Chief Patron 法会功德主',
                         payment_methods: ['Cash', 'Cheque'],
                         remarks: 'Special request for front row seating'
                     }
@@ -490,45 +589,58 @@
             const self = this;
             
             // New registration button
-            $('#btnNewOccasion').on('click', function() {
+            $('#btnNewOccasion').on('click.' + this.eventNamespace, function() {
+				self.cleanup();
                 TempleRouter.navigate('dharma-assembly/create');
             });
             
+            // View report button
+            $('#btnViewReport').on('click.' + this.eventNamespace, function() {
+                self.cleanup();
+                TempleRouter.navigate('dharma-assembly/report');
+            });
+            
             // Apply filters
-            $('#btnApplyFilters').on('click', function() {
+            $('#btnApplyFilters').on('click.' + this.eventNamespace, function() {
                 self.applyFilters();
             });
             
             // Reset filters
-            $('#btnResetFilters').on('click', function() {
+            $('#btnResetFilters').on('click.' + this.eventNamespace, function() {
                 self.resetFilters();
             });
             
             // View button
-            $(document).on('click', '.btn-view', function() {
+            $(document).on('click.' + this.eventNamespace, '.btn-view', function() {
                 const id = $(this).data('id');
                 self.viewDetails(id);
             });
             
             // Edit button
-            $(document).on('click', '.btn-edit', function() {
+            $(document).on('click.' + this.eventNamespace, '.btn-edit', function() {
                 const id = $(this).data('id');
                 self.editRecord(id);
             });
             
+            // Print button - NEW
+            $(document).on('click.' + this.eventNamespace, '.btn-print', function() {
+                const id = $(this).data('id');
+                self.printReceipt(id);
+            });
+            
             // Delete button
-            $(document).on('click', '.btn-delete', function() {
+            $(document).on('click.' + this.eventNamespace, '.btn-delete', function() {
                 const id = $(this).data('id');
                 self.deleteRecord(id);
             });
             
             // Table row hover animation
-            $('#occasionsTable tbody').on('mouseenter', 'tr', function() {
+            $('#occasionsTable tbody').on('mouseenter.' + this.eventNamespace, 'tr', function() {
                 gsap.to(this, {
                     backgroundColor: 'rgba(255, 0, 255, 0.05)',
                     duration: 0.2
                 });
-            }).on('mouseleave', 'tr', function() {
+            }).on('mouseleave.' + this.eventNamespace, 'tr', function() {
                 gsap.to(this, {
                     backgroundColor: 'transparent',
                     duration: 0.2
@@ -536,13 +648,13 @@
             });
             
             // Filter select animations
-            $('.form-select, .form-control').on('focus', function() {
+            $('.form-select, .form-control').on('focus.' + this.eventNamespace, function() {
                 gsap.to($(this), {
                     scale: 1.02,
                     duration: 0.2,
                     ease: 'power1.out'
                 });
-            }).on('blur', function() {
+            }).on('blur.' + this.eventNamespace, function() {
                 gsap.to($(this), {
                     scale: 1,
                     duration: 0.2
@@ -708,6 +820,13 @@
             
             $('#modalDetailsContent').html(detailsHTML);
             $('#viewDetailsModal').modal('show');
+        },
+        
+        // Print receipt - NEW FUNCTION
+        printReceipt: function(id) {
+			this.cleanup();
+            // Navigate to print page with the registration ID
+            TempleRouter.navigate(`dharma-assembly/print`);
         },
         
         // Edit record

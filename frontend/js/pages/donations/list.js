@@ -1,17 +1,17 @@
 // js/pages/donations/list.js
-// Donations List Page with DataTables and GSAP animations
+// Donations List Page with DataTables, GSAP animations, and Spirit Money Generation
 
 (function($, window) {
     'use strict';
+    
     if (!window.DonationsSharedModule) {
         window.DonationsSharedModule = {
             moduleId: 'donations',
-			eventNamespace: 'donations',
+            eventNamespace: 'donations',
             cssId: 'donations-css',
             cssPath: '/css/donations.css',
             activePages: new Set(),
             
-            // Load shared CSS (only once per module)
             loadCSS: function() {
                 if (!document.getElementById(this.cssId)) {
                     const link = document.createElement('link');
@@ -23,49 +23,40 @@
                 }
             },
             
-            // Register a page as active
             registerPage: function(pageId) {
                 this.activePages.add(pageId);
-                this.loadCSS(); // Ensure CSS is loaded
+                this.loadCSS();
                 console.log(`Donations page registered: ${pageId} (Total: ${this.activePages.size})`);
             },
             
-            // Unregister a page
             unregisterPage: function(pageId) {
                 this.activePages.delete(pageId);
                 console.log(`Donations page unregistered: ${pageId} (Remaining: ${this.activePages.size})`);
                 
-                // If no more pages active, cleanup CSS
                 if (this.activePages.size === 0) {
                     this.cleanup();
                 }
             },
             
-            // Check if any pages are active
             hasActivePages: function() {
                 return this.activePages.size > 0;
             },
             
-            // Get active pages
             getActivePages: function() {
                 return Array.from(this.activePages);
             },
             
-            // Cleanup module resources
             cleanup: function() {
-                // Remove CSS
                 const cssLink = document.getElementById(this.cssId);
                 if (cssLink) {
                     cssLink.remove();
                     console.log('Donations CSS removed');
                 }
                 
-                // Cleanup GSAP animations
                 if (typeof gsap !== 'undefined') {
                     gsap.killTweensOf("*");
                 }
                 
-                // Remove all donations-related event listeners
                 $(document).off('.' + this.eventNamespace);
                 $(window).off('.' + this.eventNamespace);
                 
@@ -74,11 +65,12 @@
             }
         };
     }
+    
     window.DonationsListPage = {
         dataTable: null,
         pageId: 'donations-list',
         eventNamespace: window.DonationsSharedModule.eventNamespace,
-        // Page initialization
+        
         init: function(params) {
             window.DonationsSharedModule.registerPage(this.pageId);
             this.render();
@@ -87,23 +79,18 @@
             this.bindEvents();
         },
         
-        // Page cleanup
         cleanup: function() {
             console.log(`Cleaning up ${this.pageId}...`);
             
-            // Unregister from shared module
             window.DonationsSharedModule.unregisterPage(this.pageId);
             
-            // Cleanup page-specific events (with page namespace)
             $(document).off(`.${this.eventNamespace}`);
             $(window).off(`.${this.eventNamespace}`);
             
-            // Cleanup page-specific animations
             if (typeof gsap !== 'undefined') {
                 gsap.killTweensOf(`.${this.pageId}-page *`);
             }
             
-            // Clear any intervals/timeouts
             if (this.intervals) {
                 this.intervals.forEach(interval => clearInterval(interval));
                 this.intervals = [];
@@ -117,7 +104,6 @@
             console.log(`${this.pageId} cleanup completed`);
         },
         
-        // Render page HTML
         render: function() {
             const html = `
                 <div class="donations-list-page">
@@ -131,9 +117,12 @@
                                 </h1>
                                 <p class="text-muted mb-0">Manage all donation records</p>
                             </div>
-                            <div>
+                            <div class="d-flex gap-2">
                                 <button class="btn btn-primary" id="btnNewDonation">
                                     <i class="bi bi-plus-circle"></i> New Donation
+                                </button>
+                                <button class="btn btn-outline-secondary" id="btnPrintReport">
+                                    <i class="bi bi-printer-fill"></i> Print Report
                                 </button>
                                 <button class="btn btn-outline-primary" id="btnRefresh">
                                     <i class="bi bi-arrow-clockwise"></i> Refresh
@@ -250,14 +239,66 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- Spirit Money Preview Modal -->
+                <div class="modal fade" id="spiritMoneyModal" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    <i class="bi bi-file-earmark-image me-2"></i>
+                                    Spirit Money Preview
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body text-center">
+                                <div id="spiritMoneyPreview" class="mb-3">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Generating...</span>
+                                    </div>
+                                    <p class="mt-2">Generating spirit money image...</p>
+                                </div>
+                                <div id="spiritMoneyInfo" class="text-start" style="display:none;">
+                                    <div class="alert alert-info">
+                                        <h6 class="mb-2">Donor Information:</h6>
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <small><strong>Name (Chinese):</strong></small><br>
+                                                <span id="previewNameChinese"></span>
+                                            </div>
+                                            <div class="col-6">
+                                                <small><strong>Name (English):</strong></small><br>
+                                                <span id="previewNameEnglish"></span>
+                                            </div>
+                                            <div class="col-6 mt-2">
+                                                <small><strong>Amount:</strong></small><br>
+                                                <span id="previewAmount"></span>
+                                            </div>
+                                            <div class="col-6 mt-2">
+                                                <small><strong>Donation ID:</strong></small><br>
+                                                <span id="previewDonationId"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                    <i class="bi bi-x-circle"></i> Close
+                                </button>
+                                <button type="button" class="btn btn-primary" id="btnDownloadSpiritMoney" disabled>
+                                    <i class="bi bi-download"></i> Download Image
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             `;
             
             $('#page-container').html(html);
         },
         
-        // Initialize animations
         initAnimations: function() {
-            // Initialize AOS
             if (typeof AOS !== 'undefined') {
                 AOS.init({
                     duration: 800,
@@ -267,7 +308,6 @@
                 });
             }
             
-            // Animate stat cards on hover
             $('.stat-card').each(function(index) {
                 const card = this;
                 
@@ -291,20 +331,12 @@
             });
         },
         
-        // Load data
         loadData: function() {
-            const self = this;
-            
-            // Load stats
             this.loadStats();
-            
-            // Initialize DataTable
             this.initDataTable();
         },
         
-        // Load statistics
         loadStats: function() {
-            // Simulate loading stats (replace with actual API call)
             const stats = {
                 todayDonations: 12,
                 todayAmount: 5240.50,
@@ -312,27 +344,12 @@
                 totalDonors: 543
             };
             
-            // Animate counter updates
             this.animateCounter('#todayDonations', stats.todayDonations);
             this.animateCounter('#todayAmount', stats.todayAmount, true);
             this.animateCounter('#monthDonations', stats.monthDonations);
             this.animateCounter('#totalDonors', stats.totalDonors);
-            
-            // Actual implementation:
-            /*
-            TempleAPI.get('/donations/stats')
-                .done(function(response) {
-                    if (response.success) {
-                        self.animateCounter('#todayDonations', response.data.todayDonations);
-                        self.animateCounter('#todayAmount', response.data.todayAmount, true);
-                        self.animateCounter('#monthDonations', response.data.monthDonations);
-                        self.animateCounter('#totalDonors', response.data.totalDonors);
-                    }
-                });
-            */
         },
         
-        // Animate counter
         animateCounter: function(selector, endValue, isDecimal = false) {
             const $element = $(selector);
             const obj = { value: 0 };
@@ -351,11 +368,8 @@
             });
         },
         
-        // Initialize DataTable
         initDataTable: function() {
             const self = this;
-            
-            // Sample data (replace with actual API call)
             const sampleData = this.getSampleData();
             
             this.dataTable = $('#donationsTable').DataTable({
@@ -437,6 +451,14 @@
                                             title="Edit">
                                         <i class="bi bi-pencil"></i>
                                     </button>
+                                    <button class="btn btn-outline-warning btn-spirit-money" 
+                                            data-id="${data.id}"
+                                            data-name-chinese="${data.name_chinese}"
+                                            data-name-english="${data.name_english}"
+                                            data-amount="${data.amount}"
+                                            title="Generate Spirit Money">
+                                        <i class="bi bi-file-earmark-image"></i>
+                                    </button>
                                     <button class="btn btn-outline-info btn-print" data-id="${data.id}" 
                                             title="Print Receipt">
                                         <i class="bi bi-printer"></i>
@@ -463,7 +485,6 @@
                     emptyTable: 'No donations recorded yet'
                 },
                 drawCallback: function() {
-                    // Animate rows on draw
                     $('#donationsTable tbody tr').each(function(index) {
                         gsap.from(this, {
                             opacity: 0,
@@ -475,27 +496,8 @@
                     });
                 }
             });
-            
-            // Actual implementation with API:
-            /*
-            this.dataTable = $('#donationsTable').DataTable({
-                processing: true,
-                serverSide: true,
-                ajax: {
-                    url: TempleAPI.buildUrl('/donations'),
-                    type: 'GET',
-                    headers: {
-                        'Authorization': 'Bearer ' + TempleAPI.getToken()
-                    },
-                    dataSrc: 'data'
-                },
-                columns: [...],
-                ...
-            });
-            */
         },
         
-        // Get sample data
         getSampleData: function() {
             return [
                 {
@@ -561,11 +563,9 @@
             ];
         },
         
-        // Bind events
         bindEvents: function() {
             const self = this;
             
-            // New donation button
             $('#btnNewDonation').on('click.' + this.eventNamespace, function() {
                 gsap.to(this, {
                     scale: 0.95,
@@ -573,14 +573,13 @@
                     yoyo: true,
                     repeat: 1,
                     onComplete: () => {
+                        self.cleanup();
                         TempleRouter.navigate('donations/create');
                     }
                 });
             });
             
-            // Refresh button
-            $('#btnRefresh').on('click.' + this.eventNamespace, function() {
-                // Animate button
+            $('#btnPrintReport').on('click.' + this.eventNamespace, function() {
                 const $btn = $(this);
                 const $icon = $btn.find('i');
                 
@@ -590,7 +589,26 @@
                     ease: 'power2.inOut'
                 });
                 
-                // Reload data
+                const reportParams = {
+                    type: $('#filterType').val(),
+                    payment_method: $('#filterPayment').val(),
+                    from_date: $('#filterFromDate').val(),
+                    to_date: $('#filterToDate').val()
+                };
+                self.cleanup();
+                TempleRouter.navigate('donations/report-print', reportParams);
+            });
+            
+            $('#btnRefresh').on('click.' + this.eventNamespace, function() {
+                const $btn = $(this);
+                const $icon = $btn.find('i');
+                
+                gsap.to($icon[0], {
+                    rotation: 360,
+                    duration: 0.5,
+                    ease: 'power2.inOut'
+                });
+                
                 if (self.dataTable) {
                     self.dataTable.ajax.reload();
                 }
@@ -599,58 +617,90 @@
                 TempleCore.showToast('Data refreshed', 'success');
             });
             
-            // Filter changes
             $('#filterType, #filterPayment, #filterFromDate, #filterToDate').on('change.' + this.eventNamespace, function() {
                 self.applyFilters();
             });
             
-            // View button
             $(document).on('click.' + this.eventNamespace, '.btn-view', function() {
                 const id = $(this).data('id');
                 self.viewDonation(id);
             });
             
-            // Edit button
             $(document).on('click.' + this.eventNamespace, '.btn-edit', function() {
                 const id = $(this).data('id');
                 self.editDonation(id);
             });
             
-            // Print button
-            $(document).on('click.' + this.eventNamespace, '.btn-print', function() {
-                const id = $(this).data('id');
-                self.printReceipt(id);
+            // Spirit Money button - NEW
+            $(document).on('click.' + this.eventNamespace, '.btn-spirit-money', function() {
+                const $btn = $(this);
+                const donorData = {
+                    id: $btn.data('id'),
+                    name_chinese: $btn.data('name-chinese'),
+                    name_english: $btn.data('name-english'),
+                    amount: $btn.data('amount')
+                };
+                
+                // Animate button
+                const $icon = $btn.find('i');
+                gsap.to($icon[0], {
+                    scale: 1.3,
+                    rotation: 15,
+                    duration: 0.2,
+                    yoyo: true,
+                    repeat: 1,
+                    ease: 'power2.inOut',
+                    onComplete: () => {
+                        self.generateSpiritMoney(donorData);
+                    }
+                });
             });
             
-            // Delete button
+            $(document).on('click.' + this.eventNamespace, '.btn-print', function() {
+                const id = $(this).data('id');
+                const $btn = $(this);
+                const $icon = $btn.find('i');
+                
+                gsap.to($icon[0], {
+                    scale: 1.2,
+                    rotation: 10,
+                    duration: 0.2,
+                    yoyo: true,
+                    repeat: 1,
+                    ease: 'power2.inOut',
+                    onComplete: () => {
+                        self.printReceipt(id);
+                    }
+                });
+            });
+            
             $(document).on('click.' + this.eventNamespace, '.btn-delete', function() {
                 const id = $(this).data('id');
                 self.deleteDonation(id);
             });
+            
+            // Spirit Money Modal download button
+            $('#btnDownloadSpiritMoney').on('click.' + this.eventNamespace, function() {
+                self.downloadCurrentSpiritMoney();
+            });
         },
         
-        // Apply filters
         applyFilters: function() {
             const type = $('#filterType').val();
             const payment = $('#filterPayment').val();
             const fromDate = $('#filterFromDate').val();
             const toDate = $('#filterToDate').val();
             
-            // Apply filters to DataTable
             if (this.dataTable) {
-                // Custom filtering logic
                 $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
-                    // Type filter
                     if (type && data[3].indexOf(type) === -1) {
                         return false;
                     }
                     
-                    // Payment filter
                     if (payment && data[5].indexOf(payment) === -1) {
                         return false;
                     }
                     
-                    // Date range filter
                     const rowDate = moment(data[1], 'DD MMM YYYY');
                     if (fromDate && rowDate.isBefore(moment(fromDate))) {
                         return false;
@@ -663,40 +713,122 @@
                 });
                 
                 this.dataTable.draw();
-                
-                // Remove filter after drawing
                 $.fn.dataTable.ext.search.pop();
             }
             
-            // Animate filter card
             gsap.fromTo('.filter-card', 
                 { scale: 0.98 },
                 { scale: 1, duration: 0.2, ease: 'back.out(1.2)' }
             );
         },
         
-        // View donation
         viewDonation: function(id) {
             console.log('View donation:', id);
-            // TempleRouter.navigate('donations/view/' + id);
             TempleCore.showToast('View feature coming soon', 'info');
         },
         
-        // Edit donation
         editDonation: function(id) {
             console.log('Edit donation:', id);
-            // TempleRouter.navigate('donations/edit/' + id);
             TempleCore.showToast('Edit feature coming soon', 'info');
         },
         
-        // Print receipt
         printReceipt: function(id) {
-            console.log('Print receipt:', id);
-            TempleCore.showToast('Printing receipt...', 'info');
-            // Implement print logic
+            console.log('Print receipt for donation:', id);
+            TempleCore.showToast('Generating receipt...', 'info');
+            this.cleanup();
+            let params = {id: id};
+            TempleRouter.navigate('donations/receipt-print', params);
         },
         
-        // Delete donation
+        // Spirit Money Generation - NEW METHODS
+        generateSpiritMoney: function(donorData) {
+            const self = this;
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('spiritMoneyModal'));
+            modal.show();
+            
+            // Reset preview
+            $('#spiritMoneyPreview').html(`
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Generating...</span>
+                </div>
+                <p class="mt-2">Generating spirit money image...</p>
+            `);
+            $('#spiritMoneyInfo').hide();
+            $('#btnDownloadSpiritMoney').prop('disabled', true);
+            
+            // Update info display
+            $('#previewNameChinese').text(donorData.name_chinese);
+            $('#previewNameEnglish').text(donorData.name_english);
+            $('#previewAmount').text('RM ' + parseFloat(donorData.amount).toFixed(2));
+            $('#previewDonationId').text(donorData.id);
+            
+            // Check if SpiritMoneyGenerator is available
+            if (typeof window.SpiritMoneyGenerator === 'undefined') {
+                $('#spiritMoneyPreview').html(`
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        Spirit Money Generator not loaded. Please ensure the script is included.
+                    </div>
+                `);
+                return;
+            }
+            
+            // Generate image
+            window.SpiritMoneyGenerator.generate(donorData)
+                .then(dataUrl => {
+                    // Store for download
+                    self.currentSpiritMoneyData = {
+                        dataUrl: dataUrl,
+                        filename: `spirit-money-${donorData.id}.png`
+                    };
+                    
+                    // Show preview
+                    $('#spiritMoneyPreview').html(`
+                        <img src="${dataUrl}" alt="Spirit Money" class="img-fluid border rounded shadow-sm" style="max-height: 500px;">
+                    `);
+                    $('#spiritMoneyInfo').show();
+                    $('#btnDownloadSpiritMoney').prop('disabled', false);
+                    
+                    // Animate preview
+                    gsap.from('#spiritMoneyPreview img', {
+                        scale: 0.8,
+                        opacity: 0,
+                        duration: 0.5,
+                        ease: 'back.out(1.2)'
+                    });
+                    
+                    TempleCore.showToast('Spirit money generated successfully!', 'success');
+                })
+                .catch(error => {
+                    console.error('Spirit Money Generation Error:', error);
+                    $('#spiritMoneyPreview').html(`
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            Failed to generate spirit money image. Error: ${error.message}
+                        </div>
+                    `);
+                    TempleCore.showToast('Failed to generate spirit money', 'error');
+                });
+        },
+        
+        downloadCurrentSpiritMoney: function() {
+            if (this.currentSpiritMoneyData) {
+                window.SpiritMoneyGenerator.download(
+                    this.currentSpiritMoneyData.dataUrl,
+                    this.currentSpiritMoneyData.filename
+                );
+                
+                TempleCore.showToast('Spirit money downloaded!', 'success');
+                
+                // Close modal after download
+                setTimeout(() => {
+                    bootstrap.Modal.getInstance(document.getElementById('spiritMoneyModal')).hide();
+                }, 800);
+            }
+        },
+        
         deleteDonation: function(id) {
             const self = this;
             
@@ -711,10 +843,8 @@
                 cancelButtonText: 'Cancel'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    // Simulate deletion (replace with actual API call)
                     console.log('Delete donation:', id);
                     
-                    // Show success and reload
                     Swal.fire({
                         title: 'Deleted!',
                         text: 'Donation record has been deleted.',
@@ -723,30 +853,9 @@
                         showConfirmButton: false
                     });
                     
-                    // Reload table
                     if (self.dataTable) {
                         self.dataTable.ajax.reload();
                     }
-                    
-                    // Actual implementation:
-                    /*
-                    TempleAPI.delete('/donations/' + id)
-                        .done(function(response) {
-                            if (response.success) {
-                                Swal.fire({
-                                    title: 'Deleted!',
-                                    text: 'Donation record has been deleted.',
-                                    icon: 'success',
-                                    timer: 1500,
-                                    showConfirmButton: false
-                                });
-                                self.dataTable.ajax.reload();
-                            }
-                        })
-                        .fail(function() {
-                            Swal.fire('Error', 'Failed to delete donation', 'error');
-                        });
-                    */
                 }
             });
         }
