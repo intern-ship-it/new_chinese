@@ -5,10 +5,18 @@ use Illuminate\Database\Eloquent\Model;
 
 class Deity extends Model
 {
+    protected $table = 'deities';
+
     protected $fillable = [
-        'deity_code', 'name', 'name_secondary', 
-        'image_url', 'order_no', 'status',
-        'created_by', 'updated_by'
+        'deity_code',
+        'name',
+        'name_secondary',
+        'description',
+        'image_url',
+        'order_no',
+        'status',
+        'created_by',
+        'updated_by',
     ];
 
     protected $casts = [
@@ -18,22 +26,43 @@ class Deity extends Model
         'updated_at' => 'datetime'
     ];
 
-    public function archanais()
+    /**
+     * Relationship: Sale items associated with this deity
+     */
+    public function saleItems()
     {
-        return $this->hasMany(Archanai::class);
+        return $this->belongsToMany(SaleItem::class, 'sale_item_deities', 'deity_id', 'sale_item_id')
+            ->withTimestamps();
     }
 
+    /**
+     * Scope: Only active deities
+     */
     public function scopeActive($query)
     {
-        return $query->where('status', true)->orderBy('order_no');
+        return $query->where('status', true);
     }
 
-    public function creator()
+    /**
+     * Scope: Order by order_no
+     */
+    public function scopeOrdered($query)
+    {
+        return $query->orderBy('order_no', 'asc')->orderBy('name', 'asc');
+    }
+
+    /**
+     * User who created this record
+     */
+    public function createdBy()
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function updater()
+    /**
+     * User who last updated this record
+     */
+    public function updatedBy()
     {
         return $this->belongsTo(User::class, 'updated_by');
     }

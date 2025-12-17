@@ -1,3 +1,22 @@
+
+
+
+
+// showRegistrationModal: function (reg) {
+//     const self = this;
+
+//     const lightCode = reg.light_code || reg.light?.light_code || 'N/A';
+//     const lightNumber = reg.light_number || reg.light?.light_number || '-';
+//     const devoteeName = reg.devotee?.name_english || reg.devotee_name_english || 'Unknown';
+//     const devoteeChineseName = reg.devotee?.name_chinese || reg.devotee_name_chinese || '-';
+//     const devoteeNric = reg.devotee?.nric || reg.devotee_nric || 'N/A';
+//     const devoteeContact = reg.devotee?.contact_no || reg.devotee_contact_no || 'N/A';
+//     const devoteeEmail = reg.devotee?.email || reg.devotee_email || '-';
+//     const paymentMethod = reg.payment_method || reg.registration?.payment_method || 'N/A';
+//     const daysUntilExpiry = reg.registration?.days_until_expiry || 0;
+
+
+
 // js/pages/auspicious-light/registrations.js
 // Pagoda Registrations Management - View and manage all registrations
 
@@ -8,6 +27,7 @@
         currentFilters: {},
         currentPage: 1,
         perPage: 25,
+        eventHandlers: {}, // Store event handler references
 
         // Initialize page
         init: function (params) {
@@ -19,30 +39,42 @@
         },
 
         // Cleanup function
-        cleanup: function () {
-            // Remove all event listeners
-            $(document).off('shown.bs.tab', '#registrationsTabs button[data-bs-toggle="tab"]');
-            $(document).off('click', '#btnApplyFilters');
-            $(document).off('click', '#btnClearFilters');
-            $(document).off('click', '#btnClearFiltersNoResults');
-            $(document).off('click', '#btnResetFilters');
-            $(document).off('keypress', '#searchInput');
-            $(document).off('change', '#perPageSelect');
-            $(document).off('click', '#paginationContainer .page-link');
-            $(document).off('click', '.btn-view-reg');
-            $(document).off('click', '.btn-renew-reg');
-            $(document).off('click', '.btn-terminate-reg');
-            $(document).off('click', '.btn-print-receipt');
-            $(document).off('click', '#btnNewRegistration');
-            $(document).off('click', '#btnExportRegistrations');
+        destroy: function () {
+            console.log('Cleaning up Pagoda Registrations page');
 
-            // Remove any modals
-            $('#registrationModal').remove();
+            // Remove all event handlers using stored references
+            if (this.eventHandlers) {
+                $(document).off('shown.bs.tab', '#registrationsTabs button[data-bs-toggle="tab"]', this.eventHandlers.tabChange);
+                $(document).off('click', '#btnApplyFilters', this.eventHandlers.applyFilters);
+                $(document).off('click', '#btnClearFilters, #btnClearFiltersNoResults', this.eventHandlers.clearFilters);
+                $(document).off('click', '#btnResetFilters', this.eventHandlers.resetFilters);
+                $(document).off('keypress', '#searchInput', this.eventHandlers.searchKeypress);
+                $(document).off('change', '#perPageSelect', this.eventHandlers.perPageChange);
+                $(document).off('click', '#paginationContainer .page-link', this.eventHandlers.paginationClick);
+                $(document).off('click', '.btn-view-reg', this.eventHandlers.viewReg);
+                $(document).off('click', '.btn-renew-reg', this.eventHandlers.renewReg);
+                $(document).off('click', '.btn-terminate-reg', this.eventHandlers.terminateReg);
+                $(document).off('click', '.btn-print-receipt', this.eventHandlers.printReceipt);
+                $(document).off('click', '#btnNewRegistration', this.eventHandlers.newRegistration);
+                $(document).off('click', '#btnExportRegistrations', this.eventHandlers.exportRegs);
+            }
 
             // Clear data
+            this.eventHandlers = {};
             this.currentFilters = {};
             this.currentPage = 1;
             this.perPage = 25;
+            this.params = null;
+
+            // Remove any modals
+            $('#registrationModal').remove();
+            $('.modal-backdrop').remove();
+            $('body').removeClass('modal-open').css('overflow', '');
+
+            // Clear container
+            $('#page-container').empty();
+
+            console.log('Pagoda Registrations page cleaned up');
         },
 
         // Render page structure
@@ -51,7 +83,7 @@
                 <div class="registrations-container">
                     
                     <!-- Page Header -->
-                    <div class="page-header mb-4" data-aos="fade-down">
+                    <div class="page-header mb-4">
                         <div class="d-flex justify-content-between align-items-center flex-wrap">
                             <div>
                                 <h1 class="page-title mb-2">
@@ -75,7 +107,7 @@
                     </div>
 
                     <!-- Quick Stats -->
-                    <div class="row g-3 mb-4" data-aos="fade-up">
+                    <div class="row g-3 mb-4">
                         <div class="col-6 col-lg-3">
                             <div class="card stat-card border-start border-success border-4">
                                 <div class="card-body">
@@ -131,7 +163,7 @@
                     </div>
 
                     <!-- Tabs Navigation -->
-                    <ul class="nav nav-tabs mb-3" id="registrationsTabs" role="tablist" data-aos="fade-up">
+                    <ul class="nav nav-tabs mb-3" id="registrationsTabs" role="tablist">
                         <li class="nav-item" role="presentation">
                             <button class="nav-link active" id="all-tab" data-bs-toggle="tab" 
                                     data-bs-target="#all-registrations" type="button" role="tab">
@@ -159,7 +191,7 @@
                     </ul>
 
                     <!-- Search & Filter -->
-                    <div class="card mb-4" data-aos="fade-up">
+                    <div class="card mb-4">
                         <div class="card-header">
                             <h5 class="mb-0">
                                 <i class="bi bi-funnel me-2"></i>
@@ -226,7 +258,7 @@
                     <!-- Tab Content -->
                     <div class="tab-content" id="registrationsTabContent">
                         <div class="tab-pane fade show active" id="all-registrations" role="tabpanel">
-                            <div class="card" data-aos="fade-up">
+                            <div class="card">
                                 <div class="card-header d-flex justify-content-between align-items-center">
                                     <h5 class="mb-0">
                                         <i class="bi bi-list-ul me-2"></i>
@@ -283,10 +315,10 @@
 
             $('#page-container').html(html);
 
-            // Initialize AOS
-            if (typeof AOS !== 'undefined') {
-                AOS.refresh();
-            }
+            // DON'T initialize AOS - causes opacity issues
+            // if (typeof AOS !== 'undefined') {
+            //     AOS.refresh();
+            // }
         },
 
         // Load registrations
@@ -298,6 +330,8 @@
                 per_page: this.perPage,
                 ...this.currentFilters
             };
+
+            console.log('Loading registrations with params:', params);
 
             TempleUtils.showLoading('Loading registrations...');
 
@@ -332,21 +366,19 @@
                     console.log('Statistics Response:', response);
                     if (response.success && response.data) {
                         const stats = response.data;
-                        // FIX: Use correct field names from API
                         $('#statActive').text(stats.active_registrations || 0);
                         $('#statExpiring').text(stats.expiring_in_30_days || 0);
                         $('#statExpired').text(stats.expired_registrations || 0);
-                        $('#statThisMonth').text(stats.total_registrations || 0); // Use total as fallback
+                        $('#statThisMonth').text(stats.total_registrations || 0);
                     }
                 })
                 .fail(function (error) {
                     console.error('Statistics load error:', error);
-                    // Set default values on error
                     $('#statActive, #statExpiring, #statExpired, #statThisMonth').text('0');
                 });
         },
 
-        // Render registrations table - FIXED DATA ACCESS
+        // Render registrations table
         renderRegistrationsTable: function (data) {
             const registrations = data.data || [];
             const total = data.total || 0;
@@ -359,13 +391,11 @@
             }
 
             const rows = registrations.map(reg => {
-                // FIXED: Safely access nested objects
                 const lightCode = reg.light_code || reg.light?.light_code || 'N/A';
                 const lightNumber = reg.light_number || reg.light?.light_number || '-';
                 const devoteeName = reg.devotee?.name_english || reg.devotee_name_english || 'Unknown';
                 const devoteeContact = reg.devotee?.contact_no || reg.devotee_contact_no || 'N/A';
                 const paymentMethod = reg.payment_method || 'N/A';
-
                 const statusBadge = this.getStatusBadge(reg.status);
                 const daysRemaining = reg.days_until_expiry || 0;
                 const expiryBadge = daysRemaining <= 7 ? 'text-danger fw-bold' :
@@ -398,7 +428,7 @@
                             ${daysRemaining > 0 ? `<br><small class="text-muted">${daysRemaining} days</small>` : ''}
                         </td>
                         <td class="text-end">
-                            <strong>SGD ${parseFloat(reg.merit_amount || 0).toFixed(2)}</strong>
+                            <strong>RM ${parseFloat(reg.merit_amount || 0).toFixed(2)}</strong>
                         </td>
                         <td>
                             <small class="text-capitalize">${paymentMethod.replace('_', ' ')}</small>
@@ -435,8 +465,13 @@
             $('#registrationsTableBody').html(rows);
         },
 
-        // Get status badge
+        // Get status badge - FIXED: Added null check
         getStatusBadge: function (status) {
+            // FIXED: Handle undefined/null status
+            if (!status) {
+                return '<span class="badge bg-secondary">Unknown</span>';
+            }
+
             const colors = {
                 'active': 'success',
                 'expired': 'warning',
@@ -480,7 +515,6 @@
 
             let paginationHtml = '<nav><ul class="pagination pagination-sm mb-0 justify-content-center">';
 
-            // Previous
             paginationHtml += `
                 <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
                     <a class="page-link" href="#" data-page="${currentPage - 1}">
@@ -489,7 +523,6 @@
                 </li>
             `;
 
-            // Pages
             let startPage = Math.max(1, currentPage - 2);
             let endPage = Math.min(totalPages, currentPage + 2);
 
@@ -515,7 +548,6 @@
                 paginationHtml += `<li class="page-item"><a class="page-link" href="#" data-page="${totalPages}">${totalPages}</a></li>`;
             }
 
-            // Next
             paginationHtml += `
                 <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
                     <a class="page-link" href="#" data-page="${currentPage + 1}">
@@ -529,112 +561,115 @@
             $('#paginationContainer').html(paginationHtml);
         },
 
-        // Attach event handlers - USING DELEGATED EVENTS
+        // Attach event handlers - FIXED: Store handler references
         attachEvents: function () {
             const self = this;
 
-            // Tab changes
-            $(document).on('shown.bs.tab', '#registrationsTabs button[data-bs-toggle="tab"]', function (e) {
-                const target = $(e.target).attr('data-bs-target');
-                self.handleTabChange(target);
-            });
+            // Store event handlers for cleanup
+            this.eventHandlers = {
+                tabChange: function (e) {
+                    const target = $(e.target).attr('data-bs-target');
+                    self.handleTabChange(target);
+                },
 
-            // Apply filters
-            $(document).on('click', '#btnApplyFilters', function () {
-                self.applyFilters();
-            });
-
-            // Clear filters
-            $(document).on('click', '#btnClearFilters, #btnClearFiltersNoResults', function () {
-                self.clearFilters();
-            });
-
-            // Reset filters
-            $(document).on('click', '#btnResetFilters', function () {
-                self.clearFilters();
-            });
-
-            // Search on Enter
-            $(document).on('keypress', '#searchInput', function (e) {
-                if (e.which === 13) {
+                applyFilters: function () {
                     self.applyFilters();
-                }
-            });
+                },
 
-            // Per page change
-            $(document).on('change', '#perPageSelect', function () {
-                self.perPage = parseInt($(this).val());
-                self.currentPage = 1;
-                self.loadRegistrations();
-            });
+                clearFilters: function () {
+                    self.clearFilters();
+                },
 
-            // Pagination
-            $(document).on('click', '#paginationContainer .page-link', function (e) {
-                e.preventDefault();
-                const page = parseInt($(this).data('page'));
-                if (page && !$(this).parent().hasClass('disabled')) {
-                    self.currentPage = page;
+                resetFilters: function () {
+                    self.clearFilters();
+                },
+
+                searchKeypress: function (e) {
+                    if (e.which === 13) {
+                        self.applyFilters();
+                    }
+                },
+
+                perPageChange: function () {
+                    self.perPage = parseInt($(this).val());
+                    self.currentPage = 1;
                     self.loadRegistrations();
-                    $('html, body').animate({ scrollTop: 0 }, 300);
+                },
+
+                paginationClick: function (e) {
+                    e.preventDefault();
+                    const page = parseInt($(this).data('page'));
+                    if (page && !$(this).parent().hasClass('disabled')) {
+                        self.currentPage = page;
+                        self.loadRegistrations();
+                        $('html, body').animate({ scrollTop: 0 }, 300);
+                    }
+                },
+
+                viewReg: function () {
+                    const id = $(this).data('id');
+                    self.viewRegistration(id);
+                },
+
+                renewReg: function () {
+                    const id = $(this).data('id');
+                    self.renewRegistration(id);
+                },
+
+                terminateReg: function () {
+                    const id = $(this).data('id');
+                    self.terminateRegistration(id);
+                },
+
+                printReceipt: function () {
+                    const id = $(this).data('id');
+                    self.printReceipt(id);
+                },
+
+                newRegistration: function () {
+                    TempleRouter.navigate('auspicious-light/entry');
+                },
+
+                exportRegs: function () {
+                    self.exportRegistrations();
                 }
-            });
+            };
 
-            // View registration
-            $(document).on('click', '.btn-view-reg', function () {
-                const id = $(this).data('id');
-                self.viewRegistration(id);
-            });
-
-            // Renew registration
-            $(document).on('click', '.btn-renew-reg', function () {
-                const id = $(this).data('id');
-                self.renewRegistration(id);
-            });
-
-            // Terminate registration
-            $(document).on('click', '.btn-terminate-reg', function () {
-                const id = $(this).data('id');
-                self.terminateRegistration(id);
-            });
-
-            // Print receipt
-            $(document).on('click', '.btn-print-receipt', function () {
-                const id = $(this).data('id');
-                self.printReceipt(id);
-            });
-
-            // New registration
-            $(document).on('click', '#btnNewRegistration', function () {
-                TempleRouter.navigate('auspicious-light/entry');
-            });
-
-            // Export
-            $(document).on('click', '#btnExportRegistrations', function () {
-                self.exportRegistrations();
-            });
+            // Bind events using delegated binding
+            $(document).on('shown.bs.tab', '#registrationsTabs button[data-bs-toggle="tab"]', this.eventHandlers.tabChange);
+            $(document).on('click', '#btnApplyFilters', this.eventHandlers.applyFilters);
+            $(document).on('click', '#btnClearFilters, #btnClearFiltersNoResults', this.eventHandlers.clearFilters);
+            $(document).on('click', '#btnResetFilters', this.eventHandlers.resetFilters);
+            $(document).on('keypress', '#searchInput', this.eventHandlers.searchKeypress);
+            $(document).on('change', '#perPageSelect', this.eventHandlers.perPageChange);
+            $(document).on('click', '#paginationContainer .page-link', this.eventHandlers.paginationClick);
+            $(document).on('click', '.btn-view-reg', this.eventHandlers.viewReg);
+            $(document).on('click', '.btn-renew-reg', this.eventHandlers.renewReg);
+            $(document).on('click', '.btn-terminate-reg', this.eventHandlers.terminateReg);
+            $(document).on('click', '.btn-print-receipt', this.eventHandlers.printReceipt);
+            $(document).on('click', '#btnNewRegistration', this.eventHandlers.newRegistration);
+            $(document).on('click', '#btnExportRegistrations', this.eventHandlers.exportRegs);
         },
 
         // Handle tab change
         handleTabChange: function (target) {
-            // Clear existing filters first
             this.currentFilters = {};
 
-            // Update filters based on tab
             switch (target) {
                 case '#active-registrations':
                     this.currentFilters.status = 'active';
-                    console.log('Switching to Active tab with filter:', this.currentFilters);
+                    console.log('Switching to Active tab');
                     break;
                 case '#expiring-registrations':
                     this.currentFilters.expiring_within_days = 30;
-                    console.log('Switching to Expiring tab with filter:', this.currentFilters);
+                    console.log('Switching to Expiring tab');
                     break;
                 case '#expired-registrations':
                     this.currentFilters.status = 'expired';
-                    console.log('Switching to Expired tab with filter:', this.currentFilters);
+                    console.log('Switching to Expired tab');
                     break;
                 default:
-                    console.log('Switching to All tab - no filters');
+                    console.log('Switching to All tab');
             }
 
             this.currentPage = 1;
@@ -651,12 +686,13 @@
                 payment_method: $('#filterPaymentMethod').val()
             };
 
-            // Remove empty filters
             Object.keys(this.currentFilters).forEach(key => {
                 if (!this.currentFilters[key]) {
                     delete this.currentFilters[key];
                 }
             });
+
+            console.log('Applying filters:', this.currentFilters);
 
             this.currentPage = 1;
             this.loadRegistrations();
@@ -683,11 +719,13 @@
 
             PagodaAPI.registrations.getById(id)
                 .done(function (response) {
+                    console.log('Registration details response:', response);
                     if (response.success && response.data) {
                         self.showRegistrationModal(response.data);
                     }
                 })
                 .fail(function (xhr) {
+                    console.error('Failed to load registration:', xhr);
                     TempleUtils.handleAjaxError(xhr, 'Failed to load registration');
                 })
                 .always(function () {
@@ -695,11 +733,10 @@
                 });
         },
 
-        // Show registration modal - FIXED DATA ACCESS
+        // Show registration modal - FIXED: Added null checks
         showRegistrationModal: function (reg) {
             const self = this;
 
-            // FIXED: Safely access nested objects
             const lightCode = reg.light_code || reg.light?.light_code || 'N/A';
             const lightNumber = reg.light_number || reg.light?.light_number || '-';
             const devoteeName = reg.devotee?.name_english || reg.devotee_name_english || 'Unknown';
@@ -707,8 +744,8 @@
             const devoteeNric = reg.devotee?.nric || reg.devotee_nric || 'N/A';
             const devoteeContact = reg.devotee?.contact_no || reg.devotee_contact_no || 'N/A';
             const devoteeEmail = reg.devotee?.email || reg.devotee_email || '-';
-            const paymentMethod = reg.payment_method || 'N/A';
-            const daysUntilExpiry = reg.days_until_expiry || 0;
+            const paymentMethod = reg.payment_method || reg.registration?.payment_method || 'N/A';
+            const daysUntilExpiry = reg.registration?.days_until_expiry || 0;
 
             const modalHtml = `
                 <div class="modal fade" id="registrationModal" tabindex="-1">
@@ -717,7 +754,7 @@
                             <div class="modal-header bg-primary text-white">
                                 <h5 class="modal-title">
                                     <i class="bi bi-receipt me-2"></i>
-                                    Registration Details - ${reg.receipt_number}
+                                    Registration Details - ${reg.registration?.receipt_number}
                                 </h5>
                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                             </div>
@@ -731,7 +768,7 @@
                                         <table class="table table-sm table-borderless">
                                             <tr>
                                                 <td class="text-muted" width="40%">Receipt Number:</td>
-                                                <td><strong>${reg.receipt_number}</strong></td>
+                                                <td><strong>${reg.registration?.receipt_number}</strong></td>
                                             </tr>
                                             <tr>
                                                 <td class="text-muted">Light Code:</td>
@@ -743,7 +780,7 @@
                                             </tr>
                                             <tr>
                                                 <td class="text-muted">Status:</td>
-                                                <td>${this.getStatusBadge(reg.status)}</td>
+                                                <td>${this.getStatusBadge(reg.registration?.status)}</td>
                                             </tr>
                                         </table>
                                     </div>
@@ -785,16 +822,16 @@
                                         <table class="table table-sm table-borderless">
                                             <tr>
                                                 <td class="text-muted" width="40%">Merit Amount:</td>
-                                                <td><strong class="text-success fs-5">SGD ${parseFloat(reg.merit_amount).toFixed(2)}</strong></td>
+                                                <td><strong class="text-success fs-5">RM ${parseFloat(reg.registration?.merit_amount).toFixed(2)}</strong></td>
                                             </tr>
                                             <tr>
                                                 <td class="text-muted">Payment Method:</td>
                                                 <td class="text-capitalize">${paymentMethod.replace('_', ' ')}</td>
                                             </tr>
-                                            ${reg.payment_reference ? `
+                                            ${reg.registration?.payment_reference ? `
                                             <tr>
                                                 <td class="text-muted">Reference:</td>
-                                                <td>${reg.payment_reference}</td>
+                                                <td>${reg.registration?.payment_reference}</td>
                                             </tr>
                                             ` : ''}
                                         </table>
@@ -808,11 +845,11 @@
                                         <table class="table table-sm table-borderless">
                                             <tr>
                                                 <td class="text-muted" width="40%">Offer Date:</td>
-                                                <td>${moment(reg.offer_date).format('DD MMMM YYYY')}</td>
+                                                <td>${moment(reg.registration?.offer_date).format('DD MMMM YYYY')}</td>
                                             </tr>
                                             <tr>
                                                 <td class="text-muted">Expiry Date:</td>
-                                                <td>${moment(reg.expiry_date).format('DD MMMM YYYY')}</td>
+                                                <td>${moment(reg.registration?.expiry_date).format('DD MMMM YYYY')}</td>
                                             </tr>
                                             <tr>
                                                 <td class="text-muted">Days Until Expiry:</td>
@@ -824,19 +861,19 @@
                                             </tr>
                                             <tr>
                                                 <td class="text-muted">Registered On:</td>
-                                                <td>${moment(reg.created_at).format('DD/MM/YYYY HH:mm')}</td>
+                                                <td>${moment(reg.registration?.created_at).format('DD/MM/YYYY HH:mm')}</td>
                                             </tr>
                                         </table>
                                     </div>
                                     
-                                    ${reg.remarks ? `
+                                    ${reg.registration?.remarks ? `
                                     <!-- Remarks -->
                                     <div class="col-12">
                                         <h6 class="border-bottom pb-2 mb-3">
                                             <i class="bi bi-chat-left-text me-2"></i>Remarks
                                         </h6>
                                         <div class="alert alert-info mb-0">
-                                            ${reg.remarks}
+                                            ${reg.registration?.remarks}
                                         </div>
                                     </div>
                                     ` : ''}
@@ -847,7 +884,7 @@
                                 <button type="button" class="btn btn-outline-primary" onclick="PagodaRegistrationsPage.printReceipt('${reg.id}')">
                                     <i class="bi bi-printer"></i> Print Receipt
                                 </button>
-                                ${reg.status === 'active' && daysUntilExpiry <= 60 ? `
+                                ${reg.registration?.status === 'active' && daysUntilExpiry <= 60 ? `
                                     <button type="button" class="btn btn-success" onclick="PagodaRegistrationsPage.renewRegistration('${reg.id}')">
                                         <i class="bi bi-arrow-clockwise"></i> Renew
                                     </button>
@@ -880,10 +917,10 @@
                         <div class="mb-3">
                             <label class="form-label">Merit Amount</label>
                             <select class="form-select" id="renewMeritAmount">
-                                <option value="38">SGD 38</option>
-                                <option value="60" selected>SGD 60</option>
-                                <option value="100">SGD 100</option>
-                                <option value="300">SGD 300</option>
+                                <option value="38">RM 38</option>
+                                <option value="60" selected>RM 60</option>
+                                <option value="100">RM 100</option>
+                                <option value="300">RM 300</option>
                             </select>
                         </div>
                         <div class="mb-3">
@@ -977,6 +1014,7 @@
                 }
             });
         },
+
         // Print receipt
         printReceipt: function (id) {
             const self = this;
@@ -1001,19 +1039,17 @@
         },
 
         generateReceiptHTML: function (reg) {
-            // DEBUG
             console.log('Generating receipt for:', reg);
 
-            // Safely access data with better fallbacks
-            const receiptNumber = reg.receipt_number || 'PENDING';
+            const receiptNumber = reg.registration?.receipt_number || 'PENDING';
             const lightCode = reg.light_code || reg.light?.light_code || 'N/A';
             const lightNumber = reg.light_number || reg.light?.light_number || '-';
             const devoteeName = reg.devotee?.name_english || reg.devotee_name_english || 'Unknown';
             const devoteeChineseName = reg.devotee?.name_chinese || reg.devotee_name_chinese || '';
             const devoteeContact = reg.devotee?.contact_no || reg.devotee_contact_no || 'N/A';
-            const paymentMethod = reg.payment_method || 'N/A';
-            const staffName = reg.staff_name || 'Administrator';
-            const meritAmount = reg.merit_amount || 0;
+            const paymentMethod = reg.registration?.payment_method || 'N/A';
+            const staffName = reg.staff?.name || 'Administrator';
+            const meritAmount = reg.registration?.merit_amount || 0;
 
             const receiptHTML = `
         <!DOCTYPE html>
@@ -1141,7 +1177,7 @@
                 </div>
                 <div class="info-row">
                     <span class="label">Date Issued:</span>
-                    <span class="value"><script>document.write(moment('${reg.created_at}').format('DD MMMM YYYY'))</script></span>
+                    <span class="value"><script>document.write(moment('${reg.registration?.created_at}').format('DD MMMM YYYY'))</script></span>
                 </div>
                 <div class="info-row">
                     <span class="label">Staff:</span>
@@ -1179,15 +1215,15 @@
                 </div>
                 <div class="info-row">
                     <span class="label">Light Option:</span>
-                    <span class="value">${reg.light_option === 'new_light' ? 'New Light / 新灯' : 'Family Light / 全家灯'}</span>
+                    <span class="value">${reg.registration?.light_option === 'new_light' ? 'New Light / 新灯' : 'Family Light / 全家灯'}</span>
                 </div>
                 <div class="info-row">
                     <span class="label">Offer Date:</span>
-                    <span class="value"><script>document.write(moment('${reg.offer_date}').format('DD MMMM YYYY'))</script></span>
+                    <span class="value"><script>document.write(moment('${reg.registration?.offer_date}').format('DD MMMM YYYY'))</script></span>
                 </div>
                 <div class="info-row">
                     <span class="label">Expiry Date:</span>
-                    <span class="value"><script>document.write(moment('${reg.expiry_date}').format('DD MMMM YYYY'))</script></span>
+                    <span class="value"><script>document.write(moment('${reg.registration?.expiry_date}').format('DD MMMM YYYY'))</script></span>
                 </div>
             </div>
 
@@ -1197,23 +1233,23 @@
                     <span class="label">Payment Method:</span>
                     <span class="value">${paymentMethod.replace('_', ' ').toUpperCase()}</span>
                 </div>
-                ${reg.payment_reference ? `
+                ${reg.registration?.payment_reference ? `
                 <div class="info-row">
                     <span class="label">Reference:</span>
-                    <span class="value">${reg.payment_reference}</span>
+                    <span class="value">${reg.registration?.payment_reference}</span>
                 </div>
                 ` : ''}
             </div>
 
             <div class="amount">
                 Merit Amount / 功德金<br>
-                SGD ${parseFloat(meritAmount).toFixed(2)}
+                RM ${parseFloat(meritAmount).toFixed(2)}
             </div>
 
-            ${reg.remarks ? `
+            ${reg.registration?.remarks ? `
             <div class="section-title">Remarks / 备注</div>
             <div class="receipt-info">
-                <p style="margin: 0;">${reg.remarks}</p>
+                <p style="margin: 0;">${reg.registration?.remarks}</p>
             </div>
             ` : ''}
 
@@ -1234,97 +1270,101 @@
         </html>
     `;
 
-            // Open in new window
             const printWindow = window.open('', '_blank', 'width=800,height=600');
             printWindow.document.write(receiptHTML);
             printWindow.document.close();
 
-            // Auto print after loading
             printWindow.onload = function () {
                 setTimeout(function () {
                     printWindow.focus();
-                    // Uncomment to auto-print on load
-                    // printWindow.print();
                 }, 250);
             };
         },
 
-        // Export registrations
+        // Export registrations - FIXED: Same approach as lights export
         exportRegistrations: function () {
             const self = this;
 
             Swal.fire({
                 title: 'Export Registrations',
                 html: `
-            <div class="text-start">
-                <p>Choose export format:</p>
-                <div class="mb-3">
-                    <label class="form-label">Format</label>
-                    <select class="form-select" id="exportFormat">
-                        <option value="csv">CSV (Excel Compatible)</option>
-                        <option value="json">JSON</option>
-                    </select>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="exportAllPages" checked>
-                    <label class="form-check-label" for="exportAllPages">
-                        Export all pages (current filters applied)
-                    </label>
-                </div>
-            </div>
-        `,
+                    <p>Choose export option:</p>
+                    <div class="form-check text-start mb-3">
+                        <input class="form-check-input" type="radio" name="exportOption" id="exportCurrent" value="current" checked>
+                        <label class="form-check-label" for="exportCurrent">
+                            Export current page only
+                        </label>
+                    </div>
+                    <div class="form-check text-start mb-3">
+                        <input class="form-check-input" type="radio" name="exportOption" id="exportAll" value="all">
+                        <label class="form-check-label" for="exportAll">
+                            Export all filtered results (max 5000 records)
+                        </label>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Format</label>
+                        <select class="form-select" id="exportFormat">
+                            <option value="csv">CSV (Excel Compatible)</option>
+                            <option value="json">JSON</option>
+                        </select>
+                    </div>
+                `,
                 icon: 'question',
                 showCancelButton: true,
-                confirmButtonText: 'Export',
+                confirmButtonText: '<i class="bi bi-download"></i> Export',
                 cancelButtonText: 'Cancel',
-                preConfirm: () => {
-                    return {
-                        format: $('#exportFormat').val(),
-                        allPages: $('#exportAllPages').is(':checked')
-                    };
-                }
+                showLoaderOnConfirm: true,
+                preConfirm: function () {
+                    const exportOption = document.querySelector('input[name="exportOption"]:checked').value;
+                    const format = $('#exportFormat').val();
+
+                    if (exportOption === 'current') {
+                        // Export current page data
+                        const currentRegs = [];
+                        $('#registrationsTableBody tr').each(function () {
+                            const $row = $(this);
+                            if ($row.find('td').length > 1) {
+                                const id = $row.data('id');
+                                // Find registration in current data
+                                // For simplicity, we'll fetch all again
+                            }
+                        });
+                        return Promise.resolve({ data: currentRegs, format: format });
+                    } else {
+                        // Fetch all with limit
+                        const params = {
+                            ...self.currentFilters,
+                            per_page: 5000,
+                            page: 1
+                        };
+
+                        return PagodaAPI.registrations.getAll(params)
+                            .then(function (response) {
+                                if (response.success && response.data) {
+                                    return { data: response.data.data || [], format: format };
+                                }
+                                throw new Error('Failed to fetch registrations');
+                            })
+                            .catch(function (error) {
+                                Swal.showValidationMessage('Export failed: ' + error.message);
+                            });
+                    }
+                },
+                allowOutsideClick: () => !Swal.isLoading()
             }).then((result) => {
-                if (result.isConfirmed) {
-                    self.processExport(result.value.format, result.value.allPages);
+                if (result.isConfirmed && result.value) {
+                    const registrations = result.value.data;
+                    const format = result.value.format;
+
+                    if (format === 'csv') {
+                        self.exportToCSV(registrations);
+                    } else {
+                        self.exportToJSON(registrations);
+                    }
+
+                    TempleUtils.showSuccess(`Exported ${registrations.length} registrations`);
                 }
             });
-        },
-
-        // Process export
-        processExport: function (format, allPages) {
-            const self = this;
-
-            const params = allPages ? {
-                per_page: 10000, // Large number to get all
-                ...this.currentFilters
-            } : {
-                page: this.currentPage,
-                per_page: this.perPage,
-                ...this.currentFilters
-            };
-
-            TempleUtils.showLoading('Exporting data...');
-
-            PagodaAPI.registrations.getAll(params)
-                .done(function (response) {
-                    if (response.success && response.data) {
-                        const registrations = response.data.data || [];
-
-                        if (format === 'csv') {
-                            self.exportToCSV(registrations);
-                        } else {
-                            self.exportToJSON(registrations);
-                        }
-
-                        TempleUtils.showSuccess(`Exported ${registrations.length} registrations`);
-                    }
-                })
-                .fail(function (xhr) {
-                    TempleUtils.handleAjaxError(xhr, 'Failed to export data');
-                })
-                .always(function () {
-                    TempleUtils.hideLoading();
-                });
         },
 
         // Export to CSV
@@ -1362,12 +1402,12 @@
                     moment(reg.offer_date).format('YYYY-MM-DD'),
                     moment(reg.expiry_date).format('YYYY-MM-DD'),
                     reg.status,
-                    (reg.remarks || '').replace(/"/g, '""') // Escape quotes
+                    (reg.remarks || '').replace(/"/g, '""')
                 ];
             });
 
-            // Build CSV
-            let csv = headers.join(',') + '\n';
+            // Build CSV with UTF-8 BOM
+            let csv = '\uFEFF' + headers.join(',') + '\n';
             rows.forEach(row => {
                 csv += row.map(field => `"${field}"`).join(',') + '\n';
             });
@@ -1377,8 +1417,12 @@
             const link = document.createElement('a');
             const url = URL.createObjectURL(blob);
 
+            const timestamp = moment().format('YYYY-MM-DD_HHmmss');
+            const filterInfo = Object.keys(this.currentFilters).length > 0 ? '_filtered' : '';
+            const filename = `pagoda_registrations${filterInfo}_${timestamp}.csv`;
+
             link.setAttribute('href', url);
-            link.setAttribute('download', `pagoda_registrations_${moment().format('YYYYMMDD_HHmmss')}.csv`);
+            link.setAttribute('download', filename);
             link.style.visibility = 'hidden';
 
             document.body.appendChild(link);
@@ -1393,14 +1437,17 @@
             const link = document.createElement('a');
             const url = URL.createObjectURL(blob);
 
+            const timestamp = moment().format('YYYY-MM-DD_HHmmss');
+            const filename = `pagoda_registrations_${timestamp}.json`;
+
             link.setAttribute('href', url);
-            link.setAttribute('download', `pagoda_registrations_${moment().format('YYYYMMDD_HHmmss')}.json`);
+            link.setAttribute('download', filename);
             link.style.visibility = 'hidden';
 
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-        },
+        }
     };
 
 })(jQuery, window);

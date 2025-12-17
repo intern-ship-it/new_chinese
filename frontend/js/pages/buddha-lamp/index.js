@@ -1,13 +1,13 @@
 // js/pages/buddha-lamp/index.js
-// Buddha Lamp Booking Listing Page with GSAP + AOS animations + Print Features
+// Buddha Lamp Booking Listing Page - Dynamic Version with GSAP + AOS animations + Print Features
 
 (function($, window) {
     'use strict';
     
-	if (!window.BuddhaLampSharedModule) {
+    if (!window.BuddhaLampSharedModule) {
         window.BuddhaLampSharedModule = {
             moduleId: 'buddha-lamp',
-			eventNamespace: 'buddha-lamp',
+            eventNamespace: 'buddha-lamp',
             cssId: 'buddha-lamp-css',
             cssPath: '/css/buddha-lamp.css',
             activePages: new Set(),
@@ -27,7 +27,7 @@
             // Register a page as active
             registerPage: function(pageId) {
                 this.activePages.add(pageId);
-                this.loadCSS(); // Ensure CSS is loaded
+                this.loadCSS();
                 console.log(`Buddha Lamp page registered: ${pageId} (Total: ${this.activePages.size})`);
             },
             
@@ -36,7 +36,6 @@
                 this.activePages.delete(pageId);
                 console.log(`Buddha Lamp page unregistered: ${pageId} (Remaining: ${this.activePages.size})`);
                 
-                // If no more pages active, cleanup CSS
                 if (this.activePages.size === 0) {
                     this.cleanup();
                 }
@@ -54,19 +53,16 @@
             
             // Cleanup module resources
             cleanup: function() {
-                // Remove CSS
                 const cssLink = document.getElementById(this.cssId);
                 if (cssLink) {
                     cssLink.remove();
                     console.log('Buddha Lamp CSS removed');
                 }
                 
-                // Cleanup GSAP animations
                 if (typeof gsap !== 'undefined') {
                     gsap.killTweensOf("*");
                 }
                 
-                // Remove all buddha-lamp-related event listeners
                 $(document).off('.' + this.eventNamespace);
                 $(window).off('.' + this.eventNamespace);
                 
@@ -75,11 +71,15 @@
             }
         };
     }
-	
+    
     window.BuddhaLampPage = {
         dataTable: null,
-		pageId: 'buddha-lamp-list',
+        pageId: 'buddha-lamp-list',
         eventNamespace: window.BuddhaLampSharedModule.eventNamespace,
+        bookingsData: [],
+        pagination: null,
+        intervals: [],
+        timeouts: [],
         
         // Page initialization
         init: function(params) {
@@ -94,19 +94,20 @@
         cleanup: function() {
             console.log(`Cleaning up ${this.pageId}...`);
             
-            // Unregister from shared module
             window.BuddhaLampSharedModule.unregisterPage(this.pageId);
             
-            // Cleanup page-specific events (with page namespace)
             $(document).off(`.${this.eventNamespace}`);
             $(window).off(`.${this.eventNamespace}`);
             
-            // Cleanup page-specific animations
             if (typeof gsap !== 'undefined') {
                 gsap.killTweensOf(`.${this.pageId}-page *`);
             }
             
-            // Clear any intervals/timeouts
+            if (this.dataTable) {
+                this.dataTable.destroy();
+                this.dataTable = null;
+            }
+            
             if (this.intervals) {
                 this.intervals.forEach(interval => clearInterval(interval));
                 this.intervals = [];
@@ -154,7 +155,7 @@
 
                     <!-- Stats Cards -->
                     <div class="row mb-4" data-aos="fade-up" data-aos-duration="800">
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-3 mb-3">
                             <div class="card stat-card stat-card-primary">
                                 <div class="d-flex align-items-center">
                                     <div class="stat-card-icon">
@@ -168,7 +169,7 @@
                             </div>
                         </div>
                         
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-3 mb-3">
                             <div class="card stat-card stat-card-success">
                                 <div class="d-flex align-items-center">
                                     <div class="stat-card-icon">
@@ -176,13 +177,13 @@
                                     </div>
                                     <div class="ms-3 flex-grow-1">
                                         <div class="stat-label">Total Amount</div>
-                                        <div class="stat-value" id="totalAmount">RM 0</div>
+                                        <div class="stat-value" id="totalAmount">RM 0.00</div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-3 mb-3">
                             <div class="card stat-card stat-card-warning">
                                 <div class="d-flex align-items-center">
                                     <div class="stat-card-icon">
@@ -195,34 +196,63 @@
                                 </div>
                             </div>
                         </div>
+                        
+                        <div class="col-md-3 mb-3">
+                            <div class="card stat-card stat-card-info">
+                                <div class="d-flex align-items-center">
+                                    <div class="stat-card-icon">
+                                        <i class="bi bi-check-circle"></i>
+                                    </div>
+                                    <div class="ms-3 flex-grow-1">
+                                        <div class="stat-label">Confirmed</div>
+                                        <div class="stat-value" id="confirmedCount">0</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Filters Card -->
                     <div class="card shadow-sm mb-4 filter-card" data-aos="fade-up" data-aos-duration="800" data-aos-delay="100">
                         <div class="card-body">
                             <div class="row g-3">
-                                <div class="col-md-3">
+                                <div class="col-md-2">
                                     <label class="form-label">Date From</label>
                                     <input type="date" class="form-control" id="filterDateFrom">
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-2">
                                     <label class="form-label">Date To</label>
                                     <input type="date" class="form-control" id="filterDateTo">
                                 </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">Payment Method</label>
-                                    <select class="form-select" id="filterPaymentMethod">
-                                        <option value="">All Methods</option>
-                                        <option value="cash">Cash</option>
-                                        <option value="cheque">Cheque</option>
-                                        <option value="ebanking">e-Banking</option>
-                                        <option value="card">Credit/Debit Card</option>
-                                        <option value="duitnow">DuitNow</option>
+                                <div class="col-md-2">
+                                    <label class="form-label">Booking Status</label>
+                                    <select class="form-select" id="filterBookingStatus">
+                                        <option value="">All Status</option>
+                                        <option value="CONFIRMED">Confirmed</option>
+                                        <option value="PENDING">Pending</option>
+                                        <option value="COMPLETED">Completed</option>
+                                        <option value="CANCELLED">Cancelled</option>
                                     </select>
                                 </div>
-                                <div class="col-md-3 d-flex align-items-end">
-                                    <button class="btn btn-primary w-100" id="btnApplyFilter">
-                                        <i class="bi bi-funnel"></i> Apply Filter
+                                <div class="col-md-2">
+                                    <label class="form-label">Payment Status</label>
+                                    <select class="form-select" id="filterPaymentStatus">
+                                        <option value="">All Payment</option>
+                                        <option value="FULL">Fully Paid</option>
+                                        <option value="PARTIAL">Partial</option>
+                                        <option value="PENDING">Pending</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Search</label>
+                                    <input type="text" class="form-control" id="filterSearch" placeholder="Name, NRIC, Booking No...">
+                                </div>
+                                <div class="col-md-2 d-flex align-items-end gap-2">
+                                    <button class="btn btn-primary flex-grow-1" id="btnApplyFilter">
+                                        <i class="bi bi-funnel"></i> Filter
+                                    </button>
+                                    <button class="btn btn-outline-secondary" id="btnClearFilter" title="Clear Filters">
+                                        <i class="bi bi-x-circle"></i>
                                     </button>
                                 </div>
                             </div>
@@ -232,24 +262,44 @@
                     <!-- Data Table Card -->
                     <div class="card shadow-sm table-card" data-aos="fade-up" data-aos-duration="800" data-aos-delay="200">
                         <div class="card-body">
-                            <div class="table-responsive">
+                            <!-- Loading State -->
+                            <div id="tableLoading" class="text-center py-5" style="display: none;">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-2 text-muted">Loading bookings...</p>
+                            </div>
+                            
+                            <!-- Table -->
+                            <div class="table-responsive" id="tableContainer">
                                 <table id="buddhaLampTable" class="table table-hover" style="width:100%">
                                     <thead>
                                         <tr>
-                                            <th>Booking ID</th>
+                                            <th>Booking No.</th>
                                             <th>Name (Chinese)</th>
                                             <th>Name (English)</th>
                                             <th>Contact No.</th>
                                             <th>Amount (RM)</th>
                                             <th>Payment Method</th>
                                             <th>Booking Date</th>
+                                            <th>Status</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <!-- Data will be loaded via DataTables -->
+                                        <!-- Data will be loaded via API -->
                                     </tbody>
                                 </table>
+                            </div>
+                            
+                            <!-- Empty State -->
+                            <div id="emptyState" class="text-center py-5" style="display: none;">
+                                <i class="bi bi-inbox text-muted" style="font-size: 4rem;"></i>
+                                <h4 class="mt-3 text-muted">No Bookings Found</h4>
+                                <p class="text-muted">There are no Buddha Lamp bookings matching your criteria.</p>
+                                <button class="btn btn-primary" id="btnEmptyAddNew">
+                                    <i class="bi bi-plus-circle"></i> Create New Booking
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -261,7 +311,6 @@
         
         // Initialize animations
         initAnimations: function() {
-            // Initialize AOS
             if (typeof AOS !== 'undefined') {
                 AOS.init({
                     duration: 800,
@@ -271,14 +320,17 @@
                 });
             }
             
-            // Animate stat cards on load
-            gsap.from('.stat-card', {
-                scale: 0.9,
-                opacity: 0,
-                duration: 0.5,
-                stagger: 0.1,
-                ease: 'back.out(1.2)'
-            });
+            gsap.fromTo('.stat-card',
+                { scale: 0.9, opacity: 0 },
+                {
+                    scale: 1,
+                    opacity: 1,
+                    duration: 0.5,
+                    stagger: 0.1,
+                    ease: 'back.out(1.2)',
+                    clearProps: 'all'
+                }
+            );
         },
         
         // Bind events
@@ -286,7 +338,7 @@
             const self = this;
             
             // Add new booking button
-            $('#btnAddNew').on('click.' + this.eventNamespace, function() {
+            $('#btnAddNew, #btnEmptyAddNew').on('click.' + this.eventNamespace, function() {
                 gsap.to(this, {
                     scale: 0.95,
                     duration: 0.1,
@@ -294,7 +346,7 @@
                     repeat: 1,
                     ease: 'power2.inOut',
                     onComplete: () => {
-						self.cleanup();
+                        self.cleanup();
                         TempleRouter.navigate('buddha-lamp/create');
                     }
                 });
@@ -319,6 +371,18 @@
                 self.applyFilters();
             });
             
+            // Clear filter button
+            $('#btnClearFilter').on('click.' + this.eventNamespace, function() {
+                self.clearFilters();
+            });
+            
+            // Search on Enter key
+            $('#filterSearch').on('keypress.' + this.eventNamespace, function(e) {
+                if (e.which === 13) {
+                    self.applyFilters();
+                }
+            });
+            
             // Button hover animations
             $('.btn').hover(
                 function() {
@@ -337,26 +401,98 @@
             );
         },
         
-        // Load data and initialize DataTable
-        loadData: function() {
+        // Load data from API
+        loadData: function(filters = {}) {
             const self = this;
             
-            // Sample data (replace with actual API call)
-            const sampleData = this.generateSampleData();
+            // Show loading
+            $('#tableLoading').show();
+            $('#tableContainer').hide();
+            $('#emptyState').hide();
+            
+            // Build query params
+            const params = {
+                per_page: 100, // Get more records for client-side pagination
+                sort_by: 'created_at',
+                sort_order: 'desc',
+                ...filters
+            };
+            
+            TempleAPI.get('/bookings/buddha-lamp', params)
+                .done(function(response) {
+                    if (response.success) {
+                        self.bookingsData = response.data || [];
+                        self.pagination = response.pagination || null;
+                        
+                        if (self.bookingsData.length > 0) {
+                            self.initDataTable(self.bookingsData);
+                            self.updateStats(self.bookingsData);
+                            $('#tableContainer').show();
+                            $('#emptyState').hide();
+                        } else {
+                            $('#tableContainer').hide();
+                            $('#emptyState').show();
+                        }
+                    } else {
+                        TempleCore.showToast(response.message || 'Failed to load bookings', 'error');
+                        $('#emptyState').show();
+                    }
+                })
+                .fail(function(xhr) {
+                    console.error('Failed to load bookings:', xhr);
+                    let errorMessage = 'Failed to load bookings';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMessage = xhr.responseJSON.message;
+                    }
+                    TempleCore.showToast(errorMessage, 'error');
+                    $('#emptyState').show();
+                })
+                .always(function() {
+                    $('#tableLoading').hide();
+                });
+        },
+        
+        // Initialize DataTable with data
+        initDataTable: function(data) {
+            const self = this;
+            
+            // Destroy existing DataTable if exists
+            if (this.dataTable) {
+                this.dataTable.destroy();
+                $('#buddhaLampTable tbody').empty();
+            }
+            
+            // Format data for DataTable
+            const formattedData = data.map(booking => ({
+                id: booking.id,
+                booking_number: booking.booking_number,
+                name_chinese: booking.name_secondary || '-',
+                name_english: booking.name_primary || '-',
+                contact_no: booking.phone_no || '-',
+                amount: parseFloat(booking.total_amount) || 0,
+                payment_method: booking.payment ? booking.payment.payment_method : '-',
+                booking_date: booking.booking_date || '-',
+                booking_status: booking.booking_status,
+                payment_status: booking.payment_status
+            }));
             
             // Initialize DataTable
             this.dataTable = $('#buddhaLampTable').DataTable({
-                data: sampleData,
+                data: formattedData,
                 columns: [
-                    { data: 'id' },
+                    { 
+                        data: 'booking_number',
+                        render: function(data) {
+                            return `<span class="fw-bold text-primary">${data}</span>`;
+                        }
+                    },
                     { data: 'name_chinese' },
                     { data: 'name_english' },
                     { data: 'contact_no' },
                     { 
                         data: 'amount',
                         render: function(data) {
-                            const amount = typeof data === 'string' ? parseFloat(data) : data;
-                            return amount.toFixed(2);
+                            return parseFloat(data).toFixed(2);
                         }
                     },
                     { 
@@ -365,24 +501,37 @@
                             return self.getPaymentMethodBadge(data);
                         }
                     },
-                    { data: 'booking_date' },
+                    { 
+                        data: 'booking_date',
+                        render: function(data) {
+                            if (!data || data === '-') return '-';
+                            return self.formatDate(data);
+                        }
+                    },
+                    {
+                        data: null,
+                        render: function(data, type, row) {
+                            return self.getStatusBadges(row.booking_status, row.payment_status);
+                        }
+                    },
                     {
                         data: null,
                         orderable: false,
                         render: function(data, type, row) {
+                            const isCancelled = row.booking_status === 'CANCELLED';
                             return `
                                 <div class="btn-group btn-group-sm" role="group">
-                                    <button class="btn btn-outline-info btn-print" data-id="${row.id}" title="Print Receipt">
+                                    <button class="btn btn-outline-info btn-print" data-id="${row.id}" data-booking="${row.booking_number}" title="Print Receipt">
                                         <i class="bi bi-printer"></i>
                                     </button>
                                     <button class="btn btn-outline-primary btn-view" data-id="${row.id}" title="View">
                                         <i class="bi bi-eye"></i>
                                     </button>
-                                    <button class="btn btn-outline-success btn-edit" data-id="${row.id}" title="Edit">
+                                    <button class="btn btn-outline-success btn-edit" data-id="${row.id}" title="Edit" ${isCancelled ? 'disabled' : ''}>
                                         <i class="bi bi-pencil"></i>
                                     </button>
-                                    <button class="btn btn-outline-danger btn-delete" data-id="${row.id}" title="Delete">
-                                        <i class="bi bi-trash"></i>
+                                    <button class="btn btn-outline-danger btn-cancel" data-id="${row.id}" data-booking="${row.booking_number}" title="Cancel" ${isCancelled ? 'disabled' : ''}>
+                                        <i class="bi bi-x-circle"></i>
                                     </button>
                                 </div>
                             `;
@@ -393,11 +542,11 @@
                 responsive: true,
                 pageLength: 25,
                 language: {
-                    search: "Search bookings:",
-                    lengthMenu: "Show _MENU_ bookings per page",
+                    search: "Search:",
+                    lengthMenu: "Show _MENU_ per page",
                     info: "Showing _START_ to _END_ of _TOTAL_ bookings",
                     infoEmpty: "No bookings found",
-                    infoFiltered: "(filtered from _MAX_ total bookings)",
+                    infoFiltered: "(filtered from _MAX_ total)",
                     paginate: {
                         first: "First",
                         last: "Last",
@@ -410,66 +559,59 @@
                     self.animateTableRows();
                 }
             });
-            
-            // Update stats
-            this.updateStats(sampleData);
-            
-            // Actual implementation would use API:
-            /*
-            TempleAPI.get('/buddha-lamp')
-                .done(function(response) {
-                    if (response.success) {
-                        self.dataTable = $('#buddhaLampTable').DataTable({
-                            data: response.data,
-                            // ... rest of configuration
-                        });
-                        self.updateStats(response.data);
-                    }
-                })
-                .fail(function(error) {
-                    TempleCore.showToast('Failed to load bookings', 'error');
-                });
-            */
         },
         
-        // Generate sample data
-        generateSampleData: function() {
-            const data = [];
-            const paymentMethods = ['cash', 'cheque', 'ebanking', 'card', 'duitnow'];
-            const chineseNames = ['李明华', '王芳', '张伟', '刘静', '陈杰'];
-            const englishNames = ['Li Ming Hua', 'Wang Fang', 'Zhang Wei', 'Liu Jing', 'Chen Jie'];
-            
-            for (let i = 1; i <= 50; i++) {
-                const randomIndex = Math.floor(Math.random() * chineseNames.length);
-                const date = new Date();
-                date.setDate(date.getDate() - Math.floor(Math.random() * 90));
-                
-                data.push({
-                    id: 'BL' + String(i).padStart(5, '0'),
-                    name_chinese: chineseNames[randomIndex],
-                    name_english: englishNames[randomIndex],
-                    nric: '******-**-' + String(Math.floor(Math.random() * 9999)).padStart(4, '0'),
-                    email: englishNames[randomIndex].toLowerCase().replace(' ', '.') + '@email.com',
-                    contact_no: '+60 1' + Math.floor(Math.random() * 90000000 + 10000000),
-                    amount: Math.random() > 0.5 ? 5000.00 : parseFloat((Math.random() * 1000 + 100).toFixed(2)),
-                    payment_method: paymentMethods[Math.floor(Math.random() * paymentMethods.length)],
-                    booking_date: date.toISOString().split('T')[0]
-                });
-            }
-            
-            return data;
+        // Format date
+        formatDate: function(dateStr) {
+            if (!dateStr) return '-';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-MY', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
         },
         
         // Get payment method badge
         getPaymentMethodBadge: function(method) {
+            if (!method || method === '-') return '<span class="badge bg-secondary">-</span>';
+            
+            const methodLower = method.toLowerCase();
             const badges = {
                 'cash': '<span class="badge bg-success">Cash</span>',
                 'cheque': '<span class="badge bg-info">Cheque</span>',
+                'e-banking': '<span class="badge bg-primary">e-Banking</span>',
                 'ebanking': '<span class="badge bg-primary">e-Banking</span>',
-                'card': '<span class="badge bg-warning">Card</span>',
-                'duitnow': '<span class="badge bg-danger">DuitNow</span>'
+                'credit card': '<span class="badge bg-warning text-dark">Credit Card</span>',
+                'debit card': '<span class="badge bg-warning text-dark">Debit Card</span>',
+                'card': '<span class="badge bg-warning text-dark">Card</span>',
+                'duitnow': '<span class="badge bg-danger">DuitNow</span>',
+                'eghl qr': '<span class="badge bg-purple">EGHL QR</span>'
             };
-            return badges[method] || '<span class="badge bg-secondary">' + method + '</span>';
+            
+            return badges[methodLower] || `<span class="badge bg-secondary">${method}</span>`;
+        },
+        
+        // Get status badges
+        getStatusBadges: function(bookingStatus, paymentStatus) {
+            const bookingBadges = {
+                'CONFIRMED': '<span class="badge bg-success">Confirmed</span>',
+                'PENDING': '<span class="badge bg-warning text-dark">Pending</span>',
+                'COMPLETED': '<span class="badge bg-info">Completed</span>',
+                'CANCELLED': '<span class="badge bg-danger">Cancelled</span>',
+                'FAILED': '<span class="badge bg-dark">Failed</span>'
+            };
+            
+            const paymentBadges = {
+                'FULL': '<span class="badge bg-success">Paid</span>',
+                'PARTIAL': '<span class="badge bg-warning text-dark">Partial</span>',
+                'PENDING': '<span class="badge bg-secondary">Unpaid</span>'
+            };
+            
+            const booking = bookingBadges[bookingStatus] || `<span class="badge bg-secondary">${bookingStatus}</span>`;
+            const payment = paymentBadges[paymentStatus] || '';
+            
+            return `<div class="d-flex flex-column gap-1">${booking}${payment ? '<br>' + payment : ''}</div>`;
         },
         
         // Bind table actions
@@ -479,7 +621,8 @@
             // Print Receipt button
             $('.btn-print').off('click').on('click.' + this.eventNamespace, function() {
                 const id = $(this).data('id');
-                self.printReceipt(id);
+                const bookingNumber = $(this).data('booking');
+                self.printReceipt(id, bookingNumber);
             });
             
             // View button
@@ -491,53 +634,53 @@
             // Edit button
             $('.btn-edit').off('click').on('click.' + this.eventNamespace, function() {
                 const id = $(this).data('id');
-                self.editBooking(id);
+                if (!$(this).prop('disabled')) {
+                    self.editBooking(id);
+                }
             });
             
-            // Delete button
-            $('.btn-delete').off('click').on('click.' + this.eventNamespace, function() {
+            // Cancel button
+            $('.btn-cancel').off('click').on('click.' + this.eventNamespace, function() {
                 const id = $(this).data('id');
-                self.deleteBooking(id);
+                const bookingNumber = $(this).data('booking');
+                if (!$(this).prop('disabled')) {
+                    self.cancelBooking(id, bookingNumber);
+                }
             });
         },
         
         // Animate table rows
         animateTableRows: function() {
             const visibleRows = $('#buddhaLampTable tbody tr:visible').slice(0, 25);
-			gsap.fromTo(visibleRows, 
-				{ opacity: 0, y: 20 },           // Start state
-				{ 
-					opacity: 1,                  // ✅ Explicit end state
-					y: 0,                        // ✅ Explicit end state
-					duration: 0.4,
-					stagger: 0.03,               // ✅ Faster (25 × 0.03 = 0.75s)
-					ease: 'power2.out',
-					clearProps: 'all'            // ✅ Remove inline styles
-				}
-			);
+            gsap.fromTo(visibleRows, 
+                { opacity: 0, y: 20 },
+                { 
+                    opacity: 1,
+                    y: 0,
+                    duration: 0.4,
+                    stagger: 0.03,
+                    ease: 'power2.out',
+                    clearProps: 'all'
+                }
+            );
         },
         
         // Print Receipt
-        printReceipt: function(id) {
-            console.log('Print receipt for booking:', id);
-			const self = this;
-            // Show loading animation on the print button
+        printReceipt: function(id, bookingNumber) {
+            const self = this;
             const $printBtn = $(`.btn-print[data-id="${id}"]`);
             const originalHtml = $printBtn.html();
             $printBtn.html('<i class="bi bi-hourglass-split"></i>').prop('disabled', true);
             
-            // Animate button
             gsap.to($printBtn[0], {
                 scale: 0.9,
                 duration: 0.1,
                 yoyo: true,
                 repeat: 1,
                 onComplete: () => {
-					self.cleanup();
-                    // Navigate to print page
+                    self.cleanup();
                     TempleRouter.navigate('buddha-lamp/print', { id: id });
                     
-                    // Reset button after short delay
                     setTimeout(() => {
                         $printBtn.html(originalHtml).prop('disabled', false);
                     }, 1000);
@@ -551,74 +694,111 @@
         openReportPrint: function() {
             console.log('Opening Buddha Lamp report print...');
             
-            // Get current filters
             const filters = {
                 dateFrom: $('#filterDateFrom').val(),
                 dateTo: $('#filterDateTo').val(),
-                paymentMethod: $('#filterPaymentMethod').val()
+                bookingStatus: $('#filterBookingStatus').val(),
+                paymentStatus: $('#filterPaymentStatus').val()
             };
+            
             this.cleanup();
-            // Navigate to report print page
             TempleRouter.navigate('buddha-lamp/report', filters);
         },
         
         // View booking
         viewBooking: function(id) {
             console.log('View booking:', id);
-            // Implement view logic
-            TempleCore.showToast('View booking: ' + id, 'info');
+            this.cleanup();
+            TempleRouter.navigate('buddha-lamp/view', { id: id });
         },
         
         // Edit booking
         editBooking: function(id) {
             console.log('Edit booking:', id);
-            // Implement edit logic
-			this.cleanup();
+            this.cleanup();
             TempleRouter.navigate('buddha-lamp/edit', { id: id });
         },
         
-        // Delete booking
-        deleteBooking: function(id) {
+        // Cancel booking
+        cancelBooking: function(id, bookingNumber) {
             const self = this;
             
-            // Show confirmation dialog
-            if (confirm('Are you sure you want to delete this booking?')) {
-                // Animate row removal
-                const row = $('.btn-delete[data-id="' + id + '"]').closest('tr');
-                gsap.to(row[0], {
-                    opacity: 0,
-                    x: -50,
-                    duration: 0.3,
-                    onComplete: () => {
-                        // Remove from DataTable
-                        self.dataTable.row(row).remove().draw();
-                        TempleCore.showToast('Booking deleted successfully', 'success');
+            Swal.fire({
+                title: 'Cancel Booking?',
+                html: `Are you sure you want to cancel booking <strong>${bookingNumber}</strong>?<br><br>This action cannot be undone.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, Cancel Booking',
+                cancelButtonText: 'No, Keep It'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    self.performCancel(id, bookingNumber);
+                }
+            });
+        },
+        
+        // Perform cancel API call
+        performCancel: function(id, bookingNumber) {
+            const self = this;
+            
+            TempleCore.showLoading(true);
+            
+            TempleAPI.post(`/bookings/buddha-lamp/${id}/cancel`)
+                .done(function(response) {
+                    if (response.success) {
+                        TempleCore.showToast(`Booking ${bookingNumber} cancelled successfully`, 'success');
+                        
+                        // Animate row removal and reload
+                        const row = $(`.btn-cancel[data-id="${id}"]`).closest('tr');
+                        gsap.to(row[0], {
+                            opacity: 0,
+                            x: -50,
+                            duration: 0.3,
+                            onComplete: () => {
+                                self.loadData(self.getCurrentFilters());
+                            }
+                        });
+                    } else {
+                        TempleCore.showToast(response.message || 'Failed to cancel booking', 'error');
                     }
+                })
+                .fail(function(xhr) {
+                    let errorMessage = 'Failed to cancel booking';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMessage = xhr.responseJSON.message;
+                    }
+                    TempleCore.showToast(errorMessage, 'error');
+                })
+                .always(function() {
+                    TempleCore.showLoading(false);
                 });
-                
-                // Actual implementation:
-                /*
-                TempleAPI.delete('/buddha-lamp/' + id)
-                    .done(function(response) {
-                        if (response.success) {
-                            self.dataTable.row(row).remove().draw();
-                            TempleCore.showToast('Booking deleted successfully', 'success');
-                        }
-                    })
-                    .fail(function(error) {
-                        TempleCore.showToast('Failed to delete booking', 'error');
-                    });
-                */
-            }
+        },
+        
+        // Get current filters
+        getCurrentFilters: function() {
+            const filters = {};
+            
+            const dateFrom = $('#filterDateFrom').val();
+            const dateTo = $('#filterDateTo').val();
+            const bookingStatus = $('#filterBookingStatus').val();
+            const paymentStatus = $('#filterPaymentStatus').val();
+            const search = $('#filterSearch').val();
+            
+            if (dateFrom) filters.from_date = dateFrom;
+            if (dateTo) filters.to_date = dateTo;
+            if (bookingStatus) filters.booking_status = bookingStatus;
+            if (paymentStatus) filters.payment_status = paymentStatus;
+            if (search) filters.search = search;
+            
+            return filters;
         },
         
         // Apply filters
         applyFilters: function() {
-            const dateFrom = $('#filterDateFrom').val();
-            const dateTo = $('#filterDateTo').val();
-            const paymentMethod = $('#filterPaymentMethod').val();
+            const filters = this.getCurrentFilters();
             
-            // Animate filter button
             gsap.to('#btnApplyFilter', {
                 scale: 0.95,
                 duration: 0.1,
@@ -626,52 +806,44 @@
                 repeat: 1
             });
             
-            // Apply custom filter logic
-            $.fn.dataTable.ext.search.push(
-                function(settings, data, dataIndex) {
-                    const bookingDate = data[6]; // Booking date column
-                    const rowPaymentMethod = $(data[5]).text().toLowerCase(); // Payment method
-                    
-                    let dateMatch = true;
-                    let paymentMatch = true;
-                    
-                    // Date filter
-                    if (dateFrom && bookingDate < dateFrom) dateMatch = false;
-                    if (dateTo && bookingDate > dateTo) dateMatch = false;
-                    
-                    // Payment method filter
-                    if (paymentMethod && !rowPaymentMethod.includes(paymentMethod)) {
-                        paymentMatch = false;
-                    }
-                    
-                    return dateMatch && paymentMatch;
-                }
-            );
+            this.loadData(filters);
+            TempleCore.showToast('Filters applied', 'info');
+        },
+        
+        // Clear filters
+        clearFilters: function() {
+            $('#filterDateFrom').val('');
+            $('#filterDateTo').val('');
+            $('#filterBookingStatus').val('');
+            $('#filterPaymentStatus').val('');
+            $('#filterSearch').val('');
             
-            this.dataTable.draw();
-            $.fn.dataTable.ext.search.pop();
-            
-            TempleCore.showToast('Filters applied', 'success');
+            this.loadData();
+            TempleCore.showToast('Filters cleared', 'info');
         },
         
         // Update statistics
         updateStats: function(data) {
-            // Calculate stats
             const totalBookings = data.length;
-            const totalAmount = data.reduce((sum, item) => sum + parseFloat(item.amount), 0);
+            const totalAmount = data.reduce((sum, item) => sum + parseFloat(item.total_amount || 0), 0);
             
             // This month count
             const currentMonth = new Date().getMonth();
             const currentYear = new Date().getFullYear();
             const thisMonth = data.filter(item => {
+                if (!item.booking_date) return false;
                 const bookingDate = new Date(item.booking_date);
                 return bookingDate.getMonth() === currentMonth && bookingDate.getFullYear() === currentYear;
             }).length;
+            
+            // Confirmed count
+            const confirmedCount = data.filter(item => item.booking_status === 'CONFIRMED').length;
             
             // Animate counter updates
             this.animateCounter('#totalBookings', 0, totalBookings, 1000);
             this.animateCounter('#totalAmount', 0, totalAmount, 1000, 'RM ');
             this.animateCounter('#thisMonth', 0, thisMonth, 1000);
+            this.animateCounter('#confirmedCount', 0, confirmedCount, 1000);
         },
         
         // Animate counter

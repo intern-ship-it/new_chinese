@@ -15,14 +15,13 @@
             this.loadTowers();
             this.attachEvents();
         },
-
-        // Render page structure
+        // Render page structure - REDESIGNED WITHOUT AOS
         render: function () {
             const html = `
                 <div class="towers-management-container">
                     
                     <!-- Page Header -->
-                    <div class="page-header mb-4" data-aos="fade-down">
+                    <div class="page-header mb-4">
                         <div class="d-flex justify-content-between align-items-center flex-wrap">
                             <div>
                                 <h1 class="page-title mb-2">
@@ -42,29 +41,112 @@
                         </div>
                     </div>
 
-                    <!-- View Toggle -->
-                    <div class="btn-group mb-4" role="group" data-aos="fade-up">
-                        <button type="button" class="btn btn-outline-primary active" data-view="towers" id="btnViewTowers">
-                            <i class="bi bi-building"></i> Towers
-                        </button>
-                        <button type="button" class="btn btn-outline-primary" data-view="blocks" id="btnViewBlocks">
-                            <i class="bi bi-grid-3x3"></i> Blocks
-                        </button>
+                    <!-- View Toggle with Modern Design -->
+                    <div class="card mb-4 shadow-sm">
+                        <div class="card-body">
+                            <div class="btn-group w-100" role="group">
+                                <button type="button" class="btn btn-lg btn-outline-primary active" data-view="towers" id="btnViewTowers">
+                                    <i class="bi bi-building me-2"></i>
+                                    <span class="d-none d-md-inline">Towers</span>
+                                    <span class="d-inline d-md-none">Towers</span>
+                                </button>
+                                <button type="button" class="btn btn-lg btn-outline-primary" data-view="blocks" id="btnViewBlocks">
+                                    <i class="bi bi-grid-3x3 me-2"></i>
+                                    <span class="d-none d-md-inline">Blocks</span>
+                                    <span class="d-inline d-md-none">Blocks</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Content Container -->
                     <div id="contentContainer"></div>
 
                 </div>
+
+                <!-- Custom CSS for Interactive UI -->
+                <style>
+                    .tower-card {
+                        transition: all 0.3s ease;
+                        border: 2px solid transparent;
+                    }
+                    .tower-card:hover {
+                        transform: translateY(-5px);
+                        box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+                        border-color: var(--bs-primary);
+                    }
+                    .tower-card .card-header {
+                        background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+                    }
+                    .stat-box {
+                        transition: all 0.2s ease;
+                        background: #f8f9fa;
+                    }
+                    .stat-box:hover {
+                        background: #e9ecef;
+                        transform: scale(1.05);
+                    }
+                    .stat-box h4 {
+                        color: var(--bs-primary);
+                        font-weight: 700;
+                    }
+                    .btn-view-blocks {
+                        transition: all 0.2s ease;
+                    }
+                    .btn-view-blocks:hover {
+                        transform: translateX(5px);
+                    }
+                    .table-hover tbody tr {
+                        transition: all 0.2s ease;
+                    }
+                    .table-hover tbody tr:hover {
+                        background-color: rgba(13, 110, 253, 0.05);
+                        transform: scale(1.01);
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    }
+                    .badge {
+                        padding: 0.5em 0.8em;
+                        font-weight: 600;
+                    }
+                    .btn-group-sm .btn {
+                        transition: all 0.2s ease;
+                    }
+                    .btn-group-sm .btn:hover {
+                        transform: scale(1.1);
+                    }
+                    #contentContainer {
+                        animation: fadeIn 0.4s ease-in;
+                    }
+                    @keyframes fadeIn {
+                        from { opacity: 0; transform: translateY(10px); }
+                        to { opacity: 1; transform: translateY(0); }
+                    }
+                    .view-toggle-btn {
+                        position: relative;
+                        overflow: hidden;
+                    }
+                    .view-toggle-btn::before {
+                        content: '';
+                        position: absolute;
+                        top: 50%;
+                        left: 50%;
+                        width: 0;
+                        height: 0;
+                        border-radius: 50%;
+                        background: rgba(13, 110, 253, 0.1);
+                        transform: translate(-50%, -50%);
+                        transition: width 0.6s, height 0.6s;
+                    }
+                    .view-toggle-btn:hover::before {
+                        width: 300px;
+                        height: 300px;
+                    }
+                </style>
             `;
 
             $('#page-container').html(html);
-
-            // Initialize AOS
-            if (typeof AOS !== 'undefined') {
-                AOS.refresh();
-            }
         },
+
 
         // Load towers
         loadTowers: function () {
@@ -90,6 +172,7 @@
                 });
         },
 
+
         // Render towers view
         renderTowers: function (towers) {
             if (!towers || towers.length === 0) {
@@ -98,60 +181,77 @@
             }
 
             const cardsHtml = towers.map(tower => `
-                <div class="col-md-6 col-lg-4" data-aos="fade-up">
-                    <div class="card tower-card h-100">
-                        <div class="card-header bg-primary text-white">
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card tower-card h-100 shadow-sm">
+                        <div class="card-header text-white position-relative">
                             <div class="d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0">${tower.tower_name}</h5>
+                                <div>
+                                    <h5 class="mb-0 fw-bold">
+                                        <i class="bi bi-building-fill me-2"></i>${tower.tower_name}
+                                    </h5>
+                                    <small class="opacity-75">Tower ID: ${tower.tower_code}</small>
+                                </div>
                                 <div class="btn-group btn-group-sm">
-                                    <button class="btn btn-sm btn-light btn-edit-tower" data-id="${tower.id}" title="Edit">
-                                        <i class="bi bi-pencil"></i>
+                                    <button class="btn btn-sm btn-light btn-edit-tower" data-id="${tower.id}" title="Edit Tower">
+                                        <i class="bi bi-pencil-fill"></i>
                                     </button>
-                                    <button class="btn btn-sm btn-danger btn-delete-tower" data-id="${tower.id}" title="Delete">
-                                        <i class="bi bi-trash"></i>
+                                    <button class="btn btn-sm btn-danger btn-delete-tower" data-id="${tower.id}" title="Delete Tower">
+                                        <i class="bi bi-trash-fill"></i>
                                     </button>
                                 </div>
                             </div>
                         </div>
                         <div class="card-body">
                             <div class="mb-3">
-                                <span class="badge bg-secondary">Code: ${tower.tower_code}</span>
+                                <span class="badge bg-secondary-subtle text-secondary-emphasis border">
+                                    <i class="bi bi-tag-fill me-1"></i>Code: ${tower.tower_code}
+                                </span>
                             </div>
                             
-                            <div class="row g-2 mb-3">
+                            <div class="row g-3 mb-3">
                                 <div class="col-6">
-                                    <div class="stat-box text-center p-2 border rounded">
-                                        <h4 class="mb-0">${tower.total_blocks || 0}</h4>
-                                        <small class="text-muted">Blocks</small>
+                                    <div class="stat-box text-center p-3 border rounded-3">
+                                        <i class="bi bi-grid-3x3-gap text-primary fs-4 mb-2"></i>
+                                        <h4 class="mb-1">${tower.total_blocks || 0}</h4>
+                                        <small class="text-muted fw-semibold">Blocks</small>
                                     </div>
                                 </div>
                                 <div class="col-6">
-                                    <div class="stat-box text-center p-2 border rounded">
-                                        <h4 class="mb-0">${tower.total_lights || 0}</h4>
-                                        <small class="text-muted">Lights</small>
+                                    <div class="stat-box text-center p-3 border rounded-3">
+                                        <i class="bi bi-lightbulb text-warning fs-4 mb-2"></i>
+                                        <h4 class="mb-1">${tower.total_lights || 0}</h4>
+                                        <small class="text-muted fw-semibold">Lights</small>
                                     </div>
                                 </div>
                             </div>
 
                             ${tower.description ? `
-                                <p class="text-muted small mb-3">${tower.description}</p>
+                                <div class="alert alert-light border mb-3">
+                                    <small class="text-muted"><i class="bi bi-info-circle me-1"></i>${tower.description}</small>
+                                </div>
                             ` : ''}
 
                             <div class="d-flex justify-content-between align-items-center">
-                            <span class="badge ${tower.status === 'active' ? 'bg-success' : 'bg-secondary'}">
-    ${tower.status === 'active' ? 'Active' : 'Inactive'}
-</span>
-                                <button class="btn btn-sm btn-outline-primary btn-view-blocks" data-id="${tower.id}">
-                                    <i class="bi bi-grid-3x3"></i> View Blocks
+                                <span class="badge ${tower.status === 'active' ? 'bg-success' : 'bg-secondary'} fs-6">
+                                    <i class="bi bi-${tower.status === 'active' ? 'check-circle-fill' : 'x-circle-fill'} me-1"></i>
+                                    ${tower.status === 'active' ? 'Active' : 'Inactive'}
+                                </span>
+                                <button class="btn btn-sm btn-primary btn-view-blocks" data-id="${tower.id}">
+                                    <i class="bi bi-grid-3x3-gap-fill me-1"></i> View Blocks
+                                    <i class="bi bi-arrow-right ms-1"></i>
                                 </button>
                             </div>
+                        </div>
+                        <div class="card-footer bg-light text-muted small">
+                            <i class="bi bi-clock me-1"></i>
+                            Last updated: ${tower.updated_at ? moment(tower.updated_at).fromNow() : 'N/A'}
                         </div>
                     </div>
                 </div>
             `).join('');
 
             const html = `
-                <div class="row g-4">
+                <div class="row">
                     ${cardsHtml}
                 </div>
             `;
@@ -186,52 +286,83 @@
                     TempleUtils.hideLoading();
                 });
         },
-
-        // Render blocks view
+        // Render blocks view - IMPROVED DESIGN
         renderBlocks: function (blocks) {
             if (!blocks || blocks.length === 0) {
                 this.showNoResults('blocks');
                 return;
             }
 
-            const tableRows = blocks.map(block => `
-    <tr>
-        <td><strong>${block.block_name}</strong></td>
-        <td><code>${block.block_code}</code></td>
-        <td><strong>${block.tower_name || block.tower?.tower_name || '-'}</strong></td>
-        <td class="text-center">${block.total_floors || 0}</td>
-        <td class="text-center">${block.rags_per_floor || block.lights_per_floor || 0}</td>
-        <td class="text-center"><strong>${block.total_capacity || block.total_lights || 0}</strong></td>
-        <td>
-            <span class="badge ${block.status === 'active' ? 'bg-success' : 'bg-secondary'}">
-                ${block.status === 'active' ? 'Active' : 'Inactive'}
-            </span>
-        </td>
-        <td>
-            <div class="btn-group btn-group-sm">
-                <button class="btn btn-outline-primary btn-view-block" data-id="${block.id}" title="View">
-                    <i class="bi bi-eye"></i>
-                </button>
-                <button class="btn btn-outline-secondary btn-edit-block" data-id="${block.id}" title="Edit">
-                    <i class="bi bi-pencil"></i>
-                </button>
-                <button class="btn btn-outline-danger btn-delete-block" data-id="${block.id}" title="Delete">
-                    <i class="bi bi-trash"></i>
-                </button>
-            </div>
-        </td>
-    </tr>
-`).join('');
+            const tableRows = blocks.map((block, index) => `
+                <tr class="align-middle">
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="avatar-sm bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3">
+                                <strong>${index + 1}</strong>
+                            </div>
+                            <div>
+                                <strong class="d-block">${block.block_name}</strong>
+                                <small class="text-muted">Block ${block.block_code}</small>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge bg-secondary-subtle text-secondary-emphasis border">
+                            ${block.block_code}
+                        </span>
+                    </td>
+                    <td>
+                        <i class="bi bi-building text-primary me-2"></i>
+                        <strong>${block.tower_name || block.tower?.tower_name || '-'}</strong>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-info-subtle text-info-emphasis border">
+                            ${block.total_floors || 0} Floors
+                        </span>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-warning-subtle text-warning-emphasis border">
+                            ${block.rags_per_floor || block.lights_per_floor || 0}/Floor
+                        </span>
+                    </td>
+                    <td class="text-center">
+                        <strong class="text-primary fs-5">
+                            <i class="bi bi-lightbulb-fill me-1"></i>
+                            ${block.total_capacity || block.total_lights || 0}
+                        </strong>
+                    </td>
+                    <td>
+                        <span class="badge ${block.status === 'active' ? 'bg-success' : 'bg-secondary'} fs-6">
+                            <i class="bi bi-${block.status === 'active' ? 'check-circle-fill' : 'x-circle-fill'} me-1"></i>
+                            ${block.status === 'active' ? 'Active' : 'Inactive'}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary btn-view-block" data-id="${block.id}" title="View Details">
+                                <i class="bi bi-eye-fill"></i>
+                            </button>
+                            <button class="btn btn-outline-secondary btn-edit-block" data-id="${block.id}" title="Edit Block">
+                                <i class="bi bi-pencil-fill"></i>
+                            </button>
+                            <button class="btn btn-outline-danger btn-delete-block" data-id="${block.id}" title="Delete Block">
+                                <i class="bi bi-trash-fill"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
 
             const html = `
-                <div class="card" data-aos="fade-up">
-                    <div class="card-header d-flex justify-content-between align-items-center">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">
-                            <i class="bi bi-grid-3x3 me-2"></i>
+                            <i class="bi bi-grid-3x3-gap-fill me-2"></i>
                             All Blocks
+                            <span class="badge bg-light text-primary ms-2">${blocks.length}</span>
                         </h5>
                         <button class="btn btn-sm btn-success" id="btnAddBlock">
-                            <i class="bi bi-plus-circle"></i> Add Block
+                            <i class="bi bi-plus-circle-fill me-1"></i> Add Block
                         </button>
                     </div>
                     <div class="card-body p-0">
@@ -239,14 +370,14 @@
                             <table class="table table-hover mb-0">
                                 <thead class="table-light">
                                     <tr>
-                                        <th>Block Name</th>
-                                        <th>Code</th>
-                                        <th>Tower</th>
-                                        <th>Floors</th>
-                                        <th>Lights/Floor</th>
-                                        <th>Total Lights</th>
-                                        <th>Status</th>
-                                        <th>Actions</th>
+                                        <th><i class="bi bi-grid me-2"></i>Block Name</th>
+                                        <th><i class="bi bi-tag me-2"></i>Code</th>
+                                        <th><i class="bi bi-building me-2"></i>Tower</th>
+                                        <th class="text-center"><i class="bi bi-layers me-2"></i>Floors</th>
+                                        <th class="text-center"><i class="bi bi-lightbulb me-2"></i>Lights/Floor</th>
+                                        <th class="text-center"><i class="bi bi-calculator me-2"></i>Total Capacity</th>
+                                        <th><i class="bi bi-toggle-on me-2"></i>Status</th>
+                                        <th><i class="bi bi-gear me-2"></i>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -256,24 +387,50 @@
                         </div>
                     </div>
                 </div>
+
+                <style>
+                    .avatar-sm {
+                        width: 40px;
+                        height: 40px;
+                        font-size: 14px;
+                        font-weight: 700;
+                    }
+                </style>
             `;
 
             $('#contentContainer').html(html);
         },
 
-        // Show no results
+        // Show no results - IMPROVED DESIGN
         showNoResults: function (type) {
             const message = type === 'towers' ? 'No towers found' : 'No blocks found';
+            const icon = type === 'towers' ? 'building' : 'grid-3x3';
             const addButton = type === 'towers' ?
-                '<button class="btn btn-primary" id="btnAddTowerNoResults"><i class="bi bi-plus-circle"></i> Add First Tower</button>' :
-                '<button class="btn btn-primary" id="btnAddBlockNoResults"><i class="bi bi-plus-circle"></i> Add First Block</button>';
+                '<button class="btn btn-primary btn-lg" id="btnAddTowerNoResults"><i class="bi bi-plus-circle-fill me-2"></i> Add First Tower</button>' :
+                '<button class="btn btn-primary btn-lg" id="btnAddBlockNoResults"><i class="bi bi-plus-circle-fill me-2"></i> Add First Block</button>';
 
             $('#contentContainer').html(`
-                <div class="text-center py-5">
-                    <i class="bi bi-inbox display-4 text-muted d-block mb-3"></i>
-                    <p class="text-muted mb-3">${message}</p>
-                    ${addButton}
+                <div class="card shadow-sm">
+                    <div class="card-body text-center py-5">
+                        <div class="empty-state">
+                            <i class="bi bi-${icon} display-1 text-muted mb-4 d-block"></i>
+                            <h4 class="text-muted mb-3">${message}</h4>
+                            <p class="text-muted mb-4">Get started by creating your first ${type === 'towers' ? 'tower' : 'block'}</p>
+                            ${addButton}
+                        </div>
+                    </div>
                 </div>
+
+                <style>
+                    .empty-state i {
+                        opacity: 0.3;
+                        animation: pulse 2s infinite;
+                    }
+                    @keyframes pulse {
+                        0%, 100% { opacity: 0.3; }
+                        50% { opacity: 0.5; }
+                    }
+                </style>
             `);
         },
         // Detach all event handlers
@@ -284,17 +441,13 @@
         // Attach event handlers
         attachEvents: function () {
             const self = this;
-
-            // ✅ IMPORTANT: Remove old event handlers first to prevent duplicates
             this.detachEvents();
 
-            // View toggle - Use namespaced events
             $(document).on('click.pagodaTowers', '[data-view]', function () {
                 const view = $(this).data('view');
                 $('.btn-group [data-view]').removeClass('active');
                 $(this).addClass('active');
                 self.currentView = view;
-
                 if (view === 'towers') {
                     self.loadTowers();
                 } else {
@@ -302,7 +455,6 @@
                 }
             });
 
-            // Refresh
             $(document).on('click.pagodaTowers', '#btnRefresh', function () {
                 if (self.currentView === 'towers') {
                     self.loadTowers();
@@ -311,48 +463,40 @@
                 }
             });
 
-            // Add tower
             $(document).on('click.pagodaTowers', '#btnAddTower, #btnAddTowerNoResults', function () {
                 self.showTowerModal();
             });
 
-            // Add block
             $(document).on('click.pagodaTowers', '#btnAddBlock, #btnAddBlockNoResults', function () {
                 self.showBlockModal();
             });
 
-            // Edit tower
             $(document).on('click.pagodaTowers', '.btn-edit-tower', function () {
                 const id = $(this).data('id');
                 self.editTower(id);
             });
 
-            // Delete tower
             $(document).on('click.pagodaTowers', '.btn-delete-tower', function () {
                 const id = $(this).data('id');
                 self.deleteTower(id);
             });
 
-            // View blocks for tower
             $(document).on('click.pagodaTowers', '.btn-view-blocks', function () {
                 const towerId = $(this).data('id');
                 $('#btnViewBlocks').click();
                 self.loadBlocks(towerId);
             });
 
-            // View block
             $(document).on('click.pagodaTowers', '.btn-view-block', function () {
                 const id = $(this).data('id');
                 self.viewBlock(id);
             });
 
-            // Edit block
             $(document).on('click.pagodaTowers', '.btn-edit-block', function () {
                 const id = $(this).data('id');
                 self.editBlock(id);
             });
 
-            // Delete block
             $(document).on('click.pagodaTowers', '.btn-delete-block', function () {
                 const id = $(this).data('id');
                 self.deleteBlock(id);
@@ -762,13 +906,11 @@
         },
 
         destroy: function () {
-            // Remove all event handlers
             this.detachEvents();
-
-            // Remove any open modals
             $('#towerModal').remove();
             $('#blockModal').remove();
-
+            $('.modal-backdrop').remove();
+            $('body').removeClass('modal-open').css('overflow', '');
             console.log('Pagoda Towers page destroyed');
         }
 

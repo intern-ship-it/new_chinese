@@ -1,4 +1,3 @@
-// backend/app/Http/Controllers/SessionMasterController.php
 <?php
 
 namespace App\Http\Controllers;

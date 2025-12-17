@@ -3,7 +3,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
-
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 class BookingMeta extends Model
 {
     protected $table = 'booking_meta';
@@ -63,5 +65,16 @@ class BookingMeta extends Model
             $this->meta_value = (string) $value;
             $this->meta_type = 'STRING';
         }
+    }
+
+     public function getTypedValue()
+    {
+        return match($this->meta_type) {
+            'integer' => (int) $this->meta_value,
+            'float', 'decimal' => (float) $this->meta_value,
+            'boolean' => filter_var($this->meta_value, FILTER_VALIDATE_BOOLEAN),
+            'json' => json_decode($this->meta_value, true),
+            default => $this->meta_value,
+        };
     }
 }

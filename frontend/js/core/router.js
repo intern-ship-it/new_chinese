@@ -90,7 +90,20 @@
           return "members/edit";
         }
       }
+		// UUID pattern for booking IDs
+        const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+		// Handle routes with UUID ID parameter (e.g., buddha-lamp/view/uuid, buddha-lamp/edit/uuid)
+		// Pattern: module/action/uuid (3 parts)
+		if (pathParts.length === 3) {
+			const lastPart = pathParts[2];
+			const secondPart = pathParts[1];
 
+			// Check if last part is a UUID and second part is view/edit/print/copy
+			if (uuidPattern.test(lastPart) && ['view', 'edit', 'print', 'copy'].includes(secondPart)) {
+				// Return path without the UUID (e.g., buddha-lamp/view)
+				return pathParts.slice(0, 2).join('/');
+			}
+		}
       // Check for edit/view routes with ID parameter
       // Pattern: entries/receipt/edit/1 or entries/payment/view/2
       if (pathParts.length >= 4) {
@@ -140,119 +153,95 @@
           }
         }
       }
+		if (pathParts.includes('view') || pathParts.includes('edit') || pathParts.includes('copy')) {
+			pathParts.pop();
+		}
       // Join remaining parts with /
       return pathParts.join("/");
     },
 
     // Get parameters from URL
     getUrlParams: function () {
-      const pathParts = window.location.pathname.split("/").filter(Boolean);
-      const params = {};
+		const pathParts = window.location.pathname.split('/').filter(Boolean);
+		const params = {};
 
-      // Remove temple ID
-      if (pathParts.length > 0) {
-        pathParts.shift();
-      }
-      if (pathParts[0] === "reconciliation") {
-        // Handle reconciliation/process/27
-        if (pathParts[1] === "process" && pathParts[2]) {
-          params.id = pathParts[2];
-        }
-        // Handle reconciliation/27/process
-        else if (
-          pathParts[1] &&
-          !isNaN(pathParts[1]) &&
-          pathParts[2] === "process"
-        ) {
-          params.id = pathParts[1];
-        }
-        // Handle reconciliation/view/27
-        else if (pathParts[1] === "view" && pathParts[2]) {
-          params.id = pathParts[2];
-        }
-        // Handle reconciliation/27/view
-        else if (
-          pathParts[1] &&
-          !isNaN(pathParts[1]) &&
-          pathParts[2] === "view"
-        ) {
-          params.id = pathParts[1];
-        }
-        // Handle reconciliation/report/27
-        else if (pathParts[1] === "report" && pathParts[2]) {
-          params.id = pathParts[2];
-        }
-      }
-      // Handle purchase routes with ID parameter
-      if (pathParts[0] === "purchase" && pathParts.length >= 4) {
-        const action = pathParts[2];
-        const id = pathParts[3];
+		// Remove temple ID
+		if (pathParts.length > 0) {
+			pathParts.shift();
+		}
+		if (pathParts[0] === 'reconciliation') {
+			// Handle reconciliation/process/27
+			if (pathParts[1] === 'process' && pathParts[2]) {
+				params.id = pathParts[2];
+			}
+			// Handle reconciliation/27/process
+			else if (pathParts[1] && !isNaN(pathParts[1]) && pathParts[2] === 'process') {
+				params.id = pathParts[1];
+			}
+			// Handle reconciliation/view/27
+			else if (pathParts[1] === 'view' && pathParts[2]) {
+				params.id = pathParts[2];
+			}
+			// Handle reconciliation/27/view
+			else if (pathParts[1] && !isNaN(pathParts[1]) && pathParts[2] === 'view') {
+				params.id = pathParts[1];
+			}
+			// Handle reconciliation/report/27
+			else if (pathParts[1] === 'report' && pathParts[2]) {
+				params.id = pathParts[2];
+			}
+		}
+		// Handle purchase routes with ID parameter
+		if (pathParts[0] === 'purchase' && pathParts.length >= 4) {
+			const action = pathParts[2];
+			const id = pathParts[3];
 
-        if (["view", "edit", "print"].includes(action) && id) {
-          params.id = id;
-        }
-      }
-      if (pathParts.length === 4 && pathParts[2] === "print") {
-        params.id = pathParts[3];
-      }
+			if (['view', 'edit', 'print'].includes(action) && id) {
+				params.id = id;
+			}
+		}
+		if (pathParts.length === 4 && pathParts[2] === 'print') {
+			params.id = pathParts[3];
+		}
 
-      // Check for member UUID
-      if (pathParts.length === 2 && pathParts[0] === "members") {
-        const possibleUuid = pathParts[1];
-        const uuidPattern =
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+		// Check for member UUID
+		if (pathParts.length === 2 && pathParts[0] === 'members') {
+			const possibleUuid = pathParts[1];
+			const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-        if (uuidPattern.test(possibleUuid)) {
-          params.id = possibleUuid;
-        }
-      }
-      // Add this to the getUrlParams function in router.js
+			if (uuidPattern.test(possibleUuid)) {
+				params.id = possibleUuid;
+			}
+		}
 
-      // Handle member application routes with ID
-      if (pathParts[0] === "members" && pathParts[1] === "application") {
-        if (
-          pathParts.length === 3 &&
-          pathParts[2] !== "form" &&
-          pathParts[2] !== "verify" &&
-          pathParts[2] !== "view"
-        ) {
-          // members/application/{id} -> id as parameter
-          params.id = pathParts[2];
-        } else if (pathParts.length === 4) {
-          // members/application/{action}/{id} -> id as parameter
-          params.id = pathParts[3];
-        }
-      }
-      // ========================================
-      // ADD THIS: Handle Pagoda routes with ID
-      // ========================================
-      if (pathParts[0] === "pagoda" && pathParts.length >= 4) {
-        // pagoda/registrations/view/123
-        // pagoda/lights/view/456
-        const action = pathParts[2];
-        const id = pathParts[3];
+		// UUID pattern for booking IDs
+		const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-        if (["view", "edit", "print"].includes(action) && id) {
-          params.id = id;
-        }
-      }
+		// Handle routes with UUID ID parameter (e.g., buddha-lamp/view/uuid, buddha-lamp/edit/uuid)
+		// Pattern: module/action/uuid (3 parts)
+		if (pathParts.length === 3) {
+			const lastPart = pathParts[2];
+			const secondPart = pathParts[1];
 
-      // Check for edit/view/copy routes with ID
-      if (pathParts.length >= 4) {
-        const lastPart = pathParts[pathParts.length - 1];
-        const secondLastPart = pathParts[pathParts.length - 2];
+			// Check if last part is a UUID and second part is view/edit/print/copy
+			if (uuidPattern.test(lastPart) && ['view', 'edit', 'print', 'copy'].includes(secondPart)) {
+				params.id = lastPart;
+			}
+		}
 
-        // Check if last part is a number (ID) and second last is edit/view/copy
-        if (
-          /^\d+$/.test(lastPart) &&
-          ["edit", "view", "copy"].includes(secondLastPart)
-        ) {
-          params.id = lastPart;
-        }
-      }
+		// Check for edit/view/copy routes with ID (numeric or UUID)
+		if (pathParts.length >= 4) {
+			const lastPart = pathParts[pathParts.length - 1];
+			const secondLastPart = pathParts[pathParts.length - 2];
 
-      return params;
-    },
+			// Check if last part is a number (ID) or UUID and second last is edit/view/copy/print
+			if ((/^\d+$/.test(lastPart) || uuidPattern.test(lastPart)) && ['edit', 'view', 'copy', 'print'].includes(secondLastPart)) {
+				params.id = lastPart;
+			}
+		}
+
+		return params;
+	},
 
     // Navigate to page
     navigate: function (page, params) {
@@ -292,6 +281,8 @@
     // Load current page based on URL
     loadCurrentPage: function () {
       const page = this.getCurrentPage();
+	  console.log('page');
+	  console.log(page);
       const params = this.getUrlParams();
       console.log("Loading page:", page, "with params:", params); // Debug log
       this.loadPage(page, params);
@@ -352,6 +343,15 @@
         // purchase/requests/print -> /js/pages/purchase/requests/print.js
         return "/js/pages/" + parts.join("/") + ".js";
       }
+      /* if (parts[0] === "hall-booking") {
+        if (parts[1] === "create") {
+          // hall-booking/create -> /js/pages/hall-booking/create.js
+          return "/js/pages/hall-booking/create.js";
+        } else if (parts.length === 2) {
+          // hall-booking/venue-master -> /js/pages/hall-booking/venue-master.js
+          return "/js/pages/hall-booking/" + parts[1] + ".js";
+        }
+      } */
 
       if (parts[0] === "auspicious-light" || parts[0] === "pagoda") {
         // Map pagoda/* to auspicious-light/*
@@ -378,6 +378,9 @@
         parts[0] = "donations"; // Add 's' to match folder name
         return "/js/pages/" + parts.join("/") + ".js";
       }
+	  if (parts[0] === "events" && parts.length >= 2) {
+		return "/js/pages/" + parts[0] + '/' + parts[1] + ".js";
+	  }
 
       // Handle dharma-assembly routes
       if (parts[0] === "dharma-assembly") {
@@ -393,17 +396,6 @@
           );
         }
       }
-
-      // Handle reconciliation routes
-      // if (parts[0] === 'reconciliation') {
-      //     // reconciliation -> /js/pages/reconciliation/index.js
-      //     // reconciliation/process -> /js/pages/reconciliation/process.js
-      //     if (parts.length === 1) {
-      //         return '/js/pages/reconciliation/index.js';
-      //     } else {
-      //         return '/js/pages/reconciliation/' + parts[1] + '.js';
-      //     }
-      // }
 
       // Handle accounts/reconciliation routes
       if (parts[0] === "accounts" && parts[1] === "reconciliation") {
@@ -499,7 +491,7 @@
         });
     },
 
-    // Get module name from page path
+
     // Get module name from page path
     getModuleName: function (page) {
       // Convert path to module name
@@ -512,12 +504,12 @@
 
       // Special handling for hall-booking routes
       // Strip "hall-booking/" prefix to match actual module names
-      if (page.startsWith("hall-booking/")) {
-        // hall-booking/venue-master -> VenueMasterPage
-        // hall-booking/session-master -> SessionMasterPage
-        // hall-booking/package-master -> PackageMasterPage
-        // hall-booking/addon-services -> AddonServicesPage
-        const pagePart = page.split("/")[1]; // Get the part after hall-booking/
+      /* if (page.startsWith("hall-booking/")) {
+        // Special case for hall-booking/create
+        if (page === "hall-booking/create") {
+          return "HallBookingCreatePage";
+        }
+        const pagePart = page.split("/")[1];
         const words = pagePart.split(/[-_]/);
         let moduleName = "";
         words.forEach(function (word) {
@@ -526,7 +518,7 @@
         const finalModuleName = moduleName + "Page";
         console.log("Generated hall-booking module name:", finalModuleName);
         return finalModuleName;
-      }
+      } */
 
       const parts = page.split("/");
       let moduleName = "";
@@ -625,8 +617,8 @@
           const action = page.includes("/edit")
             ? "Edit"
             : page.includes("/view")
-            ? "View"
-            : "Copy";
+              ? "View"
+              : "Copy";
           const type = page
             .split("/")[1]
             .replace(/-/g, " ")

@@ -3,38 +3,33 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
 
 class DonationMaster extends Model
 {
-    use SoftDeletes, HasUuids;
-
     protected $table = 'donation_masters';
-
-    protected $keyType = 'string';
-    public $incrementing = false;
 
     protected $fillable = [
         'name',
+        'secondary_name',
         'type',
         'details',
         'status',
         'created_by',
         'updated_by',
+        'deleted_at',
         'deleted_by'
     ];
 
     protected $casts = [
-        'id' => 'string',
         'status' => 'integer',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
     ];
-
+public $incrementing = false;
+protected $keyType = 'string';
     /**
-     * Get the user who created this record
+     * Relationship: Donation Master created by User
      */
     public function creator()
     {
@@ -42,7 +37,7 @@ class DonationMaster extends Model
     }
 
     /**
-     * Get the user who last updated this record
+     * Relationship: Donation Master updated by User
      */
     public function updater()
     {
@@ -50,7 +45,7 @@ class DonationMaster extends Model
     }
 
     /**
-     * Get the user who deleted this record
+     * Relationship: Donation Master deleted by User
      */
     public function deleter()
     {
@@ -58,18 +53,29 @@ class DonationMaster extends Model
     }
 
     /**
-     * Scope for active records
+     * Scope: Get only active donation masters
      */
     public function scopeActive($query)
     {
-        return $query->where('status', 1);
+        return $query->where('status', 1)->whereNull('deleted_at');
     }
 
     /**
-     * Scope for specific type
+     * Scope: Get by type
      */
     public function scopeOfType($query, $type)
     {
         return $query->where('type', $type);
+    }
+
+    /**
+     * Get full name (combines primary and secondary if available)
+     */
+    public function getFullNameAttribute()
+    {
+        if ($this->secondary_name) {
+            return "{$this->name} ({$this->secondary_name})";
+        }
+        return $this->name;
     }
 }

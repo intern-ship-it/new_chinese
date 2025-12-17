@@ -13,6 +13,11 @@ use App\Models\User;
 class DonationMasterController extends Controller
 {
     /**
+     * Allowed donation types
+     */
+    private const ALLOWED_TYPES = ['maintenance', 'meal', 'voucher', 'general'];
+
+    /**
      * Get all donation masters
      */
     public function index(Request $request)
@@ -20,16 +25,22 @@ class DonationMasterController extends Controller
         try {
             $query = DonationMaster::whereNull('deleted_at');
 
+            // Filter by type if provided
+            if ($request->filled('type')) {
+                $query->where('type', $request->type);
+            }
+
             // Filter by status if provided
             if ($request->filled('status')) {
                 $query->where('status', $request->status);
             }
 
-            // Search by name or type if provided
+            // Search by name, secondary_name or type if provided
             if ($request->filled('search')) {
                 $search = $request->search;
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'LIKE', "%{$search}%")
+                        ->orWhere('secondary_name', 'LIKE', "%{$search}%")
                         ->orWhere('type', 'LIKE', "%{$search}%");
                 });
             }
@@ -55,19 +66,14 @@ class DonationMasterController extends Controller
         }
     }
 
-
     /**
      * Get unique donation types from existing records
      */
     public function getTypes()
     {
         try {
-            $types = DonationMaster::whereNull('deleted_at')
-                ->distinct()
-                ->pluck('type')
-                ->filter()
-                ->sort()
-                ->values();
+            // Return the predefined types instead of database values
+            $types = self::ALLOWED_TYPES;
 
             return response()->json([
                 'success' => true,
@@ -118,6 +124,7 @@ class DonationMasterController extends Controller
             ]
         ]);
     }
+
     /**
      * Get single donation master
      */
@@ -166,9 +173,12 @@ class DonationMasterController extends Controller
             // Validate request
             $validator = Validator::make($request->all(), [
                 'name' => 'required|string|max:300',
-                'type' => 'required|string|max:50',  // ← Changed from enum to string
+                'secondary_name' => 'nullable|string|max:300',
+                'type' => 'required|string|in:' . implode(',', self::ALLOWED_TYPES),
                 'details' => 'nullable|string',
                 'status' => 'integer|in:0,1'
+            ], [
+                'type.in' => 'The type must be one of: ' . implode(', ', self::ALLOWED_TYPES)
             ]);
 
             if ($validator->fails()) {
@@ -179,7 +189,7 @@ class DonationMasterController extends Controller
                 ], 422);
             }
 
-            // Check if donation with same name exists
+            // Check if donation with same primary name exists
             $exists = DonationMaster::where('name', $request->name)
                 ->whereNull('deleted_at')
                 ->exists();
@@ -187,7 +197,7 @@ class DonationMasterController extends Controller
             if ($exists) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Donation with this name already exists'
+                    'message' => 'Donation with this primary name already exists'
                 ], 422);
             }
 
@@ -195,6 +205,7 @@ class DonationMasterController extends Controller
 
             $donation = new DonationMaster();
             $donation->name = $request->name;
+            $donation->secondary_name = $request->secondary_name;
             $donation->type = $request->type;
             $donation->details = $request->details;
             $donation->status = $request->get('status', 1);
@@ -243,9 +254,12 @@ class DonationMasterController extends Controller
             // Validate request
             $validator = Validator::make($request->all(), [
                 'name' => 'string|max:300',
-                'type' => 'string|max:50',  // ← Changed from enum to string
+                'secondary_name' => 'nullable|string|max:300',
+                'type' => 'string|in:' . implode(',', self::ALLOWED_TYPES),
                 'details' => 'nullable|string',
                 'status' => 'integer|in:0,1'
+            ], [
+                'type.in' => 'The type must be one of: ' . implode(', ', self::ALLOWED_TYPES)
             ]);
 
             if ($validator->fails()) {
@@ -266,7 +280,7 @@ class DonationMasterController extends Controller
                 if ($exists) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Donation with this name already exists'
+                        'message' => 'Donation with this primary name already exists'
                     ], 422);
                 }
             }
@@ -274,6 +288,7 @@ class DonationMasterController extends Controller
             DB::beginTransaction();
 
             if ($request->has('name')) $donation->name = $request->name;
+            if ($request->has('secondary_name')) $donation->secondary_name = $request->secondary_name;
             if ($request->has('type')) $donation->type = $request->type;
             if ($request->has('details')) $donation->details = $request->details;
             if ($request->has('status')) $donation->status = $request->status;
@@ -301,9 +316,6 @@ class DonationMasterController extends Controller
     /**
      * Delete donation master (soft delete)
      */
-    /**
-     * Delete donation master (soft delete)
-     */
     public function destroy($id)
     {
         if (!Auth::user()->hasRole(['super_admin', 'admin'])) {
@@ -322,22 +334,6 @@ class DonationMasterController extends Controller
                     'message' => 'Donation master not found'
                 ], 404);
             }
-
-            // REMOVED: Check if donation is being used
-            // Since 'donations' table doesn't exist yet, comment this out
-            /*
-        $inUse = DB::table('donations')
-            ->where('donation_type_id', $id)
-            ->whereNull('deleted_at')
-            ->exists();
-
-        if ($inUse) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cannot delete donation master as it is being used in transactions'
-            ], 422);
-        }
-        */
 
             DB::beginTransaction();
 
@@ -376,7 +372,7 @@ class DonationMasterController extends Controller
             }
 
             $donations = $query->orderBy('name')
-                ->get(['id', 'name', 'type', 'details']);
+                ->get(['id', 'name', 'secondary_name', 'type', 'details']);
 
             return response()->json([
                 'success' => true,

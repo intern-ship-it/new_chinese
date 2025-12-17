@@ -259,6 +259,7 @@
                     .referral-card.verified {
                         border-color: #28a745;
                         background: #d4edda;
+                        opacity:1;
                     }
                     
                     .referral-card.not-verified {
@@ -1028,29 +1029,36 @@
     },
 
     // Display quick actions
+    // Display quick actions
     displayQuickActions: function () {
       const app = this.application;
       let html = "";
 
+      // Helper: Check if all referrals are verified
+      const allReferralsVerified = () => {
+        if (app.referrals && app.referrals.length >= 2) {
+          return app.referrals.every((ref) => ref.verified === true);
+        }
+        // Fallback to old structure
+        return app.referral_1_verified && app.referral_2_verified;
+      };
+
       // Status-based actions
       if (app.status === "SUBMITTED") {
         html += `
-                    <button class="action-btn btn btn-primary" onclick="MembersApplicationVerifyPage.changeStatus('UNDER_VERIFICATION')">
-                        <i class="bi bi-arrow-right-circle"></i> Start Verification
-                    </button>
-                `;
+      <button class="action-btn btn btn-primary" onclick="MembersApplicationVerifyPage.changeStatus('UNDER_VERIFICATION')">
+        <i class="bi bi-arrow-right-circle"></i> Start Verification
+      </button>
+    `;
       }
 
-      if (
-        app.status === "UNDER_VERIFICATION" &&
-        app.referral_1_verified &&
-        app.referral_2_verified
-      ) {
+      // ✅ FIXED: Check referrals array instead of old fields
+      if (app.status === "UNDER_VERIFICATION" && allReferralsVerified()) {
         html += `
-                    <button class="action-btn btn btn-warning" onclick="MembersApplicationVerifyPage.changeStatus('PENDING_APPROVAL')">
-                        <i class="bi bi-hourglass-split"></i> Move to Pending Approval
-                    </button>
-                `;
+      <button class="action-btn btn btn-warning" onclick="MembersApplicationVerifyPage.changeStatus('PENDING_APPROVAL')">
+        <i class="bi bi-hourglass-split"></i> Move to Pending Approval
+      </button>
+    `;
       }
 
       if (
@@ -1058,19 +1066,19 @@
         (app.status === "INTERVIEW_SCHEDULED" && app.interview_completed_at)
       ) {
         html += `
-                    <button class="action-btn btn btn-success" id="approveApplicationBtn">
-                        <i class="bi bi-check-circle"></i> Approve Application
-                    </button>
-                `;
+      <button class="action-btn btn btn-success" id="approveApplicationBtn">
+        <i class="bi bi-check-circle"></i> Approve Application
+      </button>
+    `;
       }
 
       // Reject button (available for most statuses)
       if (!["APPROVED", "REJECTED"].includes(app.status)) {
         html += `
-                    <button class="action-btn btn btn-danger" id="rejectApplicationBtn">
-                        <i class="bi bi-x-circle"></i> Reject Application
-                    </button>
-                `;
+      <button class="action-btn btn btn-danger" id="rejectApplicationBtn">
+        <i class="bi bi-x-circle"></i> Reject Application
+      </button>
+    `;
       }
 
       // Refund processing for rejected applications
@@ -1080,18 +1088,18 @@
         !app.refund_processed
       ) {
         html += `
-                    <button class="action-btn btn btn-info" id="processRefundBtn">
-                        <i class="bi bi-currency-dollar"></i> Process Refund
-                    </button>
-                `;
+      <button class="action-btn btn btn-info" id="processRefundBtn">
+        <i class="bi bi-currency-dollar"></i> Process Refund
+      </button>
+    `;
       }
 
       // View full application
       html += `
-                <button class="action-btn btn btn-outline-primary" onclick="MembersApplicationVerifyPage.viewFullApplication()">
-                    <i class="bi bi-eye"></i> View Full Details
-                </button>
-            `;
+    <button class="action-btn btn btn-outline-primary" onclick="MembersApplicationVerifyPage.viewFullApplication()">
+      <i class="bi bi-eye"></i> View Full Details
+    </button>
+  `;
 
       $("#quickActions").html(html);
 

@@ -10,7 +10,7 @@
         templeSettings: null,
         
         init: function(params) {
-            this.bookingId = params?.id;
+            this.bookingId = 1;
             
             if (!this.bookingId) {
                 TempleCore.showToast('Invalid booking ID', 'error');
@@ -329,7 +329,7 @@
                         </div>
                         
                         <!-- Receipt Title -->
-                        <div class="receipt-title">Official Receipt / ??</div>
+                        <div class="receipt-title">Official Receipt</div>
                         
                         <!-- Direct Lines (Phone Numbers) -->
                         <div style="text-align: center; font-size: 14px; margin: 10px 0;">

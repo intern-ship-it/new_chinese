@@ -4,7 +4,7 @@
 (function ($, window) {
   "use strict";
 
-  window.AddonServicesPage = {
+  window.HallBookingAddonServicesPage = {
     currentUser: null,
     activeTab: "groups",
 
@@ -47,7 +47,7 @@
     render: function () {
       const html = `
                 <!-- Page Header -->
-                <div class="addon-header-bg" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); padding: 2rem 0; margin-bottom: 2rem; border-radius: 15px; position: relative; overflow: hidden;">
+                <div class="addon-header-bg" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); padding: 2rem 0; margin-bottom: 2rem; border-radius: 15px; position: relative; overflow: hidden;">
                     <div class="container">
                         <div class="row align-items-center">
                             <div class="col-md-8" data-aos="fade-right">
@@ -605,7 +605,7 @@
           gsap.to($parent[0], {
             scale: 1.05,
             boxShadow: "0 8px 20px rgba(250, 112, 154, 0.3)",
-            borderColor: "#fa709a",
+            borderColor: "var(--primary-color)",
             duration: 0.3,
             ease: "back.out(1.7)",
           });
@@ -758,10 +758,10 @@
                         <td>${statusBadge}</td>
                         <td class="text-center">
                             <div class="btn-group btn-group-sm">
-                                <button class="btn btn-outline-primary" onclick="AddonServicesPage.editGroup(${
+                                <button class="btn btn-outline-primary" onclick="HallBookingAddonServicesPage.editGroup(${
                                   group.id
                                 })" title="Edit"><i class="bi bi-pencil"></i></button>
-                                <button class="btn btn-outline-danger" onclick="AddonServicesPage.deleteGroup(${
+                                <button class="btn btn-outline-danger" onclick="HallBookingAddonServicesPage.deleteGroup(${
                                   group.id
                                 }, '${
           group.group_name
@@ -841,10 +841,10 @@
                         <td>${statusBadge}</td>
                         <td class="text-center">
                             <div class="btn-group btn-group-sm">
-                                <button class="btn btn-outline-primary" onclick="AddonServicesPage.editService(${
+                                <button class="btn btn-outline-primary" onclick="HallBookingAddonServicesPage.editService(${
                                   service.id
                                 })" title="Edit"><i class="bi bi-pencil"></i></button>
-                                <button class="btn btn-outline-danger" onclick="AddonServicesPage.deleteService(${
+                                <button class="btn btn-outline-danger" onclick="HallBookingAddonServicesPage.deleteService(${
                                   service.id
                                 }, '${
           service.service_name
@@ -869,7 +869,7 @@
 
       const prevDisabled = pagination.current_page === 1 ? "disabled" : "";
       container.append(
-        `<li class="page-item ${prevDisabled}"><a class="page-link" href="#" onclick="AddonServicesPage.goToPage('${type}', ${
+        `<li class="page-item ${prevDisabled}"><a class="page-link" href="#" onclick="HallBookingAddonServicesPage.goToPage('${type}', ${
           pagination.current_page - 1
         }); return false;"><i class="bi bi-chevron-left"></i></a></li>`
       );
@@ -882,7 +882,7 @@
         ) {
           const active = i === pagination.current_page ? "active" : "";
           container.append(
-            `<li class="page-item ${active}"><a class="page-link" href="#" onclick="AddonServicesPage.goToPage('${type}', ${i}); return false;">${i}</a></li>`
+            `<li class="page-item ${active}"><a class="page-link" href="#" onclick="HallBookingAddonServicesPage.goToPage('${type}', ${i}); return false;">${i}</a></li>`
           );
         } else if (
           i === pagination.current_page - 2 ||
@@ -897,7 +897,7 @@
       const nextDisabled =
         pagination.current_page === pagination.total_pages ? "disabled" : "";
       container.append(
-        `<li class="page-item ${nextDisabled}"><a class="page-link" href="#" onclick="AddonServicesPage.goToPage('${type}', ${
+        `<li class="page-item ${nextDisabled}"><a class="page-link" href="#" onclick="HallBookingAddonServicesPage.goToPage('${type}', ${
           pagination.current_page + 1
         }); return false;"><i class="bi bi-chevron-right"></i></a></li>`
       );

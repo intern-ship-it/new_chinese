@@ -3,7 +3,7 @@
 (function ($, window) {
   "use strict";
 
-  window.VenueMasterPage = {
+  window.HallBookingVenueMasterPage = {
     currentUser: null,
     venuesData: [],
     currentPage: 1,
@@ -31,7 +31,7 @@
     render: function () {
       const html = `
                 <!-- Page Header with Animation -->
-                <div class="venue-header-bg" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 2rem 0; margin-bottom: 2rem; border-radius: 15px; position: relative; overflow: hidden;">
+                <div class="venue-header-bg" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); padding: 2rem 0; margin-bottom: 2rem; border-radius: 15px; position: relative; overflow: hidden;">
                     <div class="container">
                         <div class="row align-items-center">
                             <div class="col-md-8" data-aos="fade-right">
@@ -367,7 +367,7 @@
           gsap.to($parent[0], {
             scale: 1.05,
             boxShadow: "0 8px 20px rgba(102, 126, 234, 0.3)",
-            borderColor: "#667eea",
+            borderColor: "var(--primary-color)",
             duration: 0.3,
             ease: "back.out(1.7)",
           });
@@ -505,12 +505,12 @@
                         <td>${statusBadge}</td>
                         <td class="text-center">
                             <div class="btn-group btn-group-sm">
-                                <button class="btn btn-outline-primary" onclick="VenueMasterPage.editVenue(${
+                                <button class="btn btn-outline-primary" onclick="HallBookingVenueMasterPage.editVenue(${
                                   venue.id
                                 })" title="Edit">
                                     <i class="bi bi-pencil"></i>
                                 </button>
-                                <button class="btn btn-outline-danger" onclick="VenueMasterPage.deleteVenue(${
+                                <button class="btn btn-outline-danger" onclick="HallBookingVenueMasterPage.deleteVenue(${
                                   venue.id
                                 }, '${venue.venue_name}')" title="Delete">
                                     <i class="bi bi-trash"></i>
@@ -544,7 +544,7 @@
       const prevDisabled = pagination.current_page === 1 ? "disabled" : "";
       container.append(`
                 <li class="page-item ${prevDisabled}">
-                    <a class="page-link" href="#" onclick="VenueMasterPage.goToPage(${
+                    <a class="page-link" href="#" onclick="HallBookingVenueMasterPage.goToPage(${
                       pagination.current_page - 1
                     }); return false;">
                         <i class="bi bi-chevron-left"></i>
@@ -562,7 +562,7 @@
           const active = i === pagination.current_page ? "active" : "";
           container.append(`
                         <li class="page-item ${active}">
-                            <a class="page-link" href="#" onclick="VenueMasterPage.goToPage(${i}); return false;">${i}</a>
+                            <a class="page-link" href="#" onclick="HallBookingVenueMasterPage.goToPage(${i}); return false;">${i}</a>
                         </li>
                     `);
         } else if (
@@ -580,7 +580,7 @@
         pagination.current_page === pagination.total_pages ? "disabled" : "";
       container.append(`
                 <li class="page-item ${nextDisabled}">
-                    <a class="page-link" href="#" onclick="VenueMasterPage.goToPage(${
+                    <a class="page-link" href="#" onclick="HallBookingVenueMasterPage.goToPage(${
                       pagination.current_page + 1
                     }); return false;">
                         <i class="bi bi-chevron-right"></i>

@@ -49,9 +49,9 @@
                         <div class="col-xl-3 col-md-6 mb-4">
                             <div class="stat-card">
                                 <div class="stat-icon success">
-                                    <i class="bi bi-currency-rupee"></i>
+                                    RM
                                 </div>
-                                <div class="stat-value">?<span id="todayRevenue">-</span></div>
+                                <div class="stat-value"><span id="todayRevenue">-</span></div>
                                 <div class="stat-label">Today's Revenue</div>
                                 <div class="stat-change positive">
                                     <i class="bi bi-arrow-up"></i> <span id="revenueChange">0%</span> from yesterday

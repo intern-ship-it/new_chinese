@@ -1,4 +1,3 @@
-// backend/app/Http/Controllers/AddonServiceController.php
 <?php
 
 namespace App\Http\Controllers;

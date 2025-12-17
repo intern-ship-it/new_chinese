@@ -1,5 +1,5 @@
 // js/pages/donations/list.js
-// Donations List Page with DataTables, GSAP animations, and Spirit Money Generation
+// Donations List Page with Buddha Lamp-style UI
 
 (function($, window) {
     'use strict';
@@ -70,12 +70,18 @@
         dataTable: null,
         pageId: 'donations-list',
         eventNamespace: window.DonationsSharedModule.eventNamespace,
+        donationTypes: [],
+        paymentModes: [],
+        currentPage: 1,
+        perPage: 25,
+        totalRecords: 0,
+        currentSpiritMoneyData: null,
         
         init: function(params) {
             window.DonationsSharedModule.registerPage(this.pageId);
             this.render();
             this.initAnimations();
-            this.loadData();
+            this.loadFilterData();
             this.bindEvents();
         },
         
@@ -91,14 +97,9 @@
                 gsap.killTweensOf(`.${this.pageId}-page *`);
             }
             
-            if (this.intervals) {
-                this.intervals.forEach(interval => clearInterval(interval));
-                this.intervals = [];
-            }
-            
-            if (this.timeouts) {
-                this.timeouts.forEach(timeout => clearTimeout(timeout));
-                this.timeouts = [];
+            if (this.dataTable) {
+                this.dataTable.destroy();
+                this.dataTable = null;
             }
             
             console.log(`${this.pageId} cleanup completed`);
@@ -107,134 +108,217 @@
         render: function() {
             const html = `
                 <div class="donations-list-page">
-                    <!-- Page Header -->
-                    <div class="page-header" data-aos="fade-down" data-aos-duration="800">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <div>
-                                <h1 class="h2 mb-2">
-                                    <i class="bi bi-gift-fill me-2 text-primary"></i>
-                                    Donations
-                                </h1>
-                                <p class="text-muted mb-0">Manage all donation records</p>
+                    <!-- Hero Header Banner - Buddha Lamp Style -->
+                    <div class="hero-banner" style="background: linear-gradient(135deg, #b8651b 0%, #d4782a 100%); border-radius: 12px; padding: 30px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(184, 101, 27, 0.3);">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                <div style="background: rgba(255,255,255,0.2); border-radius: 50%; width: 70px; height: 70px; display: flex; align-items: center; justify-content: center; margin-right: 20px;">
+                                    <i class="bi bi-gift-fill" style="font-size: 35px; color: white;"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1" style="color: white; font-size: 32px; font-weight: 700;">Donations</h1>
+                                    <p class="mb-0" style="color: rgba(255,255,255,0.9); font-size: 15px;">捐款管理 • Temple Donation Management</p>
+                                </div>
                             </div>
                             <div class="d-flex gap-2">
-                                <button class="btn btn-primary" id="btnNewDonation">
-                                    <i class="bi bi-plus-circle"></i> New Donation
+                                <button class="btn btn-light" id="btnPrintReport" style="background: white; color: #b8651b; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600;">
+                                    <i class="bi bi-printer-fill me-2"></i>Print Report
                                 </button>
-                                <button class="btn btn-outline-secondary" id="btnPrintReport">
-                                    <i class="bi bi-printer-fill"></i> Print Report
-                                </button>
-                                <button class="btn btn-outline-primary" id="btnRefresh">
-                                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                                <button class="btn" id="btnNewDonation" style="background: rgba(255,255,255,0.2); color: white; border: 2px solid white; padding: 10px 20px; border-radius: 8px; font-weight: 600;">
+                                    <i class="bi bi-plus-circle me-2"></i>New Donation
                                 </button>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Stats Cards -->
+                    <!-- Stats Cards - Buddha Lamp Style -->
                     <div class="row mb-4 g-3" id="statsContainer">
-                        <div class="col-xl-3 col-md-6" data-aos="fade-up" data-aos-duration="800" data-aos-delay="100">
-                            <div class="stat-card stat-card-primary">
-                                <div class="stat-card-icon">
-                                    <i class="bi bi-calendar-day"></i>
-                                </div>
-                                <div class="stat-card-body">
-                                    <div class="stat-value" id="todayDonations">0</div>
-                                    <div class="stat-label">Today's Donations</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-xl-3 col-md-6" data-aos="fade-up" data-aos-duration="800" data-aos-delay="200">
-                            <div class="stat-card stat-card-success">
-                                <div class="stat-card-icon">
-                                    <i class="bi bi-currency-rupee"></i>
-                                </div>
-                                <div class="stat-card-body">
-                                    <div class="stat-value">RM <span id="todayAmount">0.00</span></div>
-                                    <div class="stat-label">Today's Amount</div>
+                        <div class="col-xl-3 col-md-6">
+                            <div style="background: white; border-radius: 12px; padding: 20px; border-left: 4px solid #e83e8c; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: all 0.3s;">
+                                <div class="d-flex align-items-center">
+                                    <div style="background: rgba(232, 62, 140, 0.1); border-radius: 10px; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
+                                        <i class="bi bi-calendar-day" style="font-size: 24px; color: #e83e8c;"></i>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <div style="color: #6c757d; font-size: 12px; text-transform: uppercase; font-weight: 600; margin-bottom: 5px;">Today's Donations</div>
+                                        <div style="font-size: 28px; font-weight: 700; color: #2d3748;" id="todayDonations">0</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-xl-3 col-md-6" data-aos="fade-up" data-aos-duration="800" data-aos-delay="300">
-                            <div class="stat-card stat-card-info">
-                                <div class="stat-card-icon">
-                                    <i class="bi bi-calendar-month"></i>
-                                </div>
-                                <div class="stat-card-body">
-                                    <div class="stat-value" id="monthDonations">0</div>
-                                    <div class="stat-label">This Month</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-xl-3 col-md-6" data-aos="fade-up" data-aos-duration="800" data-aos-delay="400">
-                            <div class="stat-card stat-card-warning">
-                                <div class="stat-card-icon">
-                                    <i class="bi bi-people"></i>
-                                </div>
-                                <div class="stat-card-body">
-                                    <div class="stat-value" id="totalDonors">0</div>
-                                    <div class="stat-label">Total Donors</div>
+                        
+                        <div class="col-xl-3 col-md-6">
+                            <div style="background: white; border-radius: 12px; padding: 20px; border-left: 4px solid #28a745; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: all 0.3s;">
+                                <div class="d-flex align-items-center">
+                                    <div style="background: rgba(40, 167, 69, 0.1); border-radius: 10px; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; margin-right: 15px; font-size: 20px; font-weight: 700; color: #28a745;">
+                                        RM
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <div style="color: #6c757d; font-size: 12px; text-transform: uppercase; font-weight: 600; margin-bottom: 5px;">Today's Amount</div>
+                                        <div style="font-size: 28px; font-weight: 700; color: #2d3748;">RM <span id="todayAmount">0.00</span></div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-
-                    <!-- Filters -->
-                    <div class="card shadow-sm mb-4 filter-card" data-aos="fade-up" data-aos-duration="800" data-aos-delay="200">
-                        <div class="card-body">
-                            <div class="row g-3">
-                                <div class="col-md-3">
-                                    <label class="form-label">Donation Type</label>
-                                    <select class="form-select" id="filterType">
-                                        <option value="">All Types</option>
-                                        <option value="donation">General Donation</option>
-                                        <option value="voucher">Voucher Donation</option>
-                                    </select>
+                        
+                        <div class="col-xl-3 col-md-6">
+                            <div style="background: white; border-radius: 12px; padding: 20px; border-left: 4px solid #17a2b8; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: all 0.3s;">
+                                <div class="d-flex align-items-center">
+                                    <div style="background: rgba(23, 162, 184, 0.1); border-radius: 10px; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
+                                        <i class="bi bi-calendar-month" style="font-size: 24px; color: #17a2b8;"></i>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <div style="color: #6c757d; font-size: 12px; text-transform: uppercase; font-weight: 600; margin-bottom: 5px;">This Month</div>
+                                        <div style="font-size: 28px; font-weight: 700; color: #2d3748;" id="monthDonations">0</div>
+                                    </div>
                                 </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">Payment Method</label>
-                                    <select class="form-select" id="filterPayment">
-                                        <option value="">All Methods</option>
-                                        <option value="cash">Cash</option>
-                                        <option value="cheque">Cheque</option>
-                                        <option value="ebanking">E-banking</option>
-                                        <option value="card">Card</option>
-                                        <option value="duitnow">DuitNow</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">From Date</label>
-                                    <input type="date" class="form-control" id="filterFromDate">
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">To Date</label>
-                                    <input type="date" class="form-control" id="filterToDate">
+                            </div>
+                        </div>
+                        
+                        <div class="col-xl-3 col-md-6">
+                            <div style="background: white; border-radius: 12px; padding: 20px; border-left: 4px solid #2d3748; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: all 0.3s;">
+                                <div class="d-flex align-items-center">
+                                    <div style="background: rgba(45, 55, 72, 0.1); border-radius: 10px; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
+                                        <i class="bi bi-check-circle" style="font-size: 24px; color: #2d3748;"></i>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <div style="color: #6c757d; font-size: 12px; text-transform: uppercase; font-weight: 600; margin-bottom: 5px;">Total Donors</div>
+                                        <div style="font-size: 28px; font-weight: 700; color: #2d3748;" id="totalDonors">0</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Donations Table -->
-                    <div class="card shadow-sm table-card" data-aos="fade-up" data-aos-duration="800" data-aos-delay="300">
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table id="donationsTable" class="table table-hover" style="width:100%">
-                                    <thead>
-                                        <tr>
-                                            <th>ID</th>
-                                            <th>Date</th>
-                                            <th>Donor Name</th>
-                                            <th>Type</th>
-                                            <th>Amount</th>
-                                            <th>Payment</th>
-                                            <th>Contact</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <!-- Data will be loaded via DataTables -->
-                                    </tbody>
-                                </table>
+                    <!-- Filters Section - Buddha Lamp Style -->
+                    <div style="background: white; border-radius: 12px; padding: 25px; margin-bottom: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                        <div class="row g-3">
+                            <div class="col-md-2">
+                                <label class="form-label" style="font-weight: 600; color: #495057; font-size: 13px;">Donation Type</label>
+                                <select class="form-select" id="filterType" style="border: 1px solid #dee2e6; border-radius: 6px;">
+                                    <option value="">All Types</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label" style="font-weight: 600; color: #495057; font-size: 13px;">Payment Method</label>
+                                <select class="form-select" id="filterPayment" style="border: 1px solid #dee2e6; border-radius: 6px;">
+                                    <option value="">All Methods</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label" style="font-weight: 600; color: #495057; font-size: 13px;">From Date</label>
+                                <input type="date" class="form-control" id="filterFromDate" placeholder="yyyy-mm-dd" style="border: 1px solid #dee2e6; border-radius: 6px;">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label" style="font-weight: 600; color: #495057; font-size: 13px;">To Date</label>
+                                <input type="date" class="form-control" id="filterToDate" placeholder="yyyy-mm-dd" style="border: 1px solid #dee2e6; border-radius: 6px;">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" style="font-weight: 600; color: #495057; font-size: 13px;">Search</label>
+                                <input type="text" class="form-control" id="filterSearch" placeholder="Name, NRIC, Booking No." style="border: 1px solid #dee2e6; border-radius: 6px;">
+                            </div>
+                            <div class="col-md-1 d-flex align-items-end">
+                                <button class="btn w-100" id="btnFilter" style="background: #b8651b; color: white; border: none; border-radius: 6px; padding: 10px; font-weight: 600;">
+                                    <i class="bi bi-funnel-fill"></i> Filter
+                                </button>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-12">
+                                <button class="btn btn-sm btn-outline-primary" id="btnClearFilters" style="border-radius: 6px;">
+                                    <i class="bi bi-x-circle me-1"></i>Clear Filters
+                                </button>
+                                <button class="btn btn-sm btn-outline-primary ms-2" id="btnRefresh" style="border-radius: 6px;">
+                                    <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Table Section -->
+                    <div style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div style="color: #495057; font-size: 14px;">
+                                Show 
+                                <select id="perPageSelect" style="border: 1px solid #dee2e6; border-radius: 4px; padding: 4px 8px; margin: 0 5px;">
+                                    <option value="10">10</option>
+                                    <option value="25" selected>25</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                                per page
+                            </div>
+                            <div style="color: #495057; font-size: 14px;">
+                                Search: <input type="text" id="tableSearch" placeholder="" style="border: 1px solid #dee2e6; border-radius: 4px; padding: 4px 12px; width: 200px;">
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0" id="donationsTable">
+                                <thead style="background: linear-gradient(135deg, #b8651b 0%, #d4782a 100%);">
+                                    <tr>
+                                        <th style="color: white; font-weight: 600; padding: 15px; border: none;">Booking No.</th>
+                                        <th style="color: white; font-weight: 600; padding: 15px; border: none;">Date</th>
+                                        <th style="color: white; font-weight: 600; padding: 15px; border: none;">Donor Name</th>
+                                        <th style="color: white; font-weight: 600; padding: 15px; border: none;">Donation Type</th>
+                                        <th style="color: white; font-weight: 600; padding: 15px; border: none;">Amount<br/>(RM)</th>
+                                        <th style="color: white; font-weight: 600; padding: 15px; border: none;">Payment Method</th>
+                                        <th style="color: white; font-weight: 600; padding: 15px; border: none;">Contact</th>
+                                        <th style="color: white; font-weight: 600; padding: 15px; border: none;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="donationsTableBody">
+                                    <tr>
+                                        <td colspan="8" class="text-center py-5">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            <p class="mt-2 text-muted">Loading donations...</p>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pagination -->
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <div class="text-muted" style="font-size: 14px;">
+                                Showing <span id="showingFrom">0</span> to <span id="showingTo">0</span> of <span id="totalRecords">0</span> entries
+                            </div>
+                            <nav>
+                                <ul class="pagination mb-0" id="pagination">
+                                    <!-- Pagination will be rendered here -->
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- View Donation Modal -->
+                <div class="modal fade" id="viewDonationModal" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header" style="background: linear-gradient(135deg, #b8651b 0%, #d4782a 100%);">
+                                <h5 class="modal-title text-white">
+                                    <i class="bi bi-eye me-2"></i>
+                                    Donation Details
+                                </h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body" id="viewDonationContent">
+                                <div class="text-center py-5">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                    <i class="bi bi-x-circle"></i> Close
+                                </button>
+                                <button type="button" class="btn" id="btnPrintFromView" style="background: #b8651b; color: white;">
+                                    <i class="bi bi-printer"></i> Print Receipt
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -244,39 +328,39 @@
                 <div class="modal fade" id="spiritMoneyModal" tabindex="-1" aria-hidden="true">
                     <div class="modal-dialog modal-dialog-centered modal-lg">
                         <div class="modal-content">
-                            <div class="modal-header">
+                            <div class="modal-header bg-warning">
                                 <h5 class="modal-title">
                                     <i class="bi bi-file-earmark-image me-2"></i>
                                     Spirit Money Preview
                                 </h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
-                            <div class="modal-body text-center">
-                                <div id="spiritMoneyPreview" class="mb-3">
-                                    <div class="spinner-border text-primary" role="status">
+                            <div class="modal-body">
+                                <div id="spiritMoneyPreview" class="text-center mb-3">
+                                    <div class="spinner-border text-warning" role="status">
                                         <span class="visually-hidden">Generating...</span>
                                     </div>
                                     <p class="mt-2">Generating spirit money image...</p>
                                 </div>
                                 <div id="spiritMoneyInfo" class="text-start" style="display:none;">
                                     <div class="alert alert-info">
-                                        <h6 class="mb-2">Donor Information:</h6>
+                                        <h6 class="mb-2"><i class="bi bi-info-circle me-2"></i>Donor Information:</h6>
                                         <div class="row">
                                             <div class="col-6">
-                                                <small><strong>Name (Chinese):</strong></small><br>
-                                                <span id="previewNameChinese"></span>
+                                                <small class="text-muted">Name (Chinese):</small><br>
+                                                <strong id="previewNameChinese"></strong>
                                             </div>
                                             <div class="col-6">
-                                                <small><strong>Name (English):</strong></small><br>
-                                                <span id="previewNameEnglish"></span>
+                                                <small class="text-muted">Name (English):</small><br>
+                                                <strong id="previewNameEnglish"></strong>
                                             </div>
                                             <div class="col-6 mt-2">
-                                                <small><strong>Amount:</strong></small><br>
-                                                <span id="previewAmount"></span>
+                                                <small class="text-muted">Amount:</small><br>
+                                                <strong id="previewAmount" class="text-success"></strong>
                                             </div>
                                             <div class="col-6 mt-2">
-                                                <small><strong>Donation ID:</strong></small><br>
-                                                <span id="previewDonationId"></span>
+                                                <small class="text-muted">Donation ID:</small><br>
+                                                <strong id="previewDonationId"></strong>
                                             </div>
                                         </div>
                                     </div>
@@ -286,7 +370,7 @@
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                                     <i class="bi bi-x-circle"></i> Close
                                 </button>
-                                <button type="button" class="btn btn-primary" id="btnDownloadSpiritMoney" disabled>
+                                <button type="button" class="btn btn-warning" id="btnDownloadSpiritMoney" disabled>
                                     <i class="bi bi-download"></i> Download Image
                                 </button>
                             </div>
@@ -299,55 +383,87 @@
         },
         
         initAnimations: function() {
-            if (typeof AOS !== 'undefined') {
-                AOS.init({
-                    duration: 800,
-                    easing: 'ease-in-out',
-                    once: true,
-                    offset: 50
-                });
+            // Add hover animations to stat cards
+            $('[style*="border-left"]').each(function() {
+                $(this).hover(
+                    function() {
+                        $(this).css({
+                            'transform': 'translateY(-5px)',
+                            'box-shadow': '0 8px 20px rgba(0,0,0,0.12)'
+                        });
+                    },
+                    function() {
+                        $(this).css({
+                            'transform': 'translateY(0)',
+                            'box-shadow': '0 2px 8px rgba(0,0,0,0.08)'
+                        });
+                    }
+                );
+            });
+        },
+
+        loadFilterData: async function() {
+            try {
+                const [donationsResponse, paymentModesResponse] = await Promise.all([
+                    TempleAPI.get('/donations/types/active'),
+                    TempleAPI.get('/masters/payment-modes/active')
+                ]);
+
+                if (donationsResponse.success) {
+                    this.donationTypes = donationsResponse.data;
+                    this.renderDonationTypeFilter();
+                }
+
+                if (paymentModesResponse.success) {
+                    this.paymentModes = paymentModesResponse.data;
+                    this.renderPaymentModeFilter();
+                }
+
+                await Promise.all([
+                    this.loadStats(),
+                    this.loadDonations()
+                ]);
+
+            } catch (error) {
+                console.error('Error loading filter data:', error);
+                TempleCore.showToast('Failed to load filter data', 'error');
             }
-            
-            $('.stat-card').each(function(index) {
-                const card = this;
-                
-                $(card).on('mouseenter.' + this.eventNamespace, function() {
-                    gsap.to(card, {
-                        y: -10,
-                        boxShadow: '0 15px 30px rgba(0,0,0,0.15)',
-                        duration: 0.3,
-                        ease: 'power2.out'
-                    });
-                });
-                
-                $(card).on('mouseleave.' + this.eventNamespace, function() {
-                    gsap.to(card, {
-                        y: 0,
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                        duration: 0.3,
-                        ease: 'power2.out'
-                    });
-                });
+        },
+
+        renderDonationTypeFilter: function() {
+            const $filterType = $('#filterType');
+            this.donationTypes.forEach(donation => {
+                $filterType.append(`
+                    <option value="${donation.type}">
+                        ${donation.name}${donation.secondary_name ? ' • ' + donation.secondary_name : ''}
+                    </option>
+                `);
+            });
+        },
+
+        renderPaymentModeFilter: function() {
+            const $filterPayment = $('#filterPayment');
+            this.paymentModes.forEach(mode => {
+                $filterPayment.append(`
+                    <option value="${mode.id}">${mode.name}</option>
+                `);
             });
         },
         
-        loadData: function() {
-            this.loadStats();
-            this.initDataTable();
-        },
-        
-        loadStats: function() {
-            const stats = {
-                todayDonations: 12,
-                todayAmount: 5240.50,
-                monthDonations: 267,
-                totalDonors: 543
-            };
-            
-            this.animateCounter('#todayDonations', stats.todayDonations);
-            this.animateCounter('#todayAmount', stats.todayAmount, true);
-            this.animateCounter('#monthDonations', stats.monthDonations);
-            this.animateCounter('#totalDonors', stats.totalDonors);
+        loadStats: async function() {
+            try {
+                const response = await TempleAPI.get('/donations/statistics');
+                
+                if (response.success) {
+                    const stats = response.data;
+                    this.animateCounter('#todayDonations', stats.today_donations);
+                    this.animateCounter('#todayAmount', stats.today_amount, true);
+                    this.animateCounter('#monthDonations', stats.month_donations);
+                    this.animateCounter('#totalDonors', stats.total_donors);
+                }
+            } catch (error) {
+                console.error('Error loading statistics:', error);
+            }
         },
         
         animateCounter: function(selector, endValue, isDecimal = false) {
@@ -367,258 +483,273 @@
                 }
             });
         },
-        
-        initDataTable: function() {
-            const self = this;
-            const sampleData = this.getSampleData();
-            
-            this.dataTable = $('#donationsTable').DataTable({
-                data: sampleData,
-                columns: [
-                    { data: 'id' },
-                    { 
-                        data: 'date',
-                        render: function(data) {
-                            return moment(data).format('DD MMM YYYY');
-                        }
-                    },
-                    { 
-                        data: null,
-                        render: function(data) {
-                            return `
-                                <div>
-                                    <div class="fw-semibold">${data.name_english}</div>
-                                    <small class="text-muted">${data.name_chinese}</small>
-                                </div>
-                            `;
-                        }
-                    },
-                    { 
-                        data: 'type',
-                        render: function(data, type, row) {
-                            const badges = {
-                                'donation': '<span class="badge bg-primary">General</span>',
-                                'meal': '<span class="badge bg-success">Meal</span>',
-                                'maintenance': '<span class="badge bg-warning">Maintenance</span>',
-                                'voucher': '<span class="badge bg-info">Voucher</span>',
-                                'other': '<span class="badge bg-secondary">Other</span>'
-                            };
-                            return badges[data] || data;
-                        }
-                    },
-                    { 
-                        data: 'amount',
-                        render: function(data) {
-                            return 'RM ' + parseFloat(data).toFixed(2);
-                        }
-                    },
-                    { 
-                        data: 'payment_method',
-                        render: function(data) {
-                            const icons = {
-                                'cash': '<i class="bi bi-cash-stack text-success"></i> Cash',
-                                'cheque': '<i class="bi bi-bank text-primary"></i> Cheque',
-                                'ebanking': '<i class="bi bi-laptop text-info"></i> E-banking',
-                                'card': '<i class="bi bi-credit-card text-warning"></i> Card',
-                                'duitnow': '<i class="bi bi-wallet2 text-danger"></i> DuitNow'
-                            };
-                            return icons[data] || data;
-                        }
-                    },
-                    { 
-                        data: null,
-                        render: function(data) {
-                            return `
-                                <div class="small">
-                                    <div>${data.email}</div>
-                                    <div class="text-muted">${data.contact_no}</div>
-                                </div>
-                            `;
-                        }
-                    },
-                    {
-                        data: null,
-                        orderable: false,
-                        searchable: false,
-                        render: function(data) {
-                            return `
-                                <div class="btn-group btn-group-sm">
-                                    <button class="btn btn-outline-primary btn-view" data-id="${data.id}" 
-                                            title="View">
-                                        <i class="bi bi-eye"></i>
-                                    </button>
-                                    <button class="btn btn-outline-success btn-edit" data-id="${data.id}" 
-                                            title="Edit">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
-                                    <button class="btn btn-outline-warning btn-spirit-money" 
-                                            data-id="${data.id}"
-                                            data-name-chinese="${data.name_chinese}"
-                                            data-name-english="${data.name_english}"
-                                            data-amount="${data.amount}"
-                                            title="Generate Spirit Money">
-                                        <i class="bi bi-file-earmark-image"></i>
-                                    </button>
-                                    <button class="btn btn-outline-info btn-print" data-id="${data.id}" 
-                                            title="Print Receipt">
-                                        <i class="bi bi-printer"></i>
-                                    </button>
-                                    <button class="btn btn-outline-danger btn-delete" data-id="${data.id}" 
-                                            title="Delete">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </div>
-                            `;
-                        }
-                    }
-                ],
-                order: [[1, 'desc']],
-                pageLength: 25,
-                responsive: true,
-                language: {
-                    search: '',
-                    searchPlaceholder: 'Search donations...',
-                    lengthMenu: 'Show _MENU_ entries',
-                    info: 'Showing _START_ to _END_ of _TOTAL_ donations',
-                    infoEmpty: 'No donations found',
-                    infoFiltered: '(filtered from _MAX_ total donations)',
-                    emptyTable: 'No donations recorded yet'
-                },
-                drawCallback: function() {
-                    $('#donationsTable tbody tr').each(function(index) {
-                        gsap.from(this, {
-                            opacity: 0,
-                            x: -20,
-                            duration: 0.3,
-                            delay: index * 0.03,
-                            ease: 'power2.out'
-                        });
-                    });
+
+        loadDonations: async function() {
+            try {
+                const filters = this.getFilters();
+                
+                const params = new URLSearchParams({
+                    page: this.currentPage,
+                    per_page: this.perPage,
+                    ...filters
+                });
+
+                const response = await TempleAPI.get(`/donations?${params.toString()}`);
+                
+                if (response.success) {
+                    this.renderDonations(response.data);
+                    this.renderPagination(response.pagination);
+                } else {
+                    throw new Error(response.message || 'Failed to load donations');
                 }
-            });
+            } catch (error) {
+                console.error('Error loading donations:', error);
+                $('#donationsTableBody').html(`
+                    <tr>
+                        <td colspan="8" class="text-center py-5">
+                            <div class="alert alert-danger d-inline-block">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                Failed to load donations. Please try again.
+                            </div>
+                        </td>
+                    </tr>
+                `);
+                TempleCore.showToast('Failed to load donations', 'error');
+            }
         },
-        
-        getSampleData: function() {
-            return [
-                {
-                    id: 'DON-2024-001',
-                    date: '2024-01-15',
-                    name_english: 'John Tan',
-                    name_chinese: '陈约翰',
-                    type: 'donation',
-                    amount: 500.00,
-                    payment_method: 'cash',
-                    email: 'john.tan@email.com',
-                    contact_no: '+60123456789',
-                    nric: '940815-01-5678'
-                },
-                {
-                    id: 'DON-2024-002',
-                    date: '2024-01-15',
-                    name_english: 'Mary Lim',
-                    name_chinese: '林玛丽',
-                    type: 'voucher',
-                    amount: 100.00,
-                    payment_method: 'card',
-                    email: 'mary.lim@email.com',
-                    contact_no: '+60129876543',
-                    nric: '880422-14-2345'
-                },
-                {
-                    id: 'DON-2024-003',
-                    date: '2024-01-14',
-                    name_english: 'David Wong',
-                    name_chinese: '黄大伟',
-                    type: 'meal',
-                    amount: 250.00,
-                    payment_method: 'ebanking',
-                    email: 'david.w@email.com',
-                    contact_no: '+60187654321',
-                    nric: '920308-10-9876'
-                },
-                {
-                    id: 'DON-2024-004',
-                    date: '2024-01-14',
-                    name_english: 'Sarah Lee',
-                    name_chinese: '李莎拉',
-                    type: 'maintenance',
-                    amount: 1000.00,
-                    payment_method: 'cheque',
-                    email: 'sarah.lee@email.com',
-                    contact_no: '+60165432198',
-                    nric: '850615-11-3456'
-                },
-                {
-                    id: 'DON-2024-005',
-                    date: '2024-01-13',
-                    name_english: 'Michael Ng',
-                    name_chinese: '黄米高',
-                    type: 'donation',
-                    amount: 300.00,
-                    payment_method: 'duitnow',
-                    email: 'michael.ng@email.com',
-                    contact_no: '+60143219876',
-                    nric: '900125-12-6789'
+
+        getFilters: function() {
+            const filters = {};
+
+            const donationType = $('#filterType').val();
+            if (donationType) filters.donation_type = donationType;
+
+            const paymentModeId = $('#filterPayment').val();
+            if (paymentModeId) filters.payment_mode_id = paymentModeId;
+
+            const fromDate = $('#filterFromDate').val();
+            if (fromDate) filters.from_date = fromDate;
+
+            const toDate = $('#filterToDate').val();
+            if (toDate) filters.to_date = toDate;
+
+            const search = $('#filterSearch').val();
+            if (search) filters.search = search;
+
+            return filters;
+        },
+
+        renderDonations: function(donations) {
+            const $tbody = $('#donationsTableBody');
+
+            if (!donations || donations.length === 0) {
+                $tbody.html(`
+                    <tr>
+                        <td colspan="8" class="text-center py-5">
+                            <i class="bi bi-inbox fs-1 text-muted"></i>
+                            <p class="mt-2 text-muted">No donations found</p>
+                        </td>
+                    </tr>
+                `);
+                return;
+            }
+
+            const rows = donations.map((donation, index) => {
+                const donationType = this.getDonationTypeBadge(donation.donation_type);
+                const paymentMethod = this.getPaymentMethodDisplay(donation.payment_method, donation.payment_mode_id);
+                const rowBg = index % 2 === 0 ? 'background: #fafafa;' : '';
+
+                return `
+                    <tr data-id="${donation.id}" style="${rowBg}">
+                        <td style="padding: 15px; border-bottom: 1px solid #eee;">
+                            <span class="fw-semibold">${donation.booking_number}</span>
+                        </td>
+                        <td style="padding: 15px; border-bottom: 1px solid #eee;">${moment(donation.date).format('DD MMM YYYY')}</td>
+                        <td style="padding: 15px; border-bottom: 1px solid #eee;">
+                            <div>
+                                <div class="fw-semibold">${donation.name_chinese}</div>
+                                <small class="text-muted">${donation.name_english}</small>
+                            </div>
+                        </td>
+                        <td style="padding: 15px; border-bottom: 1px solid #eee;">${donationType}</td>
+                        <td style="padding: 15px; border-bottom: 1px solid #eee;">
+                            <span class="fw-semibold">${parseFloat(donation.amount).toFixed(2)}</span>
+                        </td>
+                        <td style="padding: 15px; border-bottom: 1px solid #eee;">${paymentMethod}</td>
+                        <td style="padding: 15px; border-bottom: 1px solid #eee;">
+                            <div class="small">
+                                <div>${donation.email}</div>
+                                <div class="text-muted">${donation.contact_no}</div>
+                            </div>
+                        </td>
+                        <td style="padding: 15px; border-bottom: 1px solid #eee;">
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-primary btn-view" data-id="${donation.id}" title="View" style="border-radius: 4px 0 0 4px;">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                                <button class="btn btn-outline-success btn-edit" data-id="${donation.id}" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-outline-warning btn-spirit-money" 
+                                        data-id="${donation.id}"
+                                        data-name-chinese="${donation.name_chinese}"
+                                        data-name-english="${donation.name_english}"
+                                        data-amount="${donation.amount}"
+                                        data-booking-number="${donation.booking_number}"
+                                        title="Spirit Money">
+                                    <i class="bi bi-file-earmark-image"></i>
+                                </button>
+                                <button class="btn btn-outline-info btn-print" data-id="${donation.id}" title="Print">
+                                    <i class="bi bi-printer"></i>
+                                </button>
+                                <button class="btn btn-outline-danger btn-delete" data-id="${donation.id}" title="Delete" style="border-radius: 0 4px 4px 0;">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            $tbody.html(rows);
+        },
+
+        getDonationTypeBadge: function(type) {
+            const badges = {
+                'general': '<span class="badge" style="background: #28a745; color: white; padding: 5px 10px; border-radius: 4px;">Meal</span>',
+                'voucher': '<span class="badge" style="background: #17a2b8; color: white; padding: 5px 10px; border-radius: 4px;">Voucher</span>',
+                'meal': '<span class="badge" style="background: #28a745; color: white; padding: 5px 10px; border-radius: 4px;">Meal</span>',
+                'maintenance': '<span class="badge" style="background: #ffc107; color: #333; padding: 5px 10px; border-radius: 4px;">Maintenance</span>',
+                'other': '<span class="badge" style="background: #6c757d; color: white; padding: 5px 10px; border-radius: 4px;">Other</span>'
+            };
+            return badges[type] || `<span class="badge" style="background: #6c757d; color: white; padding: 5px 10px; border-radius: 4px;">${type}</span>`;
+        },
+
+        getPaymentMethodDisplay: function(method, paymentModeId = null) {
+            if (paymentModeId && this.paymentModes.length > 0) {
+                const mode = this.paymentModes.find(m => m.id === paymentModeId || m.name === method);
+                if (mode && mode.icon_display_url_data) {
+                    const iconDisplay = mode.icon_display_url_data;
+                    const iconHtml = iconDisplay.type === 'bootstrap' 
+                        ? `<i class="bi ${iconDisplay.value}"></i>`
+                        : `<img src="${iconDisplay.value}" alt="${mode.name}" style="width: ${iconDisplay.width || 62}px; height: ${iconDisplay.height || 28}px; object-fit: contain; vertical-align: middle;">`;
+                    return `<div style="background: #f8f9fa; padding: 5px 12px; border-radius: 6px; display: inline-block;">${iconHtml} <span style="margin-left: 5px;">${method}</span></div>`;
                 }
-            ];
+            }
+            
+            const icons = {
+                'Cash': '<i class="bi bi-cash-stack text-success"></i>',
+                'Cheque': '<i class="bi bi-bank text-primary"></i>',
+                'E-banking': '<i class="bi bi-laptop text-info"></i>',
+                'Online Banking': '<i class="bi bi-bank text-info"></i>',
+                'Card': '<i class="bi bi-credit-card text-warning"></i>',
+                'DuitNow': '<i class="bi bi-wallet2 text-danger"></i>'
+            };
+            
+            const icon = icons[method] || '<i class="bi bi-cash"></i>';
+            return `<div style="background: #f8f9fa; padding: 5px 12px; border-radius: 6px; display: inline-block;">${icon} <span style="margin-left: 5px;">${method}</span></div>`;
+        },
+
+        renderPagination: function(pagination) {
+            if (!pagination) return;
+
+            this.totalRecords = pagination.total;
+            const showingFrom = (pagination.current_page - 1) * pagination.per_page + 1;
+            const showingTo = Math.min(pagination.current_page * pagination.per_page, pagination.total);
+
+            $('#showingFrom').text(showingFrom);
+            $('#showingTo').text(showingTo);
+            $('#totalRecords').text(pagination.total);
+
+            const $pagination = $('#pagination');
+            $pagination.empty();
+
+            if (pagination.last_page <= 1) return;
+
+            $pagination.append(`
+                <li class="page-item ${pagination.current_page === 1 ? 'disabled' : ''}">
+                    <a class="page-link" href="#" data-page="${pagination.current_page - 1}">Previous</a>
+                </li>
+            `);
+
+            for (let i = 1; i <= pagination.last_page; i++) {
+                if (
+                    i === 1 ||
+                    i === pagination.last_page ||
+                    (i >= pagination.current_page - 2 && i <= pagination.current_page + 2)
+                ) {
+                    $pagination.append(`
+                        <li class="page-item ${i === pagination.current_page ? 'active' : ''}">
+                            <a class="page-link" href="#" data-page="${i}">${i}</a>
+                        </li>
+                    `);
+                } else if (
+                    i === pagination.current_page - 3 ||
+                    i === pagination.current_page + 3
+                ) {
+                    $pagination.append(`<li class="page-item disabled"><span class="page-link">...</span></li>`);
+                }
+            }
+
+            $pagination.append(`
+                <li class="page-item ${pagination.current_page === pagination.last_page ? 'disabled' : ''}">
+                    <a class="page-link" href="#" data-page="${pagination.current_page + 1}">Next</a>
+                </li>
+            `);
         },
         
         bindEvents: function() {
             const self = this;
             
             $('#btnNewDonation').on('click.' + this.eventNamespace, function() {
-                gsap.to(this, {
-                    scale: 0.95,
-                    duration: 0.1,
-                    yoyo: true,
-                    repeat: 1,
-                    onComplete: () => {
-                        self.cleanup();
-                        TempleRouter.navigate('donations/create');
-                    }
-                });
+                self.cleanup();
+                TempleRouter.navigate('donations/create');
             });
             
             $('#btnPrintReport').on('click.' + this.eventNamespace, function() {
-                const $btn = $(this);
-                const $icon = $btn.find('i');
-                
-                gsap.to($icon[0], {
-                    rotation: 360,
-                    duration: 0.5,
-                    ease: 'power2.inOut'
-                });
-                
-                const reportParams = {
-                    type: $('#filterType').val(),
-                    payment_method: $('#filterPayment').val(),
-                    from_date: $('#filterFromDate').val(),
-                    to_date: $('#filterToDate').val()
-                };
+                const filters = self.getFilters();
                 self.cleanup();
-                TempleRouter.navigate('donations/report-print', reportParams);
+                TempleRouter.navigate('donations/report-print', filters);
             });
             
-            $('#btnRefresh').on('click.' + this.eventNamespace, function() {
-                const $btn = $(this);
-                const $icon = $btn.find('i');
-                
-                gsap.to($icon[0], {
-                    rotation: 360,
-                    duration: 0.5,
-                    ease: 'power2.inOut'
-                });
-                
-                if (self.dataTable) {
-                    self.dataTable.ajax.reload();
-                }
-                
+            $('#btnRefresh, #btnFilter').on('click.' + this.eventNamespace, function() {
                 self.loadStats();
+                self.loadDonations();
                 TempleCore.showToast('Data refreshed', 'success');
             });
             
             $('#filterType, #filterPayment, #filterFromDate, #filterToDate').on('change.' + this.eventNamespace, function() {
-                self.applyFilters();
+                self.currentPage = 1;
+                self.loadDonations();
+            });
+
+            let searchTimeout;
+            $('#filterSearch').on('keyup.' + this.eventNamespace, function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    self.currentPage = 1;
+                    self.loadDonations();
+                }, 500);
+            });
+
+            $('#btnClearFilters').on('click.' + this.eventNamespace, function() {
+                $('#filterType').val('');
+                $('#filterPayment').val('');
+                $('#filterFromDate').val('');
+                $('#filterToDate').val('');
+                $('#filterSearch').val('');
+                self.currentPage = 1;
+                self.loadDonations();
+            });
+
+            $(document).on('click.' + this.eventNamespace, '#pagination a.page-link', function(e) {
+                e.preventDefault();
+                const page = parseInt($(this).data('page'));
+                if (page && page !== self.currentPage) {
+                    self.currentPage = page;
+                    self.loadDonations();
+                    $('html, body').animate({ scrollTop: 0 }, 300);
+                }
             });
             
             $(document).on('click.' + this.eventNamespace, '.btn-view', function() {
@@ -631,47 +762,21 @@
                 self.editDonation(id);
             });
             
-            // Spirit Money button - NEW
             $(document).on('click.' + this.eventNamespace, '.btn-spirit-money', function() {
                 const $btn = $(this);
                 const donorData = {
                     id: $btn.data('id'),
                     name_chinese: $btn.data('name-chinese'),
                     name_english: $btn.data('name-english'),
-                    amount: $btn.data('amount')
+                    amount: $btn.data('amount'),
+                    booking_number: $btn.data('booking-number')
                 };
-                
-                // Animate button
-                const $icon = $btn.find('i');
-                gsap.to($icon[0], {
-                    scale: 1.3,
-                    rotation: 15,
-                    duration: 0.2,
-                    yoyo: true,
-                    repeat: 1,
-                    ease: 'power2.inOut',
-                    onComplete: () => {
-                        self.generateSpiritMoney(donorData);
-                    }
-                });
+                self.generateSpiritMoney(donorData);
             });
             
             $(document).on('click.' + this.eventNamespace, '.btn-print', function() {
                 const id = $(this).data('id');
-                const $btn = $(this);
-                const $icon = $btn.find('i');
-                
-                gsap.to($icon[0], {
-                    scale: 1.2,
-                    rotation: 10,
-                    duration: 0.2,
-                    yoyo: true,
-                    repeat: 1,
-                    ease: 'power2.inOut',
-                    onComplete: () => {
-                        self.printReceipt(id);
-                    }
-                });
+                self.printReceipt(id);
             });
             
             $(document).on('click.' + this.eventNamespace, '.btn-delete', function() {
@@ -679,78 +784,252 @@
                 self.deleteDonation(id);
             });
             
-            // Spirit Money Modal download button
+            $('#btnPrintFromView').on('click.' + this.eventNamespace, function() {
+                const id = $(this).data('id');
+                if (id) {
+                    bootstrap.Modal.getInstance(document.getElementById('viewDonationModal')).hide();
+                    self.printReceipt(id);
+                }
+            });
+            
             $('#btnDownloadSpiritMoney').on('click.' + this.eventNamespace, function() {
                 self.downloadCurrentSpiritMoney();
             });
         },
         
-        applyFilters: function() {
-            const type = $('#filterType').val();
-            const payment = $('#filterPayment').val();
-            const fromDate = $('#filterFromDate').val();
-            const toDate = $('#filterToDate').val();
-            
-            if (this.dataTable) {
-                $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
-                    if (type && data[3].indexOf(type) === -1) {
-                        return false;
-                    }
-                    
-                    if (payment && data[5].indexOf(payment) === -1) {
-                        return false;
-                    }
-                    
-                    const rowDate = moment(data[1], 'DD MMM YYYY');
-                    if (fromDate && rowDate.isBefore(moment(fromDate))) {
-                        return false;
-                    }
-                    if (toDate && rowDate.isAfter(moment(toDate))) {
-                        return false;
-                    }
-                    
-                    return true;
-                });
+        viewDonation: async function(id) {
+            try {
+                const modal = new bootstrap.Modal(document.getElementById('viewDonationModal'));
+                modal.show();
                 
-                this.dataTable.draw();
-                $.fn.dataTable.ext.search.pop();
+                $('#viewDonationContent').html(`
+                    <div class="text-center py-5">
+                        <div class="spinner-border" style="color: #b8651b;" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading donation details...</p>
+                    </div>
+                `);
+                
+                const response = await TempleAPI.get(`/donations/${id}`);
+                
+                if (response.success) {
+                    const donation = response.data;
+                    $('#btnPrintFromView').data('id', id);
+                    
+                    const html = `
+                        <div class="donation-details">
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <div class="card" style="background: #f8f9fa; border: none;">
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div class="col-6">
+                                                    <h6 class="text-muted mb-1">Donation Number</h6>
+                                                    <p class="mb-0 fw-bold fs-5">${donation.booking_number}</p>
+                                                </div>
+                                                <div class="col-6 text-end">
+                                                    <h6 class="text-muted mb-1">Date</h6>
+                                                    <p class="mb-0 fw-bold">${moment(donation.date).format('DD MMMM YYYY')}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="card h-100" style="border: 1px solid #dee2e6;">
+                                        <div class="card-body">
+                                            <h6 class="card-title mb-3" style="color: #b8651b;">
+                                                <i class="bi bi-person-circle me-2"></i>
+                                                Donor Information
+                                            </h6>
+                                            <table class="table table-sm table-borderless">
+                                                <tr>
+                                                    <td class="text-muted" width="40%">Name (English)</td>
+                                                    <td class="fw-semibold">${donation.name_english}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted">Name (Chinese)</td>
+                                                    <td class="fw-semibold">${donation.name_chinese}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted">NRIC</td>
+                                                    <td>${donation.nric}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted">Email</td>
+                                                    <td>${donation.email}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted">Contact No.</td>
+                                                    <td>${donation.contact_no}</td>
+                                                </tr>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="card h-100" style="border: 1px solid #dee2e6;">
+                                        <div class="card-body">
+                                            <h6 class="card-title mb-3" style="color: #28a745;">
+                                                <i class="bi bi-credit-card me-2"></i>
+                                                Payment Information
+                                            </h6>
+                                            <table class="table table-sm table-borderless">
+                                                <tr>
+                                                    <td class="text-muted" width="40%">Donation Type</td>
+                                                    <td>${this.getDonationTypeBadge(donation.donation_type)}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted">Amount</td>
+                                                    <td class="fw-bold text-success fs-5">RM ${parseFloat(donation.amount).toFixed(2)}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted">Payment Method</td>
+                                                    <td>${this.getPaymentMethodDisplay(donation.payment_method)}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted">Reference</td>
+                                                    <td><code>${donation.payment_reference}</code></td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="text-muted">Status</td>
+                                                    <td><span class="badge bg-success">${donation.payment_status}</span></td>
+                                                </tr>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                ${donation.notes ? `
+                                <div class="col-12">
+                                    <div class="card" style="border: 1px solid #dee2e6;">
+                                        <div class="card-body">
+                                            <h6 class="card-title mb-2" style="color: #17a2b8;">
+                                                <i class="bi bi-chat-left-text me-2"></i>
+                                                Notes
+                                            </h6>
+                                            <p class="mb-0">${donation.notes}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                ` : ''}
+                                
+                                <div class="col-12">
+                                    <div class="card" style="background: #f8f9fa; border: none;">
+                                        <div class="card-body">
+                                            <div class="row text-center">
+                                                <div class="col-6">
+                                                    <small class="text-muted d-block">Created By</small>
+                                                    <strong>${donation.created_by || 'System'}</strong>
+                                                </div>
+                                                <div class="col-6">
+                                                    <small class="text-muted d-block">Created At</small>
+                                                    <strong>${moment(donation.created_at).format('DD MMM YYYY, HH:mm')}</strong>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    $('#viewDonationContent').html(html);
+                } else {
+                    throw new Error(response.message || 'Failed to load donation details');
+                }
+            } catch (error) {
+                console.error('Error viewing donation:', error);
+                $('#viewDonationContent').html(`
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Failed to load donation details. Please try again.
+                    </div>
+                `);
+                TempleCore.showToast('Failed to load donation details', 'error');
             }
-            
-            gsap.fromTo('.filter-card', 
-                { scale: 0.98 },
-                { scale: 1, duration: 0.2, ease: 'back.out(1.2)' }
-            );
-        },
-        
-        viewDonation: function(id) {
-            console.log('View donation:', id);
-            TempleCore.showToast('View feature coming soon', 'info');
         },
         
         editDonation: function(id) {
-            console.log('Edit donation:', id);
-            TempleCore.showToast('Edit feature coming soon', 'info');
+            this.cleanup();
+            TempleRouter.navigate('donations/edit', { id: id });
+        },
+        
+        deleteDonation: function(id) {
+            const self = this;
+            
+            Swal.fire({
+                title: 'Delete Donation?',
+                html: `
+                    <p>Are you sure you want to delete this donation record?</p>
+                    <p class="text-danger mb-0"><strong>This action cannot be undone!</strong></p>
+                `,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: '<i class="bi bi-trash me-2"></i>Yes, delete it!',
+                cancelButtonText: '<i class="bi bi-x-circle me-2"></i>Cancel',
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    try {
+                        Swal.fire({
+                            title: 'Deleting...',
+                            html: 'Please wait while we delete the donation record.',
+                            allowOutsideClick: false,
+                            allowEscapeKey: false,
+                            showConfirmButton: false,
+                            willOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+                        
+                        const response = await TempleAPI.delete(`/donations/${id}`);
+                        
+                        if (response.success) {
+                            Swal.fire({
+                                title: 'Deleted!',
+                                text: 'Donation record has been deleted successfully.',
+                                icon: 'success',
+                                timer: 2000,
+                                showConfirmButton: false
+                            });
+                            
+                            self.loadDonations();
+                            self.loadStats();
+                        } else {
+                            throw new Error(response.message || 'Failed to delete donation');
+                        }
+                    } catch (error) {
+                        console.error('Error deleting donation:', error);
+                        Swal.fire({
+                            title: 'Error!',
+                            text: 'Failed to delete donation. ' + error.message,
+                            icon: 'error',
+                            confirmButtonText: 'OK'
+                        });
+                    }
+                }
+            });
         },
         
         printReceipt: function(id) {
-            console.log('Print receipt for donation:', id);
             TempleCore.showToast('Generating receipt...', 'info');
             this.cleanup();
-            let params = {id: id};
-            TempleRouter.navigate('donations/receipt-print', params);
+            TempleRouter.navigate('donations/receipt-print', { id: id });
         },
         
-        // Spirit Money Generation - NEW METHODS
         generateSpiritMoney: function(donorData) {
             const self = this;
             
-            // Show modal
             const modal = new bootstrap.Modal(document.getElementById('spiritMoneyModal'));
             modal.show();
             
-            // Reset preview
             $('#spiritMoneyPreview').html(`
-                <div class="spinner-border text-primary" role="status">
+                <div class="spinner-border text-warning" role="status">
                     <span class="visually-hidden">Generating...</span>
                 </div>
                 <p class="mt-2">Generating spirit money image...</p>
@@ -758,13 +1037,11 @@
             $('#spiritMoneyInfo').hide();
             $('#btnDownloadSpiritMoney').prop('disabled', true);
             
-            // Update info display
             $('#previewNameChinese').text(donorData.name_chinese);
             $('#previewNameEnglish').text(donorData.name_english);
             $('#previewAmount').text('RM ' + parseFloat(donorData.amount).toFixed(2));
-            $('#previewDonationId').text(donorData.id);
+            $('#previewDonationId').text(donorData.booking_number);
             
-            // Check if SpiritMoneyGenerator is available
             if (typeof window.SpiritMoneyGenerator === 'undefined') {
                 $('#spiritMoneyPreview').html(`
                     <div class="alert alert-danger">
@@ -775,29 +1052,18 @@
                 return;
             }
             
-            // Generate image
             window.SpiritMoneyGenerator.generate(donorData)
                 .then(dataUrl => {
-                    // Store for download
                     self.currentSpiritMoneyData = {
                         dataUrl: dataUrl,
-                        filename: `spirit-money-${donorData.id}.png`
+                        filename: `spirit-money-${donorData.booking_number}.png`
                     };
                     
-                    // Show preview
                     $('#spiritMoneyPreview').html(`
                         <img src="${dataUrl}" alt="Spirit Money" class="img-fluid border rounded shadow-sm" style="max-height: 500px;">
                     `);
                     $('#spiritMoneyInfo').show();
                     $('#btnDownloadSpiritMoney').prop('disabled', false);
-                    
-                    // Animate preview
-                    gsap.from('#spiritMoneyPreview img', {
-                        scale: 0.8,
-                        opacity: 0,
-                        duration: 0.5,
-                        ease: 'back.out(1.2)'
-                    });
                     
                     TempleCore.showToast('Spirit money generated successfully!', 'success');
                 })
@@ -822,42 +1088,10 @@
                 
                 TempleCore.showToast('Spirit money downloaded!', 'success');
                 
-                // Close modal after download
                 setTimeout(() => {
                     bootstrap.Modal.getInstance(document.getElementById('spiritMoneyModal')).hide();
                 }, 800);
             }
-        },
-        
-        deleteDonation: function(id) {
-            const self = this;
-            
-            Swal.fire({
-                title: 'Delete Donation?',
-                text: 'Are you sure you want to delete this donation record?',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#ff00ff',
-                cancelButtonColor: '#6c757d',
-                confirmButtonText: 'Yes, delete it!',
-                cancelButtonText: 'Cancel'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    console.log('Delete donation:', id);
-                    
-                    Swal.fire({
-                        title: 'Deleted!',
-                        text: 'Donation record has been deleted.',
-                        icon: 'success',
-                        timer: 1500,
-                        showConfirmButton: false
-                    });
-                    
-                    if (self.dataTable) {
-                        self.dataTable.ajax.reload();
-                    }
-                }
-            });
         }
     };
     

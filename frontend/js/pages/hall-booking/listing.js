@@ -291,8 +291,8 @@
             $('#btnPrintReceipt').on('click.' + this.eventNamespace, function() {
                 const bookingId = $(this).data('current-booking-id');
                 if (bookingId) {
+					$('#bookingDetailsModal').modal('hide');
                     self.printReceipt(bookingId);
-                    $('#bookingDetailsModal').modal('hide');
                 }
             });
         },

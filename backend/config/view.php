@@ -29,8 +29,8 @@ return [
     */
 
     'compiled' => env(
-        'VIEW_COMPILED_PATH',
-        null // or set to false to disable caching
-    ),
+		'VIEW_COMPILED_PATH',
+		realpath(storage_path('framework/views'))
+	),
 
 ];

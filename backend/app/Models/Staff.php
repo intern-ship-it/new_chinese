@@ -269,26 +269,26 @@ class Staff extends Model
         ]);
     }
     public function getProfilePhotoUrlAttribute()
-{
-    if (!$this->profile_photo) {
-        return null;
-    }
+	{
+		if (!$this->profile_photo) {
+			return null;
+		}
 
-    // Check if it's already a full URL
-    if (filter_var($this->profile_photo, FILTER_VALIDATE_URL)) {
-        return $this->profile_photo;
-    }
+		// Check if it's already a full URL
+		if (filter_var($this->profile_photo, FILTER_VALIDATE_URL)) {
+			return $this->profile_photo;
+		}
 
-    // Generate signed URL for private S3 files
-    try {
-        $s3Service = app(\App\Services\S3UploadService::class);
-        return $s3Service->getSignedUrl($this->profile_photo);
-    } catch (\Exception $e) {
-        \Log::error('Failed to generate signed URL for profile photo', [
-            'staff_id' => $this->id,
-            'error' => $e->getMessage()
-        ]);
-        return null;
-    }
-}
+		// Generate signed URL for private S3 files
+		try {
+			$s3Service = app(\App\Services\S3UploadService::class);
+			return $s3Service->getSignedUrl($this->profile_photo);
+		} catch (\Exception $e) {
+			\Log::error('Failed to generate signed URL for profile photo', [
+				'staff_id' => $this->id,
+				'error' => $e->getMessage()
+			]);
+			return null;
+		}
+	}
 }

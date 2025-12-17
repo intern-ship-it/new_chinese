@@ -3,7 +3,7 @@
 (function ($, window) {
   "use strict";
 
-  window.SessionMasterPage = {
+  window.HallBookingSessionMasterPage = {
     currentUser: null,
     sessionsData: [],
     currentPage: 1,
@@ -31,7 +31,7 @@
     render: function () {
       const html = `
                 <!-- Page Header with Animation -->
-                <div class="session-header-bg" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 2rem 0; margin-bottom: 2rem; border-radius: 15px; position: relative; overflow: hidden;">
+                <div class="session-header-bg" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); padding: 2rem 0; margin-bottom: 2rem; border-radius: 15px; position: relative; overflow: hidden;">
                     <div class="container">
                         <div class="row align-items-center">
                             <div class="col-md-8" data-aos="fade-right">
@@ -543,12 +543,12 @@
                         <td>${statusBadge}</td>
                         <td class="text-center">
                             <div class="btn-group btn-group-sm">
-                                <button class="btn btn-outline-primary" onclick="SessionMasterPage.editSession(${
+                                <button class="btn btn-outline-primary" onclick="HallBookingSessionMasterPage.editSession(${
                                   session.id
                                 })" title="Edit">
                                     <i class="bi bi-pencil"></i>
                                 </button>
-                                <button class="btn btn-outline-danger" onclick="SessionMasterPage.deleteSession(${
+                                <button class="btn btn-outline-danger" onclick="HallBookingSessionMasterPage.deleteSession(${
                                   session.id
                                 }, '${session.session_name}')" title="Delete">
                                     <i class="bi bi-trash"></i>
@@ -582,7 +582,7 @@
       const prevDisabled = pagination.current_page === 1 ? "disabled" : "";
       container.append(`
                 <li class="page-item ${prevDisabled}">
-                    <a class="page-link" href="#" onclick="SessionMasterPage.goToPage(${
+                    <a class="page-link" href="#" onclick="HallBookingSessionMasterPage.goToPage(${
                       pagination.current_page - 1
                     }); return false;">
                         <i class="bi bi-chevron-left"></i>
@@ -600,7 +600,7 @@
           const active = i === pagination.current_page ? "active" : "";
           container.append(`
                         <li class="page-item ${active}">
-                            <a class="page-link" href="#" onclick="SessionMasterPage.goToPage(${i}); return false;">${i}</a>
+                            <a class="page-link" href="#" onclick="HallBookingSessionMasterPage.goToPage(${i}); return false;">${i}</a>
                         </li>
                     `);
         } else if (
@@ -618,7 +618,7 @@
         pagination.current_page === pagination.total_pages ? "disabled" : "";
       container.append(`
                 <li class="page-item ${nextDisabled}">
-                    <a class="page-link" href="#" onclick="SessionMasterPage.goToPage(${
+                    <a class="page-link" href="#" onclick="HallBookingSessionMasterPage.goToPage(${
                       pagination.current_page + 1
                     }); return false;">
                         <i class="bi bi-chevron-right"></i>

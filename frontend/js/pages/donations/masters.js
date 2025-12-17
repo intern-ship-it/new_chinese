@@ -130,6 +130,10 @@ if (typeof DonationAPI === 'undefined') {
                                     <label class="form-label">Type</label>
                                     <select class="form-select" id="filterType">
                                         <option value="">All Types</option>
+                                        <option value="maintenance">Maintenance</option>
+                                        <option value="meal">Meal</option>
+                                        <option value="voucher">Voucher</option>
+                                        <option value="general">General</option>
                                     </select>
                                 </div>
                                 <div class="col-md-3">
@@ -162,16 +166,17 @@ if (typeof DonationAPI === 'undefined') {
                                     <thead>
                                         <tr>
                                             <th width="5%">#</th>
-                                            <th width="25%">Name</th>
-                                            <th width="15%">Type</th>
-                                            <th width="30%">Details</th>
+                                            <th width="20%">Primary Name</th>
+                                            <th width="20%">Secondary Name</th>
+                                            <th width="10%">Type</th>
+                                            <th width="20%">Details</th>
                                             <th width="10%">Status</th>
                                             <th width="15%">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody id="donationsTableBody">
                                         <tr>
-                                            <td colspan="6" class="text-center">
+                                            <td colspan="7" class="text-center">
                                                 <div class="spinner-border text-primary" role="status">
                                                     <span class="visually-hidden">Loading...</span>
                                                 </div>
@@ -197,17 +202,6 @@ if (typeof DonationAPI === 'undefined') {
             `;
 
             $('#page-container').html(html);
-            this.updateTypeFilters();
-        },
-
-        // Update type filters with loaded types
-        updateTypeFilters: function () {
-            const filterSelect = $('#filterType');
-            filterSelect.find('option:not(:first)').remove();
-
-            this.types.forEach(function (type) {
-                filterSelect.append(`<option value="${type}">${type.charAt(0).toUpperCase() + type.slice(1)}</option>`);
-            });
         },
 
         // Render Modal
@@ -225,26 +219,31 @@ if (typeof DonationAPI === 'undefined') {
                             <form id="donationForm">
                                 <div class="modal-body">
                                     <div class="row">
-                                        <!-- Name -->
+                                        <!-- Primary Name -->
                                         <div class="col-md-12 mb-3">
-                                            <label class="form-label required">Name</label>
+                                            <label class="form-label required">Primary Name</label>
                                             <input type="text" class="form-control" id="donationName" required>
-                                            <div class="invalid-feedback">Please enter donation name</div>
+                                            <div class="invalid-feedback">Please enter primary name</div>
                                         </div>
 
-                                        <!-- Type (with datalist for autocomplete) -->
+                                        <!-- Secondary Name -->
+                                        <div class="col-md-12 mb-3">
+                                            <label class="form-label">Secondary Name</label>
+                                            <input type="text" class="form-control" id="donationSecondaryName" placeholder="Optional secondary name">
+                                            <small class="form-text text-muted">Optional alternative name</small>
+                                        </div>
+
+                                        <!-- Type (dropdown) -->
                                         <div class="col-md-6 mb-3">
                                             <label class="form-label required">Type</label>
-                                            <input type="text" 
-                                                   class="form-control" 
-                                                   id="donationType" 
-                                                   list="typesList"
-                                                   placeholder="Enter or select type"
-                                                   required
-                                                   maxlength="50">
-                                            <datalist id="typesList"></datalist>
-                                            <div class="invalid-feedback">Please enter donation type</div>
-                                            <small class="form-text text-muted">Enter new type or select from existing</small>
+                                            <select class="form-select" id="donationType" required>
+                                                <option value="">Select Type</option>
+                                                <option value="maintenance">Maintenance</option>
+                                                <option value="meal">Meal</option>
+                                                <option value="voucher">Voucher</option>
+                                                <option value="general">General</option>
+                                            </select>
+                                            <div class="invalid-feedback">Please select donation type</div>
                                         </div>
 
                                         <!-- Status -->
@@ -274,16 +273,6 @@ if (typeof DonationAPI === 'undefined') {
                     </div>
                 </div>
             `;
-        },
-
-        // Populate types datalist
-        populateTypesDatalist: function () {
-            const datalist = $('#typesList');
-            datalist.empty();
-
-            this.types.forEach(function (type) {
-                datalist.append(`<option value="${type}">`);
-            });
         },
 
         // Bind events
@@ -368,7 +357,7 @@ if (typeof DonationAPI === 'undefined') {
                 console.error('DonationAPI is not loaded yet');
                 tbody.html(`
                     <tr>
-                        <td colspan="6" class="text-center text-warning">
+                        <td colspan="7" class="text-center text-warning">
                             <i class="bi bi-exclamation-triangle"></i> Loading API service...
                             <br><small>Please wait or refresh the page</small>
                         </td>
@@ -382,7 +371,7 @@ if (typeof DonationAPI === 'undefined') {
 
             tbody.html(`
                 <tr>
-                    <td colspan="6" class="text-center">
+                    <td colspan="7" class="text-center">
                         <div class="spinner-border text-primary" role="status"></div>
                     </td>
                 </tr>
@@ -410,7 +399,7 @@ if (typeof DonationAPI === 'undefined') {
                     console.error('Error loading donations:', error);
                     tbody.html(`
                         <tr>
-                            <td colspan="6" class="text-center text-danger">
+                            <td colspan="7" class="text-center text-danger">
                                 <i class="bi bi-exclamation-circle"></i> ${error.message || 'Failed to load donations'}
                             </td>
                         </tr>
@@ -430,7 +419,7 @@ if (typeof DonationAPI === 'undefined') {
             if (!data.data || data.data.length === 0) {
                 tbody.html(`
                     <tr>
-                        <td colspan="6" class="text-center">
+                        <td colspan="7" class="text-center">
                             <i class="bi bi-inbox"></i> No donations found
                         </td>
                     </tr>
@@ -447,11 +436,14 @@ if (typeof DonationAPI === 'undefined') {
                     ? '<span class="badge bg-success">Active</span>'
                     : '<span class="badge bg-danger">Inactive</span>';
 
+                const typeLabel = item.type.charAt(0).toUpperCase() + item.type.slice(1);
+
                 html += `
                     <tr>
                         <td>${startIndex + index + 1}</td>
                         <td><strong>${item.name}</strong></td>
-                        <td><span class="badge bg-primary">${item.type.charAt(0).toUpperCase() + item.type.slice(1)}</span></td>
+                        <td>${item.secondary_name || '<span class="text-muted">-</span>'}</td>
+                        <td><span class="badge bg-primary">${typeLabel}</span></td>
                         <td>${item.details || '<span class="text-muted">-</span>'}</td>
                         <td>${statusBadge}</td>
                         <td>
@@ -520,8 +512,6 @@ if (typeof DonationAPI === 'undefined') {
             $('#donationForm').removeClass('was-validated');
             $('#donationStatus').val('1');
 
-            this.populateTypesDatalist();
-
             this.modal = new bootstrap.Modal(document.getElementById('donationModal'));
             this.modal.show();
         },
@@ -544,11 +534,10 @@ if (typeof DonationAPI === 'undefined') {
 
             $('#modalTitle').html('<i class="bi bi-pencil"></i> Edit Type');
             $('#donationName').val(donation.name);
+            $('#donationSecondaryName').val(donation.secondary_name || '');
             $('#donationType').val(donation.type);
             $('#donationDetails').val(donation.details || '');
             $('#donationStatus').val(donation.status);
-
-            this.populateTypesDatalist();
 
             this.modal = new bootstrap.Modal(document.getElementById('donationModal'));
             this.modal.show();
@@ -566,42 +555,70 @@ if (typeof DonationAPI === 'undefined') {
 
             const data = {
                 name: $('#donationName').val().trim(),
+                secondary_name: $('#donationSecondaryName').val().trim() || null,
                 type: $('#donationType').val().trim().toLowerCase(),
                 details: $('#donationDetails').val().trim(),
                 status: parseInt($('#donationStatus').val())
             };
 
-            $('#btnSave').prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Saving...');
+            // Disable button and show loading
+            const $btnSave = $('#btnSave');
+            $btnSave.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Saving...');
 
-            const request = this.editMode
+            console.log('Saving donation:', data);
+
+            // Create timeout promise
+            const timeoutPromise = new Promise((resolve, reject) => {
+                setTimeout(() => reject(new Error('Request timeout - please try again')), 30000); // 30 seconds
+            });
+
+            // Get the API request
+            const apiRequest = this.editMode
                 ? DonationAPI.update(this.selectedDonation.id, data)
                 : DonationAPI.create(data);
 
-            request
+            // Race between API request and timeout
+            Promise.race([apiRequest, timeoutPromise])
                 .then(function (response) {
-                    if (response.success) {
+                    console.log('Save response:', response);
+                    
+                    if (response && response.success) {
                         if (typeof Toast !== 'undefined') {
                             Toast.success(response.message || 'Donation saved successfully');
                         } else {
                             alert(response.message || 'Donation saved successfully');
                         }
                         self.modal.hide();
-                        self.loadTypes(); // Refresh types list
+                        self.loadTypes();
                         self.loadDonations();
                     } else {
-                        throw new Error(response.message || 'Failed to save donation');
+                        throw new Error(response?.message || 'Failed to save donation');
                     }
                 })
                 .catch(function (error) {
                     console.error('Error saving donation:', error);
+                    
+                    // Extract meaningful error message
+                    let errorMessage = 'Failed to save donation';
+                    
+                    if (error.message) {
+                        errorMessage = error.message;
+                    } else if (error.responseJSON && error.responseJSON.message) {
+                        errorMessage = error.responseJSON.message;
+                    } else if (error.statusText) {
+                        errorMessage = error.statusText;
+                    }
+                    
                     if (typeof Toast !== 'undefined') {
-                        Toast.error(error.message || 'Failed to save donation');
+                        Toast.error(errorMessage);
                     } else {
-                        alert('Error: ' + (error.message || 'Failed to save donation'));
+                        alert('Error: ' + errorMessage);
                     }
                 })
                 .finally(function () {
-                    $('#btnSave').prop('disabled', false).html('<i class="bi bi-check-circle"></i> Save');
+                    console.log('Resetting save button');
+                    // Always reset button state
+                    $btnSave.prop('disabled', false).html('<i class="bi bi-check-circle"></i> Save');
                 });
         },
 
@@ -621,7 +638,7 @@ if (typeof DonationAPI === 'undefined') {
                         } else {
                             alert(response.message || 'Donation deleted successfully');
                         }
-                        self.loadTypes(); // Refresh types list
+                        self.loadTypes();
                         self.loadDonations();
                     } else {
                         throw new Error(response.message || 'Failed to delete donation');

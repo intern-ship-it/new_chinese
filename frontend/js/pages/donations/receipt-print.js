@@ -1,10 +1,9 @@
 // js/pages/donations/receipt-print.js
-// Donations Receipt Print Page
+// Donations Receipt Print Page - WITH PLEDGE INFORMATION
 
 (function($, window) {
     'use strict';
     
-    // Ensure shared module exists
     if (!window.DonationsSharedModule) {
         window.DonationsSharedModule = {
             moduleId: 'donations',
@@ -76,15 +75,17 @@
         
         init: function(params) {
             window.DonationsSharedModule.registerPage(this.pageId);
-            this.donationId = 'DON-2024-002';
+            
+            this.donationId = params?.id || null;
             
             if (!this.donationId) {
                 TempleCore.showToast('Invalid donation ID', 'error');
-				this.cleanup();
+                this.cleanup();
                 TempleRouter.navigate('donations/list');
                 return;
             }
             
+            console.log('Printing receipt for donation ID:', this.donationId);
             this.loadAndPrint();
         },
         
@@ -115,7 +116,7 @@
             })
             .catch(function(error) {
                 TempleCore.showToast(error.message || 'Error loading data', 'error');
-				self.cleanup();
+                self.cleanup();
                 TempleRouter.navigate('donations/list');
             })
             .finally(function() {
@@ -126,62 +127,32 @@
         loadDonationData: function() {
             const self = this;
             return new Promise((resolve, reject) => {
-                // Simulate loading donation data (replace with actual API call)
-                setTimeout(() => {
-                    // Sample donation data - replace with actual API call
-                    self.donationData = {
-                        id: self.donationId,
-                        donation_code: 'DON-2025-' + self.donationId,
-                        date: '2025-11-21',
-                        time: '10:30 AM',
-                        donor: {
-                            name_english: 'John Tan Wei Ming',
-                            name_chinese: '',
-                            nric: '940815-01-5678',
-                            email: 'john.tan@email.com',
-                            contact_no: '+60123456789'
-                        },
-                        donation_type: 'donation',
-                        donation_subtype: 'general',
-                        amount: 500.00,
-                        payment_method: 'cash',
-                        notes: 'Monthly donation for temple maintenance',
-                        status: 'Confirmed',
-                        receipt_no: 'RCP-' + self.donationId,
-                        created_at: '2025-11-21T10:30:00Z'
-                    };
-                    resolve();
-                }, 500);
-                
-                // Actual API implementation:
-                /*
                 TempleAPI.get(`/donations/${this.donationId}`)
                     .done(function(response) {
-                        if (response.success) {
+                        if (response.success && response.data) {
                             self.donationData = response.data;
+                            console.log('Donation data loaded:', self.donationData);
                             resolve();
                         } else {
-                            reject(new Error('Failed to load donation'));
+                            reject(new Error(response.message || 'Failed to load donation'));
                         }
                     })
-                    .fail(function() {
-                        reject(new Error('Error loading donation'));
+                    .fail(function(xhr) {
+                        console.error('API Error:', xhr);
+                        reject(new Error('Error loading donation data'));
                     });
-                */
             });
         },
         
         loadTempleSettings: function() {
             const self = this;
             return new Promise((resolve, reject) => {
-                // Try to fetch fresh settings from server first
                 if (typeof TempleAPI !== 'undefined') {
                     TempleAPI.get('/settings?type=SYSTEM')
                         .done(function(response) {
                             if (response.success && response.data && response.data.values) {
                                 self.templeSettings = response.data.values;
                                 
-                                // Update localStorage for future use
                                 localStorage.setItem(APP_CONFIG.STORAGE.TEMPLE, JSON.stringify({
                                     name: self.templeSettings.temple_name || '',
                                     address: self.templeSettings.temple_address || '',
@@ -211,7 +182,6 @@
         },
         
         fallbackToLocalStorage: function() {
-            // Fallback to localStorage or default values
             const stored = JSON.parse(localStorage.getItem(APP_CONFIG?.STORAGE?.TEMPLE) || '{}');
             this.templeSettings = {
                 temple_name: stored.name || 'Persatuan Hainan Selangor & Wilayah Persekutuan',
@@ -238,10 +208,8 @@
             printWindow.document.write(html);
             printWindow.document.close();
             
-            // Navigate back to donations list after opening print window
             setTimeout(() => {
-                this.cleanup();
-				self.cleanup();
+                self.cleanup();
                 TempleRouter.navigate('donations/list');
             }, 100);
         },
@@ -250,23 +218,31 @@
             const donation = this.donationData;
             const temple = this.templeSettings;
             
-            // Generate receipt number
-            const receiptNumber = this.generateReceiptNumber(donation.date);
-            
-            // Generate temple logo HTML
+            const receiptNumber = donation.receipt_no || this.generateReceiptNumber(donation.date);
             const logoHTML = this.getTempleLogoHTML();
-            
-            // Format amount in words
             const amountInWords = this.numberToWords(donation.amount);
-            
-            // Get donation type display
             const donationTypeDisplay = this.getDonationTypeDisplay(donation);
+            
+            const donorNameEnglish = donation.name_english || donation.donor?.name_english || '';
+            const donorNameChinese = donation.name_chinese || donation.donor?.name_chinese || '';
+            const donorNric = donation.nric || donation.donor?.nric || '';
+            const donorEmail = donation.email || donation.donor?.email || '';
+            const donorContact = donation.contact_no || donation.donor?.contact_no || '';
+            const donationCode = donation.booking_number || donation.donation_code || '';
+            const donationDate = donation.date || donation.booking_date || new Date().toISOString();
+            
+            // ========== PLEDGE INFORMATION ==========
+            const isPledge = donation.is_pledge || false;
+            const pledgeAmount = donation.pledge_amount || 0;
+            const pledgeBalance = donation.pledge_balance || 0;
+            const pledgeStatus = donation.pledge_status || '';
+            const paidAmount = donation.paid_amount || donation.amount || 0;
             
             return `
                 <!DOCTYPE html>
                 <html>
                 <head>
-                    <title>Donation Receipt - ${donation.donation_code}</title>
+                    <title>Donation Receipt - ${donationCode}</title>
                     <meta charset="utf-8">
                     <style>
                         body { 
@@ -306,7 +282,7 @@
                         .temple-name {
                             font-size: 21px;
                             font-weight: bold;
-                            color: #ff00ff;
+                            color: #800000;
                             margin-bottom: 5px;
                         }
                         .receipt-title {
@@ -317,6 +293,15 @@
                             margin: 20px 0;
                             border-top: 2px solid #c2c2c2;
                             padding-top: 15px;
+                        }
+                        .pledge-badge {
+                            display: inline-block;
+                            background: #ff9800;
+                            color: white;
+                            padding: 5px 15px;
+                            border-radius: 20px;
+                            font-size: 14px;
+                            margin-left: 10px;
                         }
                         .receipt-details {
                             margin: 20px 0;
@@ -337,7 +322,7 @@
                         }
                         .amount-highlight {
                             background: #f8f9fa;
-                            border: 2px solid #ff00ff;
+                            border: 2px solid #800000;
                             padding: 10px;
                             text-align: center;
                             margin: 20px 0;
@@ -346,8 +331,10 @@
                         .amount-highlight .amount {
                             font-size: 24px;
                             font-weight: bold;
-                            color: #ff00ff;
+                            color: #800000;
                         }
+                        /* NEW: Pledge Section Styling */
+                
                         .signature-section {
                             margin-top: 50px;
                             text-align: right;
@@ -397,45 +384,47 @@
                                 <div>${temple.temple_country || 'Malaysia'}</div>
                                 ${temple.temple_phone ? `<div>Tel: ${temple.temple_phone}</div>` : ''}
                                 ${temple.temple_email ? `<div>Email: ${temple.temple_email}</div>` : ''}
-                                ${temple.temple_website ? `<div>Website: ${temple.temple_website}</div>` : ''}
                             </div>
                             <div class="clear"></div>
                         </div>
                         
                         <!-- Receipt Title -->
-                        <div class="receipt-title">Donation Receipt</div>
+                        <div class="receipt-title">
+                            Donation Receipt
+                            ${isPledge ? '<span class="pledge-badge">PLEDGE DONATION</span>' : ''}
+                        </div>
                         
                         <!-- Receipt Details -->
                         <div class="receipt-details">
                             <table>
                                 <tr>
                                     <td class="label">Receipt No:</td>
-                                    <td><strong>${donation.receipt_no || receiptNumber}</strong></td>
+                                    <td><strong>${receiptNumber}</strong></td>
                                     <td class="label" style="text-align: right;">Date:</td>
-                                    <td style="text-align: right; width: 120px;">${this.formatDate(donation.date)}</td>
+                                    <td style="text-align: right; width: 120px;">${this.formatDate(donationDate)}</td>
                                 </tr>
                                 <tr>
                                     <td class="label">Time:</td>
-                                    <td>${donation.time || this.formatTime(donation.created_at)}</td>
+                                    <td>${donation.time || this.formatTime(donation.created_at || new Date())}</td>
                                     <td class="label" style="text-align: right;">Donation Code:</td>
-                                    <td style="text-align: right;">${donation.donation_code}</td>
+                                    <td style="text-align: right;">${donationCode}</td>
                                 </tr>
                                 <tr>
                                     <td class="label">Received from:</td>
                                     <td colspan="3">
-                                        <strong>${donation.donor.name_english}</strong>
-                                        ${donation.donor.name_chinese ? '<br><strong>' + donation.donor.name_chinese + '</strong>' : ''}
+                                        <strong>${donorNameEnglish}</strong>
+                                        ${donorNameChinese ? '<br><strong>' + donorNameChinese + '</strong>' : ''}
                                     </td>
                                 </tr>
                                 <tr>
                                     <td class="label">NRIC No:</td>
-                                    <td>${donation.donor.nric}</td>
+                                    <td>${donorNric}</td>
                                     <td class="label" style="text-align: right;">Contact:</td>
-                                    <td style="text-align: right;">${donation.donor.contact_no}</td>
+                                    <td style="text-align: right;">${donorContact}</td>
                                 </tr>
                                 <tr>
                                     <td class="label">Email:</td>
-                                    <td colspan="3">${donation.donor.email}</td>
+                                    <td colspan="3">${donorEmail}</td>
                                 </tr>
                                 <tr>
                                     <td class="label">Donation Type:</td>
@@ -445,21 +434,85 @@
                                     <td class="label">Payment Method:</td>
                                     <td>${this.getPaymentMethodDisplay(donation.payment_method)}</td>
                                     <td class="label" style="text-align: right;">Status:</td>
-                                    <td style="text-align: right;"><strong style="color: green;">Confirmed</strong></td>
+                                    <td style="text-align: right;"><strong style="color: green;">${donation.payment_status || donation.booking_status || 'Confirmed'}</strong></td>
                                 </tr>
-                                ${donation.notes ? `
+                                ${donation.notes || donation.special_instructions ? `
                                 <tr>
                                     <td class="label">Notes:</td>
-                                    <td colspan="3">${donation.notes}</td>
+                                    <td colspan="3">${donation.notes || donation.special_instructions}</td>
                                 </tr>
                                 ` : ''}
                             </table>
                         </div>
                         
+                        <!-- PLEDGE SECTION (if applicable) -->
+                   ${isPledge ? `
+<div style="border: 2px solid #dee2e6; border-radius: 8px; padding: 20px; margin: 20px 0; background: #fff;">
+    <h3 style="margin: 0 0 20px 0; color: #333; font-size: 16px; font-weight: bold; border-bottom: 1px solid #dee2e6; padding-bottom: 10px;">
+        📋 Pledge Information
+    </h3>
+    
+    <!-- Pledge Statistics with Vertical Dividers -->
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+        <tbody>
+            <tr>
+                <td style="text-align: center; padding: 15px 10px; vertical-align: top; width: 50%;">
+                    <div style="font-size: 24px; font-weight: bold; color: #333; margin-bottom: 8px; line-height: 1.2;">
+                        RM ${this.formatCurrency(pledgeAmount)}
+                    </div>
+                    <div style="font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.5px;">
+                        TOTAL PLEDGE AMOUNT
+                    </div>
+                </td>
+                <td style="width: 2%; border-right: 2px solid #dee2e6; padding: 0;"></td>
+                <td style="text-align: center; padding: 15px 10px; vertical-align: top; width: 50%;">
+                    <div style="font-size: 24px; font-weight: bold; color: #333; margin-bottom: 8px; line-height: 1.2;">
+                        RM ${this.formatCurrency(paidAmount)}
+                    </div>
+                    <div style="font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.5px;">
+                        AMOUNT PAID TODAY
+                    </div>
+                </td>
+            </tr>
+            <tr style="height: 20px;"><td colspan="3"></td></tr>
+            <tr>
+                <td style="text-align: center; padding: 15px 10px; vertical-align: top; width: 50%;">
+                    <div style="font-size: 24px; font-weight: bold; color: #333; margin-bottom: 8px; line-height: 1.2;">
+                        RM ${this.formatCurrency(pledgeBalance)}
+                    </div>
+                    <div style="font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.5px;">
+                        REMAINING BALANCE
+                    </div>
+                </td>
+                <td style="width: 2%; border-right: 2px solid #dee2e6; padding: 0;"></td>
+                <td style="text-align: center; padding: 15px 10px; vertical-align: top; width: 50%;">
+                    <div style="font-size: 24px; font-weight: bold; color: #333; margin-bottom: 8px; line-height: 1.2;">
+                        ${this.calculatePercentage(paidAmount, pledgeAmount)}%
+                    </div>
+                    <div style="font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.5px;">
+                        FULFILLMENT PROGRESS
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <!-- Status Section -->
+    <div style="text-align: center; padding: 15px; background: ${pledgeStatus === 'FULFILLED' ? '#f1f8f4' : '#fff8e1'}; border: 2px solid ${pledgeStatus === 'FULFILLED' ? '#4caf50' : '#ff9800'}; border-radius: 5px; margin-top: 15px;">
+        <div style="font-weight: bold; font-size: 16px; color: ${pledgeStatus === 'FULFILLED' ? '#2e7d32' : '#e65100'};">
+            ${pledgeStatus === 'FULFILLED' ? '✅ PLEDGE FULFILLED' : '⏳ PLEDGE PENDING'}
+        </div>
+        ${pledgeStatus === 'PENDING' ? '<div style="font-size: 12px; color: #666; margin-top: 5px;">Please complete the remaining payment to fulfill your pledge</div>' : ''}
+    </div>
+</div>
+` : ''}
+                        
                         <!-- Amount Highlight -->
                         <div class="amount-highlight">
-                            <div class="amount">RM ${this.formatCurrency(donation.amount)}</div>
-                            <div style="margin-top: 5px; font-size: 14px;">Amount in Words:</div>
+                            <div class="amount">RM ${this.formatCurrency(donation.amount || donation.total_amount)}</div>
+                            <div style="margin-top: 5px; font-size: 14px;">
+                                ${isPledge ? 'Amount Paid Today:' : 'Amount in Words:'}
+                            </div>
                             <div style="font-weight: bold; font-size: 16px;">${amountInWords}</div>
                         </div>
                         
@@ -474,7 +527,12 @@
                         
                         <!-- Footer -->
                         <div class="footer-section">
-                            <div>Thank you for your generous donation!</div>
+                            <div>Thank you for your generous ${isPledge ? 'pledge ' : ''}donation!</div>
+                            ${isPledge && pledgeBalance > 0 ? `
+                            <div style="margin-top: 10px; color: #ff6f00;">
+                                <strong>Note:</strong> This is a pledge donation receipt. Remaining balance: RM ${this.formatCurrency(pledgeBalance)}
+                            </div>
+                            ` : ''}
                             <div style="margin-top: 10px;">
                                 This is a computer-generated receipt. No signature required.
                             </div>
@@ -485,7 +543,6 @@
                     </div>
                     
                     <script>
-                        // Auto focus print dialog
                         window.onload = function() {
                             setTimeout(() => {
                                 // window.print();
@@ -500,13 +557,13 @@
         getTempleLogoHTML: function() {
             let logoHTML = '';
             if (this.templeSettings.temple_logo) {
-                logoHTML = `<div class="temple-logo"><img src="${this.templeSettings.temple_logo}" style="width:100px;height:100px;object-fit:contain;" alt="Temple Logo" /></div>`;
+                logoHTML = `<div class="temple-logo"><img src="${this.templeSettings.temple_logo}" style="width:205px;height:80px;object-fit:contain;" alt="Temple Logo" /></div>`;
             } else {
                 logoHTML = `
                     <div class="temple-logo" style="
                         width: 100px; 
                         height: 100px; 
-                        background: #ff00ff; 
+                        background: #800000; 
                         border-radius: 50%; 
                         display: flex; 
                         align-items: center; 
@@ -528,6 +585,10 @@
         },
         
         getDonationTypeDisplay: function(donation) {
+            if (donation.donation_name) {
+                return donation.donation_name;
+            }
+            
             const types = {
                 'donation': {
                     'general': 'General Donation',
@@ -542,26 +603,41 @@
                 }
             };
             
-            if (donation.donation_type === 'voucher') {
-                return types.voucher[donation.voucher_type] || 'Voucher Donation';
-            } else {
-                return types.donation[donation.donation_subtype] || 'General Donation';
+            const donationType = donation.donation_type;
+            const donationSubtype = donation.donation_subtype || donation.voucher_type;
+            
+            if (donationType === 'voucher' && types.voucher[donationSubtype]) {
+                return types.voucher[donationSubtype];
+            } else if (donationType === 'donation' && types.donation[donationSubtype]) {
+                return types.donation[donationSubtype];
             }
+            
+            return 'General Donation';
         },
         
         getPaymentMethodDisplay: function(method) {
             const methods = {
                 'cash': 'Cash',
+                'Cash': 'Cash',
                 'cheque': 'Cheque',
+                'Cheque': 'Cheque',
                 'ebanking': 'E-banking',
+                'E-banking': 'E-banking',
                 'card': 'Card',
-                'duitnow': 'DuitNow'
+                'Card': 'Card',
+                'duitnow': 'DuitNow',
+                'DuitNow': 'DuitNow'
             };
-            return methods[method] || method;
+            return methods[method] || method || 'Cash';
+        },
+        
+        calculatePercentage: function(paid, total) {
+            if (total === 0) return 0;
+            return Math.round((paid / total) * 100);
         },
         
         formatCurrency: function(amount) {
-            return parseFloat(amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+            return parseFloat(amount || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
         },
         
         formatDate: function(dateString) {
@@ -588,7 +664,7 @@
         numberToWords: function(amount) {
             if (amount === 0) return 'Zero Ringgit Only';
             
-            const [whole, decimal = '00'] = amount.toFixed(2).split('.');
+            const [whole, decimal = '00'] = parseFloat(amount).toFixed(2).split('.');
             let words = this.convertToWords(parseInt(whole));
             
             words = words + ' Ringgit';

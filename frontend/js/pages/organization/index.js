@@ -804,7 +804,7 @@
                             <p class="text-muted small">${type.description || 'No description'}</p>
                             ${type.is_paid ? `
                                 <div class="mb-2">
-                                    <strong>?${type.subscription_amount}</strong>
+                                    <strong>RM ${type.subscription_amount}</strong>
                                     ${type.subscription_period ? `/ ${type.subscription_period} months` : ' (Lifetime)'}
                                 </div>
                             ` : ''}

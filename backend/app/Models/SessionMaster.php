@@ -1,4 +1,3 @@
-// backend/app/Models/SessionMaster.php
 <?php
 
 namespace App\Models;
@@ -64,7 +63,7 @@ class SessionMaster extends Model
     {
         $hours = floor($this->duration_hours);
         $minutes = ($this->duration_hours - $hours) * 60;
-        
+
         if ($minutes > 0) {
             return "{$hours}h {$minutes}m";
         }

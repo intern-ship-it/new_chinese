@@ -45,6 +45,12 @@
             text: "Applications",
             permission: "view_users",
           },
+          {
+            id: "members/reports",
+            icon: "file-earmark-bar-graph",
+            text: "Reports",
+            permission: "view_users",
+          },
         ],
       },
       {
@@ -199,7 +205,7 @@
       },
 
       {
-        id: "hall-booking/create",
+        id: "hall-booking/listing",
         icon: "building",
         text: "Hall Booking",
         permission: "view_bookings",

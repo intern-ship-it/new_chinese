@@ -1182,14 +1182,14 @@
             if (window.RomReceiptPrintPage) {
                 // Navigate to receipt print page
                 self.cleanup();
-                TempleRouter.navigate('rom-booking/receipt/print', { id: bookingId });
+                TempleRouter.navigate('rom-booking/print', { id: bookingId });
             } else {
                 // Load receipt print script and then navigate
                 const script = document.createElement('script');
-                script.src = '/js/pages/rom-booking/receipt/print.js';
+                script.src = '/js/pages/rom-booking/print.js';
                 script.onload = function() {
                     self.cleanup();
-                    TempleRouter.navigate('rom-booking/receipt/print', { id: bookingId });
+                    TempleRouter.navigate('rom-booking/print', { id: bookingId });
                 };
                 script.onerror = function() {
                     TempleCore.showToast('Error loading receipt printer', 'error');

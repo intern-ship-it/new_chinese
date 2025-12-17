@@ -1,4 +1,3 @@
-// backend/app/Models/AddonGroup.php
 <?php
 
 namespace App\Models;

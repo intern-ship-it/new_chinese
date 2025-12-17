@@ -1,17 +1,16 @@
 // js/pages/donations/create.js
-// Donation Create Page with GSAP + AOS animations
+// Dynamic Donation Create Page with Card-Based Selection and Enhanced Pledge Support
 
 (function($, window) {
     'use strict';
     if (!window.DonationsSharedModule) {
         window.DonationsSharedModule = {
             moduleId: 'donations',
-			eventNamespace: 'donations',
+            eventNamespace: 'donations',
             cssId: 'donations-css',
             cssPath: '/css/donations.css',
             activePages: new Set(),
             
-            // Load shared CSS (only once per module)
             loadCSS: function() {
                 if (!document.getElementById(this.cssId)) {
                     const link = document.createElement('link');
@@ -23,49 +22,40 @@
                 }
             },
             
-            // Register a page as active
             registerPage: function(pageId) {
                 this.activePages.add(pageId);
-                this.loadCSS(); // Ensure CSS is loaded
+                this.loadCSS();
                 console.log(`Donations page registered: ${pageId} (Total: ${this.activePages.size})`);
             },
             
-            // Unregister a page
             unregisterPage: function(pageId) {
                 this.activePages.delete(pageId);
                 console.log(`Donations page unregistered: ${pageId} (Remaining: ${this.activePages.size})`);
                 
-                // If no more pages active, cleanup CSS
                 if (this.activePages.size === 0) {
                     this.cleanup();
                 }
             },
             
-            // Check if any pages are active
             hasActivePages: function() {
                 return this.activePages.size > 0;
             },
             
-            // Get active pages
             getActivePages: function() {
                 return Array.from(this.activePages);
             },
             
-            // Cleanup module resources
             cleanup: function() {
-                // Remove CSS
                 const cssLink = document.getElementById(this.cssId);
                 if (cssLink) {
                     cssLink.remove();
                     console.log('Donations CSS removed');
                 }
                 
-                // Cleanup GSAP animations
                 if (typeof gsap !== 'undefined') {
                     gsap.killTweensOf("*");
                 }
                 
-                // Remove all donations-related event listeners
                 $(document).off('.' + this.eventNamespace);
                 $(window).off('.' + this.eventNamespace);
                 
@@ -74,36 +64,33 @@
             }
         };
     }
+
     window.DonationsCreatePage = {
-		pageId: 'donations-create',
+        pageId: 'donations-create',
         eventNamespace: window.DonationsSharedModule.eventNamespace,
-        donationType: 'donation', // Default type
+        donationTypes: [],
+        paymentModes: [],
         
-        // Page initialization
         init: function(params) {
             window.DonationsSharedModule.registerPage(this.pageId);
             this.render();
             this.initAnimations();
+            this.loadDynamicData();
             this.bindEvents();
-            this.initializePlugins();
         },
-        // Page cleanup
+
         cleanup: function() {
             console.log(`Cleaning up ${this.pageId}...`);
             
-            // Unregister from shared module
             window.DonationsSharedModule.unregisterPage(this.pageId);
             
-            // Cleanup page-specific events (with page namespace)
             $(document).off(`.${this.eventNamespace}`);
             $(window).off(`.${this.eventNamespace}`);
             
-            // Cleanup page-specific animations
             if (typeof gsap !== 'undefined') {
                 gsap.killTweensOf(`.${this.pageId}-page *`);
             }
             
-            // Clear any intervals/timeouts
             if (this.intervals) {
                 this.intervals.forEach(interval => clearInterval(interval));
                 this.intervals = [];
@@ -116,7 +103,7 @@
             
             console.log(`${this.pageId} cleanup completed`);
         },
-        // Render page HTML
+
         render: function() {
             const html = `
                 <div class="donations-page">
@@ -129,7 +116,7 @@
                                     <div class="donations-title-wrapper">
                                         <i class="bi bi-gift-fill donations-header-icon"></i>
                                         <div>
-                                            <h1 class="donations-title">Record Donation</h1>
+                                            <h1 class="donations-title">Donation</h1>
                                             <p class="donations-subtitle">捐款记录 • Temple Donation Entry</p>
                                         </div>
                                     </div>
@@ -143,29 +130,19 @@
                         </div>
                     </div>
 
-                    <!-- Donation Type Selector Card -->
-                    <div class="card shadow-sm mb-4 donation-type-card" data-aos="fade-up" data-aos-duration="800" data-aos-delay="100">
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <label class="form-label fw-semibold">
-                                        <i class="bi bi-list-ul me-2"></i>Donation Type 捐款类型
-                                    </label>
-                                    <select class="form-select form-select-lg" id="donationType">
-                                        <option value="donation">General Donation 普通捐款</option>
-                                        <option value="voucher">Voucher Donation 券类捐款</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- Donation Form Container -->
                     <div class="card shadow-sm donation-form-card" data-aos="fade-up" data-aos-duration="800" data-aos-delay="200">
                         <div class="card-body p-4">
                             <form id="donationForm" novalidate>
                                 <!-- Form content will be loaded dynamically -->
-                                <div id="formContent"></div>
+                                <div id="formContent">
+                                    <div class="text-center py-5">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="mt-2 text-muted">Loading form data...</p>
+                                    </div>
+                                </div>
                                 
                                 <!-- Form Actions -->
                                 <div class="form-actions mt-4 pt-4 border-top" data-aos="fade-up" data-aos-delay="300">
@@ -185,40 +162,57 @@
             `;
             
             $('#page-container').html(html);
-            
-            // Load default form
-            this.loadFormContent('donation');
         },
-        
-        // Load form content based on donation type
-        loadFormContent: function(type) {
-            const formContent = type === 'donation' ? this.getGeneralDonationForm() : this.getVoucherDonationForm();
-            
-            // Animate form transition
-            const $formContent = $('#formContent');
-            
-            gsap.to($formContent, {
-                opacity: 0,
-                y: -20,
-                duration: 0.3,
-                onComplete: () => {
-                    $formContent.html(formContent);
-                    
-                    // Re-initialize form components
-                    this.initializePlugins();
-                    
-                    // Animate in
-                    gsap.fromTo($formContent, 
-                        { opacity: 0, y: 20 },
-                        { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }
-                    );
+
+        loadDynamicData: async function() {
+            try {
+                // Load donation types and payment modes in parallel
+                const [donationsResponse, paymentModesResponse] = await Promise.all([
+                    TempleAPI.get('/donations/types/active'),
+                    TempleAPI.get('/masters/payment-modes/active')
+                ]);
+
+                if (donationsResponse.success) {
+                    this.donationTypes = donationsResponse.data;
                 }
-            });
+
+                if (paymentModesResponse.success) {
+                    this.paymentModes = paymentModesResponse.data;
+                }
+
+                // Render the form with dynamic data
+                this.renderForm();
+
+            } catch (error) {
+                console.error('Error loading dynamic data:', error);
+                TempleCore.showToast('Failed to load form data', 'error');
+                
+                $('#formContent').html(`
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        Failed to load form data. Please refresh the page and try again.
+                    </div>
+                `);
+            }
         },
-        
-        // General Donation Form Template
-        getGeneralDonationForm: function() {
-            return `
+
+        getDonationTypeIcon: function(type) {
+            const icons = {
+                'general': 'bi bi-gift',
+                'voucher': 'bi bi-ticket-perforated',
+                'meal': 'bi bi-bowl-rice',
+                'maintenance': 'bi bi-tools',
+                'other': 'bi bi-three-dots'
+            };
+            return icons[type] || 'bi bi-gift';
+        },
+
+        renderForm: function() {
+            // Limit donation types to maximum 8 for better display
+            const displayDonationTypes = this.donationTypes.slice(0, 8);
+            const colSize = displayDonationTypes.length <= 4 ? 3 : Math.floor(12 / Math.min(displayDonationTypes.length, 4));
+
+            const formContent = `
                 <div class="row g-4">
                     <!-- Personal Information Section -->
                     <div class="col-12">
@@ -236,22 +230,19 @@
                     </div>
                     
                     <div class="col-md-6">
-                        <label class="form-label">Name (English) 姓名 (英文) <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" name="name_english" required>
-                        <div class="invalid-feedback">Please enter English name</div>
+                        <label class="form-label">Name (English) 姓名 (英文)</label>
+                        <input type="text" class="form-control" name="name_english">
                     </div>
                     
                     <!-- Contact Information -->
                     <div class="col-md-6">
-                        <label class="form-label">NRIC No. 身份证 <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" name="nric" required>
-                        <div class="invalid-feedback">Please enter NRIC number</div>
+                        <label class="form-label">NRIC No. 身份证</label>
+                        <input type="text" class="form-control" name="nric">
                     </div>
                     
                     <div class="col-md-6">
-                        <label class="form-label">Email 电邮 <span class="text-danger">*</span></label>
-                        <input type="email" class="form-control" name="email" required>
-                        <div class="invalid-feedback">Please enter valid email</div>
+                        <label class="form-label">Email 电邮</label>
+                        <input type="email" class="form-control" name="email">
                     </div>
                     
                     <div class="col-md-6">
@@ -268,63 +259,134 @@
                         </div>
                     </div>
                     
-                    <!-- Donation Type Radio -->
+                    <!-- Donation Type Cards (Dynamic) -->
                     <div class="col-12">
-                        <label class="form-label fw-semibold">Type 类别 <span class="text-danger">*</span></label>
+                        <label class="form-label fw-semibold">Donation Type 捐款类型 <span class="text-danger">*</span></label>
                         <div class="donation-type-options">
                             <div class="row g-3">
-                                <div class="col-md-3">
-                                    <div class="form-check form-check-card">
-                                        <input class="form-check-input" type="radio" name="donation_subtype" 
-                                               id="typeDonation" value="donation" checked>
-                                        <label class="form-check-label" for="typeDonation">
-                                            <i class="bi bi-gift"></i>
-                                            <span>Donation 普通</span>
-                                        </label>
+                                ${displayDonationTypes.map((donation, index) => `
+                                    <div class="col-md-${colSize}">
+                                        <div class="form-check form-check-card">
+                                            <input class="form-check-input" type="radio" name="donation_id" 
+                                                   id="donationType${donation.id}" value="${donation.id}" 
+                                                   data-type="${donation.type}"
+                                                   data-name="${donation.name}"
+                                                   data-secondary="${donation.secondary_name || ''}"
+                                                   ${index === 0 ? 'checked' : ''} required>
+                                            <label class="form-check-label" for="donationType${donation.id}">
+                                                <span>${donation.name}${donation.secondary_name ? ' • ' + donation.secondary_name : ''}</span>
+                                            </label>
+                                        </div>
                                     </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="form-check form-check-card">
-                                        <input class="form-check-input" type="radio" name="donation_subtype" 
-                                               id="typeMeal" value="meal">
-                                        <label class="form-check-label" for="typeMeal">
-                                            <i class="bi bi-bowl-rice"></i>
-                                            <span>Meal 供奉</span>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="form-check form-check-card">
-                                        <input class="form-check-input" type="radio" name="donation_subtype" 
-                                               id="typeMaintenance" value="maintenance">
-                                        <label class="form-check-label" for="typeMaintenance">
-                                            <i class="bi bi-tools"></i>
-                                            <span>Maintenance 维修</span>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="form-check form-check-card">
-                                        <input class="form-check-input" type="radio" name="donation_subtype" 
-                                               id="typeOther" value="other">
-                                        <label class="form-check-label" for="typeOther">
-                                            <i class="bi bi-three-dots"></i>
-                                            <span>Other 其他</span>
-                                        </label>
-                                    </div>
-                                </div>
+                                `).join('')}
                             </div>
+                        </div>
+                        <div class="invalid-feedback d-block" id="donationTypeError" style="display: none !important;">
+                            Please select a donation type
                         </div>
                     </div>
                     
                     <!-- Amount -->
                     <div class="col-md-6">
-                        <label class="form-label">Amount 款额 <span class="text-danger">*</span></label>
+                        <label class="form-label">
+                            <span id="amountLabel">Amount 款额</span>
+                            <span class="text-danger">*</span>
+                        </label>
                         <div class="input-group">
                             <span class="input-group-text">RM</span>
-                            <input type="number" class="form-control" name="amount" step="0.01" min="0" required>
+                            <input type="number" class="form-control" name="amount" id="donationAmount" 
+                                   step="0.01" min="1" required placeholder="Enter amount">
                             <div class="invalid-feedback">Please enter amount</div>
                         </div>
+                        <small class="text-muted" id="amountHelpText">
+                            <span id="normalAmountHelp">Enter the donation amount</span>
+                            <span id="pledgeAmountHelp" style="display:none;">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Enter the initial payment amount (can be less than total pledge)
+                            </span>
+                        </small>
+                    </div>
+                    
+                    <!-- Pledge Information Section -->
+                    <div class="col-12 mt-4">
+                        <div class="card border-warning bg-light">
+                            <div class="card-body">
+                                <h6 class="card-title mb-3">
+                                    <i class="bi bi-clipboard-check text-warning me-2"></i>
+                                    Pledge Information 承诺捐款
+                                </h6>
+                                <div class="row g-3">
+                                    <!-- Is Pledge Checkbox -->
+                                    <div class="col-12">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" name="is_pledge" id="isPledge">
+                                            <label class="form-check-label fw-semibold" for="isPledge">
+                                                <i class="bi bi-hand-thumbs-up me-2"></i>
+                                                This is a Pledge Donation 这是承诺捐款
+                                            </label>
+                                        </div>
+                                        <small class="text-muted ms-4">
+                                            Check this if the donor is committing to donate a total amount over time
+                                        </small>
+                                    </div>
+                                    
+                                    <!-- Pledge Amount Field (Hidden by default) -->
+                                    <div class="col-md-6" id="pledgeAmountContainer" style="display: none;">
+                                        <label class="form-label">Total Pledge Amount 承诺总额 <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-warning text-dark">
+                                                <i class="bi bi-award"></i> RM
+                                            </span>
+                                            <input type="number" class="form-control" name="pledge_amount" id="pledgeAmount" 
+                                                   step="0.01" min="1" placeholder="e.g., 10000">
+                                        </div>
+                                        
+                                        <!-- Quick Amount Buttons -->
+                                        <div class="btn-group btn-group-sm mt-2 w-100" role="group">
+                                            <button type="button" class="btn btn-outline-secondary pledge-preset" data-amount="5000">
+                                                <small>RM 5K</small>
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary pledge-preset" data-amount="10000">
+                                                <small>RM 10K</small>
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary pledge-preset" data-amount="50000">
+                                                <small>RM 50K</small>
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary pledge-preset" data-amount="100000">
+                                                <small>RM 100K</small>
+                                            </button>
+                                        </div>
+                                        
+                                        <small class="text-muted">Total amount the donor commits to donate over time</small>
+                                    </div>
+                                    
+                                    <!-- Pledge Summary (Hidden by default) -->
+                                    <div class="col-12" id="pledgeSummary" style="display: none;">
+                                        <div class="alert alert-info mb-0">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <strong><i class="bi bi-calculator me-2"></i>Pledge Summary:</strong>
+                                                </div>
+                                                <div class="text-end">
+                                                    <div class="small mb-1">
+                                                        <span class="text-muted">Total Pledge:</span>
+                                                        <strong class="ms-2 fs-6" id="summaryPledgeAmount">RM 0.00</strong>
+                                                    </div>
+                                                    <div class="small mb-1">
+                                                        <span class="text-muted">Initial Payment:</span>
+                                                        <strong class="ms-2 fs-6" id="summaryInitialAmount">RM 0.00</strong>
+                                                    </div>
+                                                    <div class="small border-top pt-1">
+                                                        <span class="text-muted">Remaining Balance:</span>
+                                                        <strong class="ms-2 text-warning fs-5" id="summaryBalance">RM 0.00</strong>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     
                     <!-- Payment Method Section -->
@@ -335,60 +397,36 @@
                         </div>
                     </div>
                     
+                    <!-- Dynamic Payment Methods -->
                     <div class="col-12">
                         <div class="payment-methods">
                             <div class="row g-3">
-                                <div class="col-md-3">
-                                    <div class="form-check form-check-card">
-                                        <input class="form-check-input" type="radio" name="payment_method" 
-                                               id="pmCash" value="cash" checked>
-                                        <label class="form-check-label" for="pmCash">
-                                            <i class="bi bi-cash-stack"></i>
-                                            <span>Cash 现款</span>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="form-check form-check-card">
-                                        <input class="form-check-input" type="radio" name="payment_method" 
-                                               id="pmCheque" value="cheque">
-                                        <label class="form-check-label" for="pmCheque">
-                                            <i class="bi bi-bank"></i>
-                                            <span>Cheque 支票</span>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="form-check form-check-card">
-                                        <input class="form-check-input" type="radio" name="payment_method" 
-                                               id="pmEbanking" value="ebanking">
-                                        <label class="form-check-label" for="pmEbanking">
-                                            <i class="bi bi-laptop"></i>
-                                            <span>E-banking 网银</span>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="form-check form-check-card">
-                                        <input class="form-check-input" type="radio" name="payment_method" 
-                                               id="pmCard" value="card">
-                                        <label class="form-check-label" for="pmCard">
-                                            <i class="bi bi-credit-card-2-front"></i>
-                                            <span>Card 信用卡</span>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="form-check form-check-card">
-                                        <input class="form-check-input" type="radio" name="payment_method" 
-                                               id="pmDuitnow" value="duitnow">
-                                        <label class="form-check-label" for="pmDuitnow">
-                                            <i class="bi bi-wallet2"></i>
-                                            <span>DuitNow 电子钱包</span>
-                                        </label>
-                                    </div>
-                                </div>
+                                ${this.paymentModes.map((mode, index) => {
+                                    const iconDisplay = mode.icon_display_url_data || { type: 'bootstrap', value: 'bi-currency-dollar' };
+                                    const iconHtml = iconDisplay.type === 'bootstrap'
+                                        ? `<i class="bi ${iconDisplay.value}"></i>`
+                                        : `<img src="${iconDisplay.value}" alt="${mode.name}" 
+                                                style="width: ${iconDisplay.width || 62}px; 
+                                                       height: ${iconDisplay.height || 28}px; 
+                                                       object-fit: contain;">`;
+
+                                    return `
+                                        <div class="col-md-3">
+                                            <div class="form-check form-check-card">
+                                                <input class="form-check-input" type="radio" name="payment_mode_id" 
+                                                       id="pm${mode.id}" value="${mode.id}" ${index === 0 ? 'checked' : ''} required>
+                                                <label class="form-check-label" for="pm${mode.id}">
+                                                    ${iconHtml}
+                                                    <span>${mode.name}</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
                             </div>
+                        </div>
+                        <div class="invalid-feedback d-block" id="paymentMethodError" style="display: none !important;">
+                            Please select a payment method
                         </div>
                     </div>
                     
@@ -398,189 +436,34 @@
                         <textarea class="form-control" name="notes" rows="3" 
                                   placeholder="Additional notes or remarks..."></textarea>
                     </div>
-                </div>
-            `;
-        },
-        
-        // Voucher Donation Form Template
-        getVoucherDonationForm: function() {
-            return `
-                <div class="row g-4">
-                    <!-- Personal Information Section -->
+                    
+                    <!-- Print Option -->
                     <div class="col-12">
-                        <div class="section-header-gradient">
-                            <i class="bi bi-person-badge"></i>
-                            <span>Personal Information 个人资料</span>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="print_receipt" id="printReceipt" checked>
+                            <label class="form-check-label" for="printReceipt">
+                                <i class="bi bi-printer me-2"></i> Print receipt after donation
+                            </label>
                         </div>
-                    </div>
-                    
-                    <!-- Name Fields -->
-                    <div class="col-md-6">
-                        <label class="form-label">Name (Chinese) 姓名 (中文) <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" name="name_chinese" required>
-                        <div class="invalid-feedback">Please enter Chinese name</div>
-                    </div>
-                    
-                    <div class="col-md-6">
-                        <label class="form-label">Name (English) 姓名 (英文) <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" name="name_english" required>
-                        <div class="invalid-feedback">Please enter English name</div>
-                    </div>
-                    
-                    <!-- Contact Information -->
-                    <div class="col-md-6">
-                        <label class="form-label">NRIC No. 身份证 <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" name="nric" required>
-                        <div class="invalid-feedback">Please enter NRIC number</div>
-                    </div>
-                    
-                    <div class="col-md-6">
-                        <label class="form-label">Email 电邮 <span class="text-danger">*</span></label>
-                        <input type="email" class="form-control" name="email" required>
-                        <div class="invalid-feedback">Please enter valid email</div>
-                    </div>
-                    
-                    <div class="col-md-6">
-                        <label class="form-label">Contact No. 手机号码 <span class="text-danger">*</span></label>
-                        <input type="tel" class="form-control" name="contact_no" required>
-                        <div class="invalid-feedback">Please enter contact number</div>
-                    </div>
-                    
-                    <!-- Voucher Details Section -->
-                    <div class="col-12 mt-4">
-                        <div class="section-header-gradient">
-                            <i class="bi bi-ticket-perforated"></i>
-                            <span>Voucher Details 券类详情</span>
-                        </div>
-                    </div>
-                    
-                    <!-- Voucher Type -->
-                    <div class="col-12">
-                        <label class="form-label fw-semibold">Type 类别 <span class="text-danger">*</span></label>
-                        <div class="voucher-type-options">
-                            <div class="row g-3">
-                                <div class="col-md-4">
-                                    <div class="form-check form-check-card">
-                                        <input class="form-check-input" type="radio" name="voucher_type" 
-                                               id="voucherMerciful" value="merciful" checked>
-                                        <label class="form-check-label" for="voucherMerciful">
-                                            <i class="bi bi-heart-fill"></i>
-                                            <span>Merciful Voucher 慈善券</span>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-check form-check-card">
-                                        <input class="form-check-input" type="radio" name="voucher_type" 
-                                               id="voucherCandle" value="candle">
-                                        <label class="form-check-label" for="voucherCandle">
-                                            <i class="bi bi-candle"></i>
-                                            <span>Candle Voucher 祈愿随缘</span>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-check form-check-card">
-                                        <input class="form-check-input" type="radio" name="voucher_type" 
-                                               id="voucherGold" value="gold_block">
-                                        <label class="form-check-label" for="voucherGold">
-                                            <i class="bi bi-award-fill"></i>
-                                            <span>Gold Block 金砖</span>
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Amount -->
-                    <div class="col-md-6">
-                        <label class="form-label">Amount 款额</label>
-                        <div class="input-group">
-                            <span class="input-group-text">RM</span>
-                            <input type="text" class="form-control" value="100.00" readonly>
-                        </div>
-                        <small class="text-muted">Fixed amount for voucher donation</small>
-                    </div>
-                    
-                    <!-- Payment Method Section -->
-                    <div class="col-12 mt-4">
-                        <div class="section-header-gradient">
-                            <i class="bi bi-credit-card"></i>
-                            <span>Payment Method 付款方式</span>
-                        </div>
-                    </div>
-                    
-                    <div class="col-12">
-                        <div class="payment-methods">
-                            <div class="row g-3">
-                                <div class="col-md-3">
-                                    <div class="form-check form-check-card">
-                                        <input class="form-check-input" type="radio" name="payment_method" 
-                                               id="pmCash2" value="cash" checked>
-                                        <label class="form-check-label" for="pmCash2">
-                                            <i class="bi bi-cash-stack"></i>
-                                            <span>Cash 现款</span>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="form-check form-check-card">
-                                        <input class="form-check-input" type="radio" name="payment_method" 
-                                               id="pmCheque2" value="cheque">
-                                        <label class="form-check-label" for="pmCheque2">
-                                            <i class="bi bi-bank"></i>
-                                            <span>Cheque 支票</span>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="form-check form-check-card">
-                                        <input class="form-check-input" type="radio" name="payment_method" 
-                                               id="pmEbanking2" value="ebanking">
-                                        <label class="form-check-label" for="pmEbanking2">
-                                            <i class="bi bi-laptop"></i>
-                                            <span>E-banking 网银</span>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="form-check form-check-card">
-                                        <input class="form-check-input" type="radio" name="payment_method" 
-                                               id="pmCard2" value="card">
-                                        <label class="form-check-label" for="pmCard2">
-                                            <i class="bi bi-credit-card-2-front"></i>
-                                            <span>Card 信用卡</span>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="form-check form-check-card">
-                                        <input class="form-check-input" type="radio" name="payment_method" 
-                                               id="pmDuitnow2" value="duitnow">
-                                        <label class="form-check-label" for="pmDuitnow2">
-                                            <i class="bi bi-wallet2"></i>
-                                            <span>DuitNow 电子钱包</span>
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Notes -->
-                    <div class="col-12">
-                        <label class="form-label">Notes 备注</label>
-                        <textarea class="form-control" name="notes" rows="3" 
-                                  placeholder="Additional notes or remarks..."></textarea>
                     </div>
                 </div>
             `;
+            
+            $('#formContent').html(formContent);
+            
+            // Animate form appearance
+            gsap.from('#formContent', {
+                opacity: 0,
+                y: 20,
+                duration: 0.5,
+                ease: 'power2.out'
+            });
+
+            // Re-initialize form components
+            this.initializePlugins();
         },
-        
-        // Initialize animations
+
         initAnimations: function() {
-            // Initialize AOS
             if (typeof AOS !== 'undefined') {
                 AOS.init({
                     duration: 800,
@@ -589,6 +472,7 @@
                     offset: 50
                 });
             }
+
             gsap.to('.donations-header-icon', {
                 y: -10,
                 duration: 2,
@@ -596,60 +480,160 @@
                 yoyo: true,
                 ease: 'power1.inOut'
             });
+
             // Animate form cards on hover
-            $('.form-check-card').each(function(index) {
-                const card = this;
-                
-                gsap.set(card, { scale: 1 });
-                
-                $(card).on('mouseenter.' + this.eventNamespace, function() {
-                    gsap.to(card, {
-                        scale: 1.05,
-                        boxShadow: '0 8px 20px rgba(255, 0, 255, 0.15)',
+            $(document).on('mouseenter.' + this.eventNamespace, '.form-check-card', function() {
+                gsap.to(this, {
+                    scale: 1.05,
+                    boxShadow: '0 8px 20px rgba(255, 0, 255, 0.15)',
+                    duration: 0.3,
+                    ease: 'power2.out'
+                });
+            });
+            
+            $(document).on('mouseleave.' + this.eventNamespace, '.form-check-card', function() {
+                if (!$(this).find('input').is(':checked')) {
+                    gsap.to(this, {
+                        scale: 1,
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
                         duration: 0.3,
                         ease: 'power2.out'
                     });
-                });
-                
-                $(card).on('mouseleave.' + this.eventNamespace, function() {
-                    if (!$(card).find('input').is(':checked')) {
-                        gsap.to(card, {
-                            scale: 1,
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                            duration: 0.3,
-                            ease: 'power2.out'
-                        });
-                    }
-                });
+                }
             });
         },
-        
-        // Initialize plugins
+
         initializePlugins: function() {
-            // Any Select2 or other plugin initialization
-            // Not used currently but available for future
+            // Initialize pledge handlers
+            this.initPledgeHandlers();
         },
-        
-        // Bind event handlers
-        bindEvents: function() {
+
+        initPledgeHandlers: function() {
             const self = this;
             
-            // Donation type change
-            $('#donationType').on('change.' + this.eventNamespace, function() {
-                const selectedType = $(this).val();
-                self.donationType = selectedType;
-                self.loadFormContent(selectedType);
+            // Toggle pledge amount field
+            $('#isPledge').on('change', function() {
+                const isChecked = $(this).is(':checked');
                 
-                // Animate card
-                gsap.fromTo('.donation-form-card', 
-                    { scale: 0.98, opacity: 0.8 },
-                    { scale: 1, opacity: 1, duration: 0.4, ease: 'back.out(1.2)' }
+                if (isChecked) {
+                    $('#pledgeAmountContainer').slideDown(300);
+                    $('#normalAmountHelp').hide();
+                    $('#pledgeAmountHelp').show();
+                    $('#amountLabel').html('Initial Payment 首期款额');
+                    
+                    // Suggest pledge amount based on current amount
+                    const currentAmount = parseFloat($('#donationAmount').val()) || 0;
+                    if ($('#pledgeAmount').val() === '' && currentAmount > 0) {
+                        // Suggest 5x the initial amount as pledge
+                        const suggestedPledge = currentAmount * 5;
+                        $('#pledgeAmount').attr('placeholder', `Suggested: ${suggestedPledge.toFixed(2)}`);
+                        $('#pledgeAmount').val(suggestedPledge.toFixed(2));
+                    }
+                    
+                    self.updatePledgeSummary();
+                } else {
+                    $('#pledgeAmountContainer').slideUp(300);
+                    $('#pledgeSummary').slideUp(300);
+                    $('#normalAmountHelp').show();
+                    $('#pledgeAmountHelp').hide();
+                    $('#amountLabel').html('Amount 款额');
+                    $('#pledgeAmount').val('');
+                }
+            });
+            
+            // Quick pledge amount buttons
+            $(document).on('click', '.pledge-preset', function() {
+                const amount = $(this).data('amount');
+                $('#pledgeAmount').val(amount).trigger('input');
+                
+                // Animate button
+                gsap.fromTo(this, 
+                    { scale: 1 },
+                    { scale: 1.1, duration: 0.1, yoyo: true, repeat: 1 }
                 );
             });
             
+            // Update pledge summary when amounts change
+            $('#donationAmount, #pledgeAmount').on('input', function() {
+                if ($('#isPledge').is(':checked')) {
+                    self.updatePledgeSummary();
+                }
+            });
+        },
+
+        updatePledgeSummary: function() {
+            const donationAmount = parseFloat($('#donationAmount').val()) || 0;
+            const pledgeAmount = parseFloat($('#pledgeAmount').val()) || 0;
+            
+            if (pledgeAmount > 0) {
+                const balance = pledgeAmount - donationAmount;
+                
+                $('#summaryPledgeAmount').text('RM ' + pledgeAmount.toFixed(2));
+                $('#summaryInitialAmount').text('RM ' + donationAmount.toFixed(2));
+                $('#summaryBalance').text('RM ' + balance.toFixed(2));
+                
+                // Show summary
+                $('#pledgeSummary').slideDown(300);
+                
+                // Highlight if invalid
+                if (balance < 0) {
+                    $('#summaryBalance').removeClass('text-warning').addClass('text-danger');
+                    $('#pledgeAmount').addClass('is-invalid');
+                    
+                    // Show error message
+                    if (!$('#pledgeAmount').next('.invalid-feedback').length) {
+                        $('#pledgeAmount').after('<div class="invalid-feedback">Pledge amount must be greater than or equal to initial payment</div>');
+                    }
+                } else {
+                    $('#summaryBalance').removeClass('text-danger').addClass('text-warning');
+                    $('#pledgeAmount').removeClass('is-invalid');
+                    $('#pledgeAmount').next('.invalid-feedback').remove();
+                }
+            } else {
+                $('#pledgeSummary').slideUp(300);
+            }
+        },
+
+        bindEvents: function() {
+            const self = this;
+            
             // Form submission
-            $('#donationForm').on('submit.' + this.eventNamespace, function(e) {
+            $(document).on('submit.' + this.eventNamespace, '#donationForm', function(e) {
                 e.preventDefault();
+                
+                // Custom pledge validation
+                if ($('#isPledge').is(':checked')) {
+                    const donationAmount = parseFloat($('#donationAmount').val()) || 0;
+                    const pledgeAmount = parseFloat($('#pledgeAmount').val()) || 0;
+                    
+                    if (pledgeAmount <= 0) {
+                        $('#pledgeAmount').addClass('is-invalid');
+                        if (!$('#pledgeAmount').next('.invalid-feedback').length) {
+                            $('#pledgeAmount').after('<div class="invalid-feedback">Please enter a valid pledge amount</div>');
+                        }
+                        TempleCore.showToast('Please enter a valid pledge amount', 'error');
+                        
+                        // Scroll to pledge amount
+                        $('html, body').animate({
+                            scrollTop: $('#pledgeAmount').offset().top - 100
+                        }, 500);
+                        return;
+                    }
+                    
+                    if (pledgeAmount < donationAmount) {
+                        $('#pledgeAmount').addClass('is-invalid');
+                        if (!$('#pledgeAmount').next('.invalid-feedback').length) {
+                            $('#pledgeAmount').after('<div class="invalid-feedback">Pledge amount must be greater than or equal to initial payment</div>');
+                        }
+                        TempleCore.showToast('Pledge amount must be greater than or equal to the initial payment', 'error');
+                        
+                        // Scroll to pledge amount
+                        $('html, body').animate({
+                            scrollTop: $('#pledgeAmount').offset().top - 100
+                        }, 500);
+                        return;
+                    }
+                }
                 
                 if (!this.checkValidity()) {
                     e.stopPropagation();
@@ -662,12 +646,12 @@
             
             // Cancel button
             $('#btnCancel').on('click.' + this.eventNamespace, function() {
-				self.cleanup();
+                self.cleanup();
                 TempleRouter.navigate('donations/list');
             });
             
             // Reset button
-            $('#btnReset').on('click.' + this.eventNamespace, function() {
+            $(document).on('click.' + this.eventNamespace, '#btnReset', function() {
                 self.resetForm();
             });
             
@@ -697,118 +681,114 @@
                 });
             });
 
-            // Input field animations on focus
-            $('.form-control').on('focus.' + this.eventNamespace, function() {
+            // Input field animations
+            $(document).on('focus.' + this.eventNamespace, '.form-control, .form-select', function() {
                 gsap.to($(this), {
                     scale: 1.02,
                     duration: 0.2,
                     ease: 'power1.out'
                 });
-            }).on('blur.' + this.eventNamespace, function() {
+            }).on('blur.' + this.eventNamespace, '.form-control, .form-select', function() {
                 gsap.to($(this), {
                     scale: 1,
                     duration: 0.2
                 });
             });
-
-            // Select dropdown animation on change
-            $('.form-select').on('change.' + this.eventNamespace, function() {
-                gsap.fromTo(this,
-                    { scale: 1 },
-                    { 
-                        scale: 1.05, 
-                        duration: 0.2,
-                        yoyo: true,
-                        repeat: 1,
-                        ease: 'power1.inOut'
-                    }
-                );
-            });
         },
-        
-        // Submit form
-        submitForm: function() {
+
+        submitForm: async function() {
             const formData = this.getFormData();
+            const shouldPrint = $('input[name="print_receipt"]').is(':checked');
             
             // Show loading state
             const $submitBtn = $('#btnSubmit');
             const originalText = $submitBtn.html();
             $submitBtn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Processing...');
             
-            // Simulate API call (replace with actual API)
-            setTimeout(() => {
-                console.log('Donation Data:', formData);
+            try {
+                const response = await TempleAPI.post('/donations', formData);
                 
-                // Success animation
-                gsap.to('.donation-form-card', {
-                    scale: 1.02,
-                    duration: 0.2,
-                    yoyo: true,
-                    repeat: 1,
-                    ease: 'power2.inOut'
-                });
-                
-                // Show success message
-                TempleCore.showToast('Donation recorded successfully!', 'success');
-                
-                // Reset form
-                setTimeout(() => {
-                    this.resetForm();
-                    $submitBtn.prop('disabled', false).html(originalText);
-					self.cleanup();
-                    TempleRouter.navigate('donations/list');
-                }, 1500);
-            }, 1500);
-            
-            // Actual implementation:
-            /*
-            TempleAPI.post('/donations', formData)
-                .done(function(response) {
-                    if (response.success) {
-                        TempleCore.showToast('Donation recorded successfully!', 'success');
-                        setTimeout(() => {
-                            TempleRouter.navigate('donations');
-                        }, 1500);
-                    }
-                })
-                .fail(function(error) {
-                    TempleCore.showToast('Failed to record donation', 'error');
-                    $submitBtn.prop('disabled', false).html(originalText);
-                })
-                .always(function() {
-                    $submitBtn.prop('disabled', false).html(originalText);
-                });
-            */
+                if (response.success) {
+                    // Success animation
+                    gsap.to('.donation-form-card', {
+                        scale: 1.02,
+                        duration: 0.2,
+                        yoyo: true,
+                        repeat: 1,
+                        ease: 'power2.inOut'
+                    });
+                    
+                    // Show success message
+                    const message = formData.is_pledge 
+                        ? `Pledge donation of RM ${formData.pledge_amount} recorded successfully! Initial payment: RM ${formData.amount}` 
+                        : 'Donation recorded successfully!';
+                    TempleCore.showToast(message, 'success');
+                    
+                    // Get the booking ID from response
+                    const bookingId = response.data.booking.id;
+                    
+                    // Navigate based on print option
+                    setTimeout(() => {
+                        this.cleanup();
+                        if (shouldPrint) {
+                            // Redirect to print page
+                            TempleRouter.navigate('donations/receipt-print', { id: bookingId });
+                        } else {
+                            // Redirect to list page
+                            TempleRouter.navigate('donations/list');
+                        }
+                    }, 1500);
+                } else {
+                    throw new Error(response.message || 'Failed to record donation');
+                }
+            } catch (error) {
+                console.error('Error submitting donation:', error);
+                TempleCore.showToast(error.message || 'Failed to record donation', 'error');
+                $submitBtn.prop('disabled', false).html(originalText);
+            }
         },
-        
-        // Get form data
+
         getFormData: function() {
+            const isPledge = $('#isPledge').is(':checked');
+            
             const formData = {
-                donation_type: this.donationType,
+                donation_id: $('input[name="donation_id"]:checked').val(),
                 name_chinese: $('input[name="name_chinese"]').val(),
                 name_english: $('input[name="name_english"]').val(),
                 nric: $('input[name="nric"]').val(),
                 email: $('input[name="email"]').val(),
                 contact_no: $('input[name="contact_no"]').val(),
-                payment_method: $('input[name="payment_method"]:checked').val(),
-                notes: $('textarea[name="notes"]').val()
+                amount: parseFloat($('input[name="amount"]').val()),
+                payment_mode_id: $('input[name="payment_mode_id"]:checked').val(),
+                print_option: $('input[name="print_receipt"]').is(':checked') ? 'SINGLE_PRINT' : 'NO_PRINT',
+                notes: $('textarea[name="notes"]').val(),
+                is_pledge: isPledge
             };
             
-            if (this.donationType === 'donation') {
-                formData.donation_subtype = $('input[name="donation_subtype"]:checked').val();
-                formData.amount = $('input[name="amount"]').val();
-            } else {
-                formData.voucher_type = $('input[name="voucher_type"]:checked').val();
-                formData.amount = 100.00; // Fixed amount
+            if (isPledge) {
+                formData.pledge_amount = parseFloat($('#pledgeAmount').val());
             }
             
             return formData;
         },
-        
-        // Reset form
+
         resetForm: function() {
             $('#donationForm')[0].reset();
             $('#donationForm').removeClass('was-validated');
+            
+            // Reset to first donation type and payment mode
+            $('input[name="donation_id"]').first().prop('checked', true).trigger('change');
+            $('input[name="payment_mode_id"]').first().prop('checked', true).trigger('change');
+            
+            // Reset pledge fields
+            $('#isPledge').prop('checked', false);
+            $('#pledgeAmountContainer').hide();
+            $('#pledgeSummary').hide();
+            $('#pledgeAmount').val('').removeClass('is-invalid');
+            $('#pledgeAmount').next('.invalid-feedback').remove();
+            $('#normalAmountHelp').show();
+            $('#pledgeAmountHelp').hide();
+            $('#amountLabel').html('Amount 款额');
             
             // Animate reset
             gsap.fromTo('#formContent', 

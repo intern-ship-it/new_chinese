@@ -1,4 +1,3 @@
-// backend/app/Models/PackageMaster.php
 <?php
 
 namespace App\Models;

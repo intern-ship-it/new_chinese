@@ -502,50 +502,117 @@ class PaymentModeController extends Controller
     /**
      * Get active payment modes for current user's role and specific module
      */
-    public function getActivePaymentModes(Request $request)
-    {
-        try {
-            $user = Auth::user();
-            $moduleId = $request->get('module_id');
+public function getActivePaymentModes(Request $request)
+{
+    try {
+        $user = Auth::user();
+        $moduleId = $request->get('module_id');
 
-            $userRoleIds = $user->roles->pluck('id')->toArray();
-            $query = PaymentMode::where('status', 1);
+        $userRoleIds = $user->roles->pluck('id')->toArray();
+        $query = PaymentMode::where('status', 1);
 
-            if ($moduleId) {
-                $query->whereHas('modules', function ($q) use ($moduleId) {
-                    $q->where('modules.id', $moduleId);
-                });
-            }
-
-            if ($user->hasRole('super_admin')) {
-                $paymentModes = $query->orderBy('name')
-                    ->get(['id', 'name', 'description', 'is_payment_gateway', 'is_live', 'icon_type', 'icon_value', 'icon_path', 'icon_url']);
-            } else {
-                $paymentModes = $query->whereHas('roles', function ($q) use ($userRoleIds) {
-                    $q->whereIn('roles.id', $userRoleIds);
-                })
-                    ->orderBy('name')
-                    ->get(['id', 'name', 'description', 'is_payment_gateway', 'is_live', 'icon_type', 'icon_value', 'icon_path', 'icon_url']);
-            }
-
-            // Add icon display URLs
-            $paymentModes->each(function ($mode) {
-                $mode->icon_display_url = $this->getIconDisplayUrl($mode);
+        if ($moduleId) {
+            $query->whereHas('modules', function ($q) use ($moduleId) {
+                $q->where('modules.id', $moduleId);
             });
-
-            return response()->json([
-                'success' => true,
-                'data' => $paymentModes
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to fetch active payment modes',
-                'error' => $e->getMessage()
-            ], 500);
         }
-    }
 
+        if ($user->hasRole('super_admin')) {
+            $paymentModes = $query->orderBy('name')
+                ->get(['id', 'name', 'description', 'is_payment_gateway', 'is_live', 'icon_type', 'icon_value', 'icon_path', 'icon_url']);
+        } else {
+            $paymentModes = $query->whereHas('roles', function ($q) use ($userRoleIds) {
+                $q->whereIn('roles.id', $userRoleIds);
+            })
+                ->orderBy('name')
+                ->get(['id', 'name', 'description', 'is_payment_gateway', 'is_live', 'icon_type', 'icon_value', 'icon_path', 'icon_url']);
+        }
+        
+        // Add icon display URLs - FIX: Remove getCollection()
+        $paymentModes->transform(function ($mode) {
+            // Map roles & modules
+            $mode->assigned_roles = $mode->roles->map(fn($role) => [
+                'id' => $role->id,
+                'name' => $role->name,
+                'display_name' => $role->display_name
+            ]);
+
+            $mode->assigned_modules = $mode->modules->map(fn($module) => [
+                'id' => $module->id,
+                'name' => $module->name,
+                'display_name' => $module->display_name
+            ]);
+            
+            try {
+                if ($mode->icon_type === 'bootstrap' && $mode->icon_value) {
+                    $mode->icon_display_url_data = [
+                        'type' => 'bootstrap',
+                        'value' => $mode->icon_value
+                    ];
+                } elseif ($mode->icon_type === 'upload' && $mode->icon_path) {
+                    $iconPath = $mode->icon_path;
+
+                    // Handle JSON encoded path
+                    if (is_string($iconPath)) {
+                        $photoData = json_decode($iconPath, true);
+                        if (json_last_error() === JSON_ERROR_NONE && isset($photoData['path'])) {
+                            $iconPath = $photoData['path'];
+                        } elseif (json_last_error() === JSON_ERROR_NONE && isset($photoData['url'])) {
+                            $iconPath = $photoData['url'];
+                        }
+                    }
+
+                    // Generate signed URL for S3
+                    $signedUrl = $this->s3UploadService->getSignedUrl($iconPath);
+
+                    $mode->icon_display_url_data = [
+                        'type' => 'upload',
+                        'value' => $signedUrl
+                    ];
+                } else {
+                    // Default fallback icon
+                    $mode->icon_display_url_data = [
+                        'type' => 'bootstrap',
+                        'value' => 'bi-currency-dollar'
+                    ];
+                }
+            } catch (\Exception $e) {
+                Log::error('Failed to generate Payment Mode icon', [
+                    'payment_mode_id' => $mode->id,
+                    'icon_path' => $mode->icon_path ?? null,
+                    'error' => $e->getMessage()
+                ]);
+
+                // Fallback to default icon on error
+                $mode->icon_display_url_data = [
+                    'type' => 'bootstrap',
+                    'value' => 'bi-currency-dollar'
+                ];
+            }
+
+            // Remove raw relations to reduce payload
+            unset($mode->roles, $mode->modules, $mode->icon_path, $mode->icon_url);
+
+            return $mode;
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $paymentModes
+        ]);
+    } catch (\Exception $e) {
+        Log::error('Failed to fetch active payment modes', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to fetch active payment modes',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
     /**
      * Get available Bootstrap icons for payment modes
      */

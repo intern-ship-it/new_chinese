@@ -234,7 +234,7 @@
                                         <input type="text" class="form-control" id="durationDisplay" readonly>
                                     </div>
                                     <div class="col-md-6">
-                                        <label class="form-label">Merit Amount / 功德金 (SGD) <span class="text-danger">*</span></label>
+                                        <label class="form-label">Merit Amount / 功德金 (RM) <span class="text-danger">*</span></label>
                                         <input type="number" class="form-control" id="meritAmount" name="merit_amount" 
                                                step="0.01" min="0.01" required>
                                     </div>
@@ -795,7 +795,7 @@
         //             <div class="text-start">
         //                 <p><strong>Devotee:</strong> ${registrationData.devotee.name_english}</p>
         //                 <p><strong>Light:</strong> ${registrationData.light_number} (${registrationData.light_code})</p>
-        //                 <p><strong>Amount:</strong> SGD ${registrationData.merit_amount}</p>
+        //                 <p><strong>Amount:</strong> RM ${registrationData.merit_amount}</p>
         //                 <p><strong>Duration:</strong> ${registrationData.offer_date} to ${registrationData.expiry_date}</p>
         //             </div>
         //         `,
@@ -913,7 +913,7 @@
                 <p><strong>Contact:</strong> ${registrationData.devotee.contact_no}</p>
                 <p><strong>Light:</strong> ${registrationData.light_number} (${registrationData.light_code})</p>
                 <p><strong>Location:</strong> Tower ${registrationData.tower_code}, Block ${registrationData.block_code}</p>
-                <p><strong>Amount:</strong> SGD ${registrationData.merit_amount}</p>
+                <p><strong>Amount:</strong> RM ${registrationData.merit_amount}</p>
                 <p><strong>Payment:</strong> ${registrationData.payment_method}</p>
                 <p><strong>Duration:</strong> ${registrationData.offer_date} to ${registrationData.expiry_date}</p>
             </div>
@@ -1430,7 +1430,7 @@ extractBlockCodeFromLightCode: function(lightCode) {
 //                                     <!-- Merit Amount -->
 //                                     <div>
 //                                         <label class="block text-gray-700 font-semibold mb-2">
-//                                             Merit Amount / 功德金 (SGD) <span class="text-red-500">*</span>
+//                                             Merit Amount / 功德金 (RM) <span class="text-red-500">*</span>
 //                                         </label>
 //                                         <input type="number" 
 //                                                id="meritAmount" 
@@ -2095,7 +2095,7 @@ extractBlockCodeFromLightCode: function(lightCode) {
 //                     <div class="text-start">
 //                         <p><strong>Devotee:</strong> ${registrationData.devotee.name_english}</p>
 //                         <p><strong>Light:</strong> ${registrationData.light_number} (${registrationData.light_code})</p>
-//                         <p><strong>Amount:</strong> SGD ${registrationData.merit_amount}</p>
+//                         <p><strong>Amount:</strong> RM ${registrationData.merit_amount}</p>
 //                         <p><strong>Duration:</strong> ${registrationData.offer_date} to ${registrationData.expiry_date}</p>
 //                     </div>
 //                 `,

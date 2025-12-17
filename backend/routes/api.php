@@ -48,7 +48,6 @@ use App\Http\Controllers\PurchaseDueReportController;
 use App\Http\Controllers\DesignationController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\BookingSettingsController;
-use App\Http\Controllers\BookingController;
 use App\Http\Controllers\YearEndClosingController;
 use App\Http\Controllers\FundBudgetController;
 use App\Http\Controllers\FundBudgetTemplateController;
@@ -67,6 +66,14 @@ use App\Http\Controllers\SessionMasterController;
 use App\Http\Controllers\PackageMasterController;
 use App\Http\Controllers\AddonGroupController;
 use App\Http\Controllers\AddonServiceController;
+use App\Http\Controllers\MemberReportController;
+use App\Http\Controllers\EventController;
+use App\Http\Controllers\DonationController;
+use App\Http\Controllers\BuddhaLampController;
+use App\Http\Controllers\API\SaleCategoryController;
+use App\Http\Controllers\API\SaleSessionController;
+use App\Http\Controllers\API\SaleItemController;
+use App\Http\Controllers\API\DeityController;
 
 Route::prefix('v1')->group(function () {
 	// Temple validation (no middleware needed - this should be accessible without temple context)
@@ -125,7 +132,47 @@ Route::prefix('v1')->group(function () {
 			});
 			Route::get('/settings/default-values', [SupplierController::class, 'getDefaultValues']);
 
-
+			Route::prefix('sales')->group(function () {
+    
+				// Sale Categories Routes
+				Route::prefix('categories')->group(function () {
+					Route::get('/', [SaleCategoryController::class, 'index']);
+					Route::get('/active', [SaleCategoryController::class, 'active']);
+					Route::post('/', [SaleCategoryController::class, 'store']);
+					Route::get('/{id}', [SaleCategoryController::class, 'show']);
+					Route::put('/{id}', [SaleCategoryController::class, 'update']);
+					Route::delete('/{id}', [SaleCategoryController::class, 'destroy']);
+				});
+				
+				// Sale Sessions Routes
+				Route::prefix('sessions')->group(function () {
+					Route::get('/', [SaleSessionController::class, 'index']);
+					Route::get('/active', [SaleSessionController::class, 'active']);
+					Route::post('/', [SaleSessionController::class, 'store']);
+					Route::get('/{id}', [SaleSessionController::class, 'show']);
+					Route::put('/{id}', [SaleSessionController::class, 'update']);
+					Route::delete('/{id}', [SaleSessionController::class, 'destroy']);
+				});
+				
+				// Sale Items Routes
+				Route::prefix('items')->group(function () {
+					Route::get('/', [SaleItemController::class, 'index']);
+					Route::get('/active', [SaleItemController::class, 'active']);
+					Route::get('/available-products', [SaleItemController::class, 'getAvailableProducts']);
+					Route::post('/', [SaleItemController::class, 'store']);
+					Route::get('/{id}', [SaleItemController::class, 'show']);
+					Route::put('/{id}', [SaleItemController::class, 'update']);
+					Route::delete('/{id}', [SaleItemController::class, 'destroy']);
+				});
+			});
+			Route::prefix('deities')->middleware(['auth:sanctum'])->group(function () {
+				Route::get('/', [DeityController::class, 'index']);
+				Route::get('/active', [DeityController::class, 'active']);
+				Route::post('/', [DeityController::class, 'store']);
+				Route::get('/{id}', [DeityController::class, 'show']);
+				Route::put('/{id}', [DeityController::class, 'update']);
+				Route::delete('/{id}', [DeityController::class, 'destroy']);
+			});
 			// Authentication Management
 			Route::prefix('auth')->group(function () {
 				Route::post('/logout', [AuthController::class, 'logout']);
@@ -456,12 +503,11 @@ Route::prefix('v1')->group(function () {
 					Route::get('/inventory/{ledgerId}/balance', [EntriesController::class, 'getInventoryBalance']);
 					Route::post('/generate-code', [EntriesController::class, 'generateCode']);
 
-					/* Route::get('/pending-approvals', [EntriesController::class, 'getPendingApprovals']);
+						/* Route::get('/pending-approvals', [EntriesController::class, 'getPendingApprovals']);
 		Route::get('/pending-approvals/{id}', [EntriesController::class, 'getPendingApprovalDetail']);
 		Route::post('/{id}/approve', [EntriesController::class, 'processApproval']);
 		Route::get('/approval-history', [EntriesController::class, 'getApprovalHistory']);
-		Route::get('/approval-history/{id}', [EntriesController::class, 'getApprovalHistoryDetail']) */
-					;
+		Route::get('/approval-history/{id}', [EntriesController::class, 'getApprovalHistoryDetail']) */;
 					Route::prefix('approval')->group(function () {
 						// View approvals
 						Route::get('/list', [EntriesApprovalController::class, 'getPendingApprovals']);
@@ -1177,13 +1223,16 @@ Route::prefix('v1')->group(function () {
 			});
 
 			Route::prefix('bookings')->group(function () {
-				Route::get('/', [BookingController::class, 'index']);
-				Route::get('/{id}', [BookingController::class, 'show']);
-				Route::put('/{id}/status', [BookingController::class, 'updateStatus']);
-				Route::post('/{id}/payment', [BookingController::class, 'addPayment']);
-				Route::post('/{id}/cancel', [BookingController::class, 'cancel']);
-				Route::get('/{id}/receipt', [BookingController::class, 'getReceipt']);
-				Route::post('/{id}/reprint', [BookingController::class, 'reprintTicket']);
+
+				Route::prefix('buddha-lamp')->group(function () {
+					Route::get('/', [BuddhaLampController::class, 'index']);
+					Route::post('/', [BuddhaLampController::class, 'store']);
+					Route::get('/statistics', [BuddhaLampController::class, 'statistics']);
+					Route::get('/{id}', [BuddhaLampController::class, 'show']);
+					Route::put('/{id}', [BuddhaLampController::class, 'update']);
+					Route::post('/{id}/cancel', [BuddhaLampController::class, 'cancel']);
+					Route::delete('/{id}', [BuddhaLampController::class, 'destroy']);
+				});
 			});
 			Route::prefix('fund-budgets')->group(function () {
 				Route::get('/groups', [FundBudgetController::class, 'getGroups']);
@@ -1470,6 +1519,17 @@ Route::prefix('v1')->group(function () {
 				Route::post('/{id}/change-status', [MemberApplicationController::class, 'changeStatus']);
 			});
 
+
+			Route::prefix('reports')->group(function () {
+
+				// Member Reports
+				Route::prefix('members')->group(function () {
+					Route::get('/', [MemberReportController::class, 'getMembersReport']);
+					Route::get('/statistics', [MemberReportController::class, 'getStatistics']);
+					Route::get('/filter-options', [MemberReportController::class, 'getFilterOptions']);
+					Route::get('/export', [MemberReportController::class, 'exportReport']);
+				});
+			});
 			// Donation Master Routes
 
 			Route::prefix('donation-masters')->group(function () {
@@ -1598,7 +1658,34 @@ Route::prefix('v1')->group(function () {
 				//     Route::delete('/{id}', [DharmaAssemblyBookingController::class, 'destroy']);
 				// });
 			});
+			Route::prefix('events')->group(function () {
+				Route::get('/', [EventController::class, 'index']);         // List all events
+				Route::post('/', [EventController::class, 'store']);        // Create new event
+				Route::get('/{id}', [EventController::class, 'show']);      // Get single event
+				Route::put('/{id}', [EventController::class, 'update']);    // Update event
+				Route::delete('/{id}', [EventController::class, 'destroy']); // Delete event
+			});
+			Route::prefix('event-booking')->group(function () {
+				Route::get('/events', [EventBookingController::class, 'getAvailableEvents']);
+				Route::get('/events/{id}', [EventBookingController::class, 'getEventDetails']);
+				Route::get('/payment-modes', [EventBookingController::class, 'getPaymentModes']);
+				Route::post('/book', [EventBookingController::class, 'store']);
+				Route::get('/receipt/{id}', [EventBookingController::class, 'getBookingReceipt']);
+			});
+			Route::prefix('donations')->group(function () {
+				Route::get('/types/active', [DonationController::class, 'getActiveDonations']);
+				Route::get('/statistics', [DonationController::class, 'getStatistics']);
+				Route::get('/', [DonationController::class, 'index']);
+				Route::get('/{id}', [DonationController::class, 'show']);
+				Route::post('/', [DonationController::class, 'store']);
+				Route::put('/{id}', [DonationController::class, 'update']);
+				Route::patch('/{id}', [DonationController::class, 'update']);
+				Route::delete('/{id}', [DonationController::class, 'destroy']); 
+				Route::post('/{id}/partial-payment', [DonationController::class, 'partialPayment']);  
+				Route::get('/{id}/payments', [DonationController::class, 'getPayments']);           
+    Route::get('/report', [DonationController::class, 'getReport']);
 
+			});
 		});
 	});
 });
