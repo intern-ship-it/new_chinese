@@ -60,6 +60,39 @@
         permission: "view_bookings",
       },
       {
+        id: "sales",
+        icon: "shop",  // or "cart4", "bag-check", "cash-stack"
+        text: "Sales Master",
+        permission: "view_masters",
+        hasSubmenu: true,
+        submenu: [
+          {
+            id: "sale-items",
+            icon: "box-seam",  // or "boxes", "archive", "grid-3x3"
+            text: "Items",
+            permission: "view_masters",
+          },
+          {
+            id: "sale-sessions",
+            icon: "calendar-event",  // or "clock-history", "calendar-check", "hourglass"
+            text: "Sessions",
+            permission: "view_masters",
+          },
+          {
+            id: "sale-categories",
+            icon: "tags",  // or "bookmark", "folder2", "collection"
+            text: "Category",
+            permission: "view_masters",
+          },
+          {
+            id: "deities",
+            icon: "brightness-high",  // or "sun", "star", "moon-stars" for spiritual context
+            text: "Deity",
+            permission: "view_masters",
+          },
+        ],
+      },
+      {
         id: "buddha-lamp",
         icon: "lightbulb",
         text: "Buddha Lamp",
@@ -112,6 +145,12 @@
             id: "special-occasions/master",
             icon: "gear",
             text: "Master",
+            permission: "view_bookings",
+          },
+          {
+            id: "special-occasions/services",    // ⬅️ ADD THIS
+            icon: "wrench",
+            text: "Services",
             permission: "view_bookings",
           },
         ],
@@ -245,6 +284,77 @@
           },
         ],
       },
+      // ===================================
+      // VOLUNTEER MANAGEMENT - NEW SECTION
+      // ===================================
+      {
+        id: "volunteers",
+        icon: "people-fill",
+        text: "Volunteer Management",
+        // permission: "view_volunteers",
+        hasSubmenu: true,
+        submenu: [
+          {
+            id: "volunteers/dashboard",
+            icon: "speedometer2",
+            text: "Dashboard",
+            // permission: "view_volunteers",
+          },
+          {
+            id: "volunteers/departments",
+            icon: "diagram-3",
+            text: "Departments",
+            // permission: "view_volunteers",
+          },
+          {
+            id: "volunteers/tasks",
+            icon: "list-task",
+            text: "Tasks",
+            // permission: "view_volunteers",
+          },
+          {
+            id: "volunteers/registration/list",
+            icon: "person-lines-fill",
+            text: "All Volunteers",
+            // permission: "view_volunteers",
+          },
+          {
+            id: "volunteers/registration/create",
+            icon: "person-plus-fill",
+            text: "Register Volunteer",
+            // permission: "manage_volunteers",
+          },
+          {
+            id: "volunteers/approval-queue",
+            icon: "clipboard-check",
+            text: "Approval Queue",
+            // permission: "approve_volunteers",
+            badge: "volunteer_pending_approvals",
+          },
+          {
+            id: "volunteers/assignments",
+            icon: "calendar-check",
+            text: "Task Assignments",
+            // permission: "manage_volunteers",
+          },
+          {
+            id: "volunteers/attendance",
+            icon: "clock-history",
+            text: "Attendance",
+            // permission: "manage_volunteers",
+          },
+          {
+            id: "volunteers/reports",
+            icon: "file-earmark-bar-graph",
+            text: "Reports",
+            // permission: "view_reports",
+          },
+        ],
+      },
+      // ===================================
+      // END VOLUNTEER MANAGEMENT
+      // ===================================
+
       {
         id: "users",
         icon: "people",

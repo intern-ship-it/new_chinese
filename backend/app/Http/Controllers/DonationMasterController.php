@@ -23,11 +23,12 @@ class DonationMasterController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = DonationMaster::whereNull('deleted_at');
+            $query = DonationMaster::with('ledger')
+                ->whereNull('deleted_at');
 
-            // Filter by type if provided
-            if ($request->filled('type')) {
-                $query->where('type', $request->type);
+            // Filter by ledger_id if provided
+            if ($request->filled('ledger_id')) {
+                $query->where('ledger_id', $request->ledger_id);
             }
 
             // Filter by status if provided
@@ -35,13 +36,15 @@ class DonationMasterController extends Controller
                 $query->where('status', $request->status);
             }
 
-            // Search by name, secondary_name or type if provided
+            // Search by name, secondary_name or ledger name if provided
             if ($request->filled('search')) {
                 $search = $request->search;
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'LIKE', "%{$search}%")
                         ->orWhere('secondary_name', 'LIKE', "%{$search}%")
-                        ->orWhere('type', 'LIKE', "%{$search}%");
+                        ->orWhereHas('ledger', function ($q) use ($search) {
+                            $q->where('name', 'LIKE', "%{$search}%");
+                        });
                 });
             }
 
@@ -174,11 +177,9 @@ class DonationMasterController extends Controller
             $validator = Validator::make($request->all(), [
                 'name' => 'required|string|max:300',
                 'secondary_name' => 'nullable|string|max:300',
-                'type' => 'required|string|in:' . implode(',', self::ALLOWED_TYPES),
+                   'ledger_id' => 'required|integer|exists:ledgers,id',
                 'details' => 'nullable|string',
                 'status' => 'integer|in:0,1'
-            ], [
-                'type.in' => 'The type must be one of: ' . implode(', ', self::ALLOWED_TYPES)
             ]);
 
             if ($validator->fails()) {
@@ -206,7 +207,7 @@ class DonationMasterController extends Controller
             $donation = new DonationMaster();
             $donation->name = $request->name;
             $donation->secondary_name = $request->secondary_name;
-            $donation->type = $request->type;
+            $donation->ledger_id = $request->ledger_id;
             $donation->details = $request->details;
             $donation->status = $request->get('status', 1);
             $donation->created_by = Auth::id();
@@ -228,6 +229,7 @@ class DonationMasterController extends Controller
             ], 500);
         }
     }
+
 
     /**
      * Update donation master
@@ -255,11 +257,9 @@ class DonationMasterController extends Controller
             $validator = Validator::make($request->all(), [
                 'name' => 'string|max:300',
                 'secondary_name' => 'nullable|string|max:300',
-                'type' => 'string|in:' . implode(',', self::ALLOWED_TYPES),
+                'ledger_id' => 'integer|exists:ledgers,id',
                 'details' => 'nullable|string',
                 'status' => 'integer|in:0,1'
-            ], [
-                'type.in' => 'The type must be one of: ' . implode(', ', self::ALLOWED_TYPES)
             ]);
 
             if ($validator->fails()) {
@@ -289,7 +289,7 @@ class DonationMasterController extends Controller
 
             if ($request->has('name')) $donation->name = $request->name;
             if ($request->has('secondary_name')) $donation->secondary_name = $request->secondary_name;
-            if ($request->has('type')) $donation->type = $request->type;
+            if ($request->has('ledger_id')) $donation->ledger_id = $request->ledger_id;
             if ($request->has('details')) $donation->details = $request->details;
             if ($request->has('status')) $donation->status = $request->status;
             $donation->updated_by = Auth::id();
@@ -426,4 +426,49 @@ class DonationMasterController extends Controller
 
         return $permissions;
     }
+public function getDonationLedgers()
+{
+    try {
+        $donationGroup = DB::table('groups')
+            ->where('code', '8001')
+            ->first();
+
+        if (!$donationGroup) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Donation group (code 8001) not found'
+            ], 404);
+        }
+
+        // Ensure left_code is selected and ordered properly
+        $ledgers = DB::table('ledgers')
+            ->where('group_id', $donationGroup->id)
+            ->whereNull('deleted_at')
+            ->where('left_code', '>=', '8001')
+            ->where('left_code', '<=', '8999')
+            ->orderBy('left_code')
+            ->select('id', 'name', 'left_code')  // IMPORTANT: Include left_code
+            ->get();
+
+        // Debug log to verify data
+        \Log::info('Donation Ledgers:', [
+            'count' => $ledgers->count(),
+            'sample' => $ledgers->first()
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data' => $ledgers,
+            'count' => $ledgers->count()
+        ]);
+    } catch (\Exception $e) {
+        \Log::error('Error fetching donation ledgers: ' . $e->getMessage());
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to fetch donation ledgers',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
 }

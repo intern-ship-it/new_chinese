@@ -1,102 +1,134 @@
-/* Special Occasions Master Page Styles */
+/* Special Occasions Master - Enhanced Styles */
+/* NO animations with opacity - prevents page visibility issues */
 
-.special-occasions-master-page {
-    padding: 20px;
-}
-
-.page-header h1 {
-    color: #2c3e50;
-    font-weight: 600;
-}
-
-.page-header i {
-    color: #3498db;
-}
-
-/* Table Styles */
-#occasionsTable thead {
-    background-color: #f8f9fa;
-}
-
-#occasionsTable thead th {
-    font-weight: 600;
-    color: #495057;
-    border-bottom: 2px solid #dee2e6;
-}
-
-#occasionsTable tbody tr {
-    transition: all 0.3s ease;
-}
-
-#occasionsTable tbody tr:hover {
-    background-color: #f8f9fa;
-    transform: scale(1.01);
-}
-
-/* Option Item Styles */
-.option-item {
-    border: 1px solid #dee2e6;
-    transition: all 0.3s ease;
-}
-
-.option-item:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-/* Button Styles */
-.btn-edit {
-    margin-right: 5px;
-}
-
-.btn-toggle-status {
-    margin-right: 5px;
-}
-
-/* Badge Styles */
-.badge {
-    font-size: 0.85rem;
-    padding: 0.4em 0.8em;
-}
-
-/* Modal Styles */
-.modal-header {
-    background-color: #f8f9fa;
-    border-bottom: 2px solid #dee2e6;
-}
-
-.modal-title i {
-    color: #3498db;
-}
-
-.form-label.required::after {
-    content: " *";
-    color: #dc3545;
-}
-
-/* Animation */
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
+/* Cards */
 .card {
-    animation: fadeIn 0.5s ease;
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border-radius: 0.5rem;
+}
+
+.card-header {
+    background: #fff;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* Tables */
+.table thead th {
+    background: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.table tbody tr:hover {
+    background-color: rgba(13, 110, 253, 0.05);
+}
+
+/* Modal Headers */
+.modal-header.bg-primary {
+    background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%) !important;
+}
+
+.modal-header.bg-success {
+    background: linear-gradient(135deg, #198754 0%, #146c43 100%) !important;
+}
+
+/* Form Labels */
+.form-label {
+    font-weight: 500;
+    color: #495057;
+    margin-bottom: 0.375rem;
+}
+
+/* Time Slot Rows */
+.time-slot-row {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+}
+
+.time-slot-row:hover {
+    background: #fff;
+    border-color: #dee2e6;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Package List Items */
+#packagesContainer .list-group-item {
+    border-left: 3px solid #198754;
+}
+
+#packagesContainer .list-group-item:hover {
+    background: #f8f9fa;
+    border-left-color: #0d6efd;
+}
+
+/* Button Group */
+.btn-group .btn-check:checked + .btn-outline-primary {
+    background: #0d6efd;
+    color: #fff;
+}
+
+/* Image Preview */
+#imagePreview {
+    background: #f8f9fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#imagePreview img {
+    max-width: 100%;
+    border-radius: 4px;
+}
+
+/* Services Checkboxes */
+#servicesContainer .form-check {
+    padding: 0.5rem;
+    background: #f8f9fa;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+}
+
+#servicesContainer .form-check:hover {
+    background: #e9ecef;
+}
+
+#servicesContainer .form-check-input:checked ~ .form-check-label {
+    font-weight: 500;
+    color: #0d6efd;
+}
+
+/* Selected Dates Display */
+#selectedDatesDisplay .badge {
+    font-size: 0.75rem;
+}
+
+/* Section Dividers */
+.modal-body hr {
+    margin: 1.5rem 0;
+    border-color: #e9ecef;
+}
+
+.modal-body h6 {
+    color: #495057;
+    font-weight: 600;
+}
+
+.modal-body h6 i {
+    color: #0d6efd;
 }
 
 /* Responsive */
 @media (max-width: 768px) {
-    .special-occasions-master-page {
-        padding: 10px;
+    .time-slot-row .row > div {
+        margin-bottom: 0.5rem;
     }
     
-    .btn-group-sm .btn {
-        padding: 0.25rem 0.5rem;
-        font-size: 0.875rem;
+    #packageModal .modal-dialog {
+        margin: 0.5rem;
+        max-width: calc(100% - 1rem);
     }
 }

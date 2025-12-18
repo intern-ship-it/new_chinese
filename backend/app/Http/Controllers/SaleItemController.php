@@ -1,19 +1,30 @@
 <?php
 
-namespace App\Http\Controllers\API;
+namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\SaleItem;
 use App\Models\SaleItemBomProduct;
 use App\Models\SaleItemCommission;
 use App\Models\Product;
+use App\Services\S3UploadService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Carbon\Carbon;
 use Exception;
 
 class SaleItemController extends Controller
 {
+    protected $s3UploadService;
+
+    public function __construct(S3UploadService $s3UploadService)
+    {
+        $this->s3UploadService = $s3UploadService;
+    }
+
     /**
      * Display a listing of sale items
      */
@@ -54,6 +65,23 @@ class SaleItemController extends Controller
 
             $items = $query->get();
 
+            // Generate signed URLs for images
+            $items->transform(function($item) {
+                if ($item->image_url && !Str::startsWith($item->image_url, 'http')) {
+                    $item->image_signed_url = $this->s3UploadService->getSignedUrl($item->image_url);
+                } else {
+                    $item->image_signed_url = $item->image_url;
+                }
+                
+                if ($item->grayscale_image_url && !Str::startsWith($item->grayscale_image_url, 'http')) {
+                    $item->grayscale_image_signed_url = $this->s3UploadService->getSignedUrl($item->grayscale_image_url);
+                } else {
+                    $item->grayscale_image_signed_url = $item->grayscale_image_url;
+                }
+                
+                return $item;
+            });
+
             return response()->json([
                 'success' => true,
                 'data' => $items
@@ -78,6 +106,23 @@ class SaleItemController extends Controller
                 ->orderBy('name_primary', 'asc')
                 ->get();
 
+            // Generate signed URLs for images
+            $items->transform(function($item) {
+                if ($item->image_url && !Str::startsWith($item->image_url, 'http')) {
+                    $item->image_signed_url = $this->s3UploadService->getSignedUrl($item->image_url);
+                } else {
+                    $item->image_signed_url = $item->image_url;
+                }
+                
+                if ($item->grayscale_image_url && !Str::startsWith($item->grayscale_image_url, 'http')) {
+                    $item->grayscale_image_signed_url = $this->s3UploadService->getSignedUrl($item->grayscale_image_url);
+                } else {
+                    $item->grayscale_image_signed_url = $item->grayscale_image_url;
+                }
+                
+                return $item;
+            });
+
             return response()->json([
                 'success' => true,
                 'data' => $items
@@ -88,6 +133,41 @@ class SaleItemController extends Controller
                 'message' => 'Failed to fetch active sale items',
                 'error' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Get a single sale item by ID
+     */
+    public function show($id)
+    {
+        try {
+            $item = SaleItem::with(['categories', 'sessions', 'deities', 'ledger', 'bomProducts.product', 'commissions.staff'])
+                ->findOrFail($id);
+
+            // Generate signed URLs for images
+            if ($item->image_url && !Str::startsWith($item->image_url, 'http')) {
+                $item->image_signed_url = $this->s3UploadService->getSignedUrl($item->image_url);
+            } else {
+                $item->image_signed_url = $item->image_url;
+            }
+            
+            if ($item->grayscale_image_url && !Str::startsWith($item->grayscale_image_url, 'http')) {
+                $item->grayscale_image_signed_url = $this->s3UploadService->getSignedUrl($item->grayscale_image_url);
+            } else {
+                $item->grayscale_image_signed_url = $item->grayscale_image_url;
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $item
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Sale item not found',
+                'error' => $e->getMessage()
+            ], 404);
         }
     }
 
@@ -107,6 +187,8 @@ class SaleItemController extends Controller
             'special_price' => 'nullable|numeric|min:0',
             'image_url' => 'nullable|string|max:500',
             'grayscale_image_url' => 'nullable|string|max:500',
+            'image_base64' => 'nullable|string',
+            'grayscale_image_base64' => 'nullable|string',
             'status' => 'boolean',
             'is_inventory' => 'boolean',
             'is_commission' => 'boolean',
@@ -147,6 +229,45 @@ class SaleItemController extends Controller
         try {
             DB::beginTransaction();
 
+            // Handle image uploads
+            $imageUrl = $request->image_url;
+            $grayscaleImageUrl = $request->grayscale_image_url;
+            $templeId = $request->header('X-Temple-ID') ?? session('temple_id');
+
+            // Upload main image if base64 provided
+            if ($request->has('image_base64') && $request->image_base64) {
+                $uploadResult = $this->uploadBase64Image(
+                    $request->image_base64, 
+                    'sale-items', 
+                    'image',
+                    $templeId
+                );
+                
+                if ($uploadResult['success']) {
+                    $imageUrl = $uploadResult['path'];
+                    Log::info('Sale item image uploaded', ['path' => $imageUrl]);
+                } else {
+                    throw new Exception('Failed to upload image: ' . $uploadResult['message']);
+                }
+            }
+
+            // Upload grayscale image if base64 provided
+            if ($request->has('grayscale_image_base64') && $request->grayscale_image_base64) {
+                $uploadResult = $this->uploadBase64Image(
+                    $request->grayscale_image_base64, 
+                    'sale-items', 
+                    'grayscale',
+                    $templeId
+                );
+                
+                if ($uploadResult['success']) {
+                    $grayscaleImageUrl = $uploadResult['path'];
+                    Log::info('Sale item grayscale image uploaded', ['path' => $grayscaleImageUrl]);
+                } else {
+                    throw new Exception('Failed to upload grayscale image: ' . $uploadResult['message']);
+                }
+            }
+
             // Create sale item
             $item = SaleItem::create([
                 'name_primary' => $request->name_primary,
@@ -157,8 +278,8 @@ class SaleItemController extends Controller
                 'sale_type' => $request->sale_type,
                 'price' => $request->price,
                 'special_price' => $request->special_price,
-                'image_url' => $request->image_url,
-                'grayscale_image_url' => $request->grayscale_image_url,
+                'image_url' => $imageUrl,
+                'grayscale_image_url' => $grayscaleImageUrl,
                 'status' => $request->boolean('status', true),
                 'is_inventory' => $request->boolean('is_inventory', false),
                 'is_commission' => $request->boolean('is_commission', false),
@@ -207,6 +328,14 @@ class SaleItemController extends Controller
             // Load relationships
             $item->load(['categories', 'sessions', 'deities', 'ledger', 'bomProducts.product', 'commissions.staff']);
 
+            // Add signed URLs
+            if ($item->image_url) {
+                $item->image_signed_url = $this->s3UploadService->getSignedUrl($item->image_url);
+            }
+            if ($item->grayscale_image_url) {
+                $item->grayscale_image_signed_url = $this->s3UploadService->getSignedUrl($item->grayscale_image_url);
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Sale item created successfully',
@@ -214,39 +343,15 @@ class SaleItemController extends Controller
             ], 201);
         } catch (Exception $e) {
             DB::rollBack();
+            Log::error('Failed to create sale item', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create sale item',
                 'error' => $e->getMessage()
             ], 500);
-        }
-    }
-
-    /**
-     * Display the specified sale item
-     */
-    public function show($id)
-    {
-        try {
-            $item = SaleItem::with([
-                'categories',
-                'sessions',
-                'deities',
-                'ledger',
-                'bomProducts.product.uom',
-                'commissions.staff'
-            ])->findOrFail($id);
-
-            return response()->json([
-                'success' => true,
-                'data' => $item
-            ]);
-        } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Sale item not found',
-                'error' => $e->getMessage()
-            ], 404);
         }
     }
 
@@ -266,6 +371,10 @@ class SaleItemController extends Controller
             'special_price' => 'nullable|numeric|min:0',
             'image_url' => 'nullable|string|max:500',
             'grayscale_image_url' => 'nullable|string|max:500',
+            'image_base64' => 'nullable|string',
+            'grayscale_image_base64' => 'nullable|string',
+            'remove_image' => 'nullable|boolean',
+            'remove_grayscale_image' => 'nullable|boolean',
             'status' => 'boolean',
             'is_inventory' => 'boolean',
             'is_commission' => 'boolean',
@@ -307,6 +416,80 @@ class SaleItemController extends Controller
             DB::beginTransaction();
 
             $item = SaleItem::findOrFail($id);
+            $templeId = $request->header('X-Temple-ID') ?? session('temple_id');
+
+            // Store old image paths for potential deletion
+            $oldImageUrl = $item->image_url;
+            $oldGrayscaleImageUrl = $item->grayscale_image_url;
+
+            // Handle image updates
+            $imageUrl = $item->image_url;
+            $grayscaleImageUrl = $item->grayscale_image_url;
+
+            // Check if image should be removed
+            if ($request->boolean('remove_image')) {
+                // Delete old image from S3
+                if ($oldImageUrl && !Str::startsWith($oldImageUrl, 'http')) {
+                    $this->s3UploadService->deleteSignature($oldImageUrl);
+                    Log::info('Deleted old sale item image', ['path' => $oldImageUrl]);
+                }
+                $imageUrl = null;
+            }
+            // Upload new image if base64 provided
+            elseif ($request->has('image_base64') && $request->image_base64) {
+                // Delete old image from S3 first
+                if ($oldImageUrl && !Str::startsWith($oldImageUrl, 'http')) {
+                    $this->s3UploadService->deleteSignature($oldImageUrl);
+                    Log::info('Deleted old sale item image before upload', ['path' => $oldImageUrl]);
+                }
+
+                $uploadResult = $this->uploadBase64Image(
+                    $request->image_base64, 
+                    'sale-items', 
+                    'image',
+                    $templeId
+                );
+                
+                if ($uploadResult['success']) {
+                    $imageUrl = $uploadResult['path'];
+                    Log::info('Sale item image uploaded', ['path' => $imageUrl]);
+                } else {
+                    throw new Exception('Failed to upload image: ' . $uploadResult['message']);
+                }
+            }
+
+            // Check if grayscale image should be removed
+            if ($request->boolean('remove_grayscale_image')) {
+                // Delete old grayscale image from S3
+                if ($oldGrayscaleImageUrl && !Str::startsWith($oldGrayscaleImageUrl, 'http')) {
+                    $this->s3UploadService->deleteSignature($oldGrayscaleImageUrl);
+                    Log::info('Deleted old sale item grayscale image', ['path' => $oldGrayscaleImageUrl]);
+                }
+                $grayscaleImageUrl = null;
+            }
+            // Upload new grayscale image if base64 provided
+            elseif ($request->has('grayscale_image_base64') && $request->grayscale_image_base64) {
+                // Delete old grayscale image from S3 first
+                if ($oldGrayscaleImageUrl && !Str::startsWith($oldGrayscaleImageUrl, 'http')) {
+                    $this->s3UploadService->deleteSignature($oldGrayscaleImageUrl);
+                    Log::info('Deleted old sale item grayscale image before upload', ['path' => $oldGrayscaleImageUrl]);
+                }
+
+                $uploadResult = $this->uploadBase64Image(
+                    $request->grayscale_image_base64, 
+                    'sale-items', 
+                    'grayscale',
+                    $templeId
+                );
+                
+                if ($uploadResult['success']) {
+                    $grayscaleImageUrl = $uploadResult['path'];
+                    Log::info('Sale item grayscale image uploaded', ['path' => $grayscaleImageUrl]);
+                } else {
+                    throw new Exception('Failed to upload grayscale image: ' . $uploadResult['message']);
+                }
+            }
+
             $item->update([
                 'name_primary' => $request->name_primary,
                 'name_secondary' => $request->name_secondary,
@@ -316,8 +499,8 @@ class SaleItemController extends Controller
                 'sale_type' => $request->sale_type,
                 'price' => $request->price,
                 'special_price' => $request->special_price,
-                'image_url' => $request->image_url,
-                'grayscale_image_url' => $request->grayscale_image_url,
+                'image_url' => $imageUrl,
+                'grayscale_image_url' => $grayscaleImageUrl,
                 'status' => $request->boolean('status', true),
                 'is_inventory' => $request->boolean('is_inventory', false),
                 'is_commission' => $request->boolean('is_commission', false),
@@ -374,6 +557,14 @@ class SaleItemController extends Controller
             // Load relationships
             $item->load(['categories', 'sessions', 'deities', 'ledger', 'bomProducts.product', 'commissions.staff']);
 
+            // Add signed URLs
+            if ($item->image_url) {
+                $item->image_signed_url = $this->s3UploadService->getSignedUrl($item->image_url);
+            }
+            if ($item->grayscale_image_url) {
+                $item->grayscale_image_signed_url = $this->s3UploadService->getSignedUrl($item->grayscale_image_url);
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Sale item updated successfully',
@@ -381,6 +572,10 @@ class SaleItemController extends Controller
             ]);
         } catch (Exception $e) {
             DB::rollBack();
+            Log::error('Failed to update sale item', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update sale item',
@@ -398,6 +593,17 @@ class SaleItemController extends Controller
             DB::beginTransaction();
 
             $item = SaleItem::findOrFail($id);
+            
+            // Delete images from S3
+            if ($item->image_url && !Str::startsWith($item->image_url, 'http')) {
+                $this->s3UploadService->deleteSignature($item->image_url);
+                Log::info('Deleted sale item image on destroy', ['path' => $item->image_url]);
+            }
+            
+            if ($item->grayscale_image_url && !Str::startsWith($item->grayscale_image_url, 'http')) {
+                $this->s3UploadService->deleteSignature($item->grayscale_image_url);
+                Log::info('Deleted sale item grayscale image on destroy', ['path' => $item->grayscale_image_url]);
+            }
             
             // Delete related records (cascading)
             $item->categories()->detach();
@@ -421,6 +627,48 @@ class SaleItemController extends Controller
                 'message' => 'Failed to delete sale item',
                 'error' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Upload base64 image to S3
+     */
+    protected function uploadBase64Image($base64Data, $folder, $type, $templeId)
+    {
+        try {
+            // Generate unique file name
+            $timestamp = Carbon::now()->format('YmdHis');
+            $random = Str::random(6);
+            $fileName = "{$type}_{$timestamp}_{$random}.png";
+            
+            // Determine mime type from base64 header
+            $mimeType = 'image/png';
+            if (preg_match('/^data:image\/(\w+);base64,/', $base64Data, $matches)) {
+                $mimeType = 'image/' . $matches[1];
+                $extension = $matches[1] === 'jpeg' ? 'jpg' : $matches[1];
+                $fileName = "{$type}_{$timestamp}_{$random}.{$extension}";
+            }
+            
+            // Use S3UploadService to upload
+            $result = $this->s3UploadService->uploadSignature(
+                $base64Data,
+                $folder,       // Use folder as user_id placeholder
+                $templeId,
+                $type
+            );
+            
+            return $result;
+            
+        } catch (Exception $e) {
+            Log::error('Failed to upload base64 image', [
+                'error' => $e->getMessage(),
+                'type' => $type
+            ]);
+            
+            return [
+                'success' => false,
+                'message' => $e->getMessage()
+            ];
         }
     }
 

@@ -221,36 +221,56 @@
                             <span>Personal Information 个人资料</span>
                         </div>
                     </div>
-                    
-                    <!-- Name Fields -->
-                    <div class="col-md-6">
-                        <label class="form-label">Name (Chinese) 姓名 (中文) <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" name="name_chinese" required>
-                        <div class="invalid-feedback">Please enter Chinese name</div>
+                    <div class="col-12">
+                <div class="card border-info bg-light">
+                    <div class="card-body py-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="is_anonymous" id="isAnonymous">
+                            <label class="form-check-label fw-semibold" for="isAnonymous">
+                                <i class="bi bi-incognito me-2"></i>
+                                Anonymous Donation 匿名捐款
+                            </label>
+                        </div>
+                        <small class="text-muted ms-4">
+                            Check this if the donor wishes to remain anonymous. Personal information will not be recorded.
+                        </small>
                     </div>
-                    
-                    <div class="col-md-6">
-                        <label class="form-label">Name (English) 姓名 (英文)</label>
-                        <input type="text" class="form-control" name="name_english">
-                    </div>
-                    
-                    <!-- Contact Information -->
-                    <div class="col-md-6">
-                        <label class="form-label">NRIC No. 身份证</label>
-                        <input type="text" class="form-control" name="nric">
-                    </div>
-                    
-                    <div class="col-md-6">
-                        <label class="form-label">Email 电邮</label>
-                        <input type="email" class="form-control" name="email">
-                    </div>
-                    
-                    <div class="col-md-6">
-                        <label class="form-label">Contact No. 手机号码 <span class="text-danger">*</span></label>
-                        <input type="tel" class="form-control" name="contact_no" required>
-                        <div class="invalid-feedback">Please enter contact number</div>
-                    </div>
-                    
+                </div>
+            </div>
+
+                           <div id="personalInfoFieldsContainer" class="col-12">
+                
+                   <div id="personalInfoFields" class="row g-4">
+                <!-- Name Fields -->
+                <div class="col-md-6">
+                    <label class="form-label">Name (Chinese) 姓名 (中文) <span class="text-danger" id="nameChineseRequired">*</span></label>
+                    <input type="text" class="form-control" name="name_chinese" id="nameChinese">
+                    <div class="invalid-feedback">Please enter Chinese name</div>
+                </div>
+                
+                <div class="col-md-6">
+                    <label class="form-label">Name (English) 姓名 (英文)</label>
+                    <input type="text" class="form-control" name="name_english" id="nameEnglish">
+                </div>
+                
+                <!-- Contact Information -->
+                <div class="col-md-6">
+                    <label class="form-label">NRIC No. 身份证</label>
+                    <input type="text" class="form-control" name="nric" id="nric">
+                </div>
+                
+                <div class="col-md-6">
+                    <label class="form-label">Email 电邮</label>
+                    <input type="email" class="form-control" name="email" id="email">
+                </div>
+                
+                <div class="col-md-6">
+                    <label class="form-label">Contact No. 手机号码 <span class="text-danger" id="contactRequired">*</span></label>
+                    <input type="tel" class="form-control" name="contact_no" id="contactNo">
+                    <div class="invalid-feedback">Please enter contact number</div>
+                </div>
+            </div>
+            </div>
                     <!-- Donation Details Section -->
                     <div class="col-12 mt-4">
                         <div class="section-header-gradient">
@@ -506,8 +526,44 @@
         initializePlugins: function() {
             // Initialize pledge handlers
             this.initPledgeHandlers();
+                // Initialize anonymous handlers
+    this.initAnonymousHandlers();
         },
-
+initAnonymousHandlers: function() {
+    const self = this;
+    
+    // Toggle personal info fields when anonymous checkbox changes
+    $('#isAnonymous').on('change', function() {
+        const isChecked = $(this).is(':checked');
+        
+        if (isChecked) {
+            // Hide and disable personal info fields
+            $('#personalInfoFields').slideUp(300);
+            
+            // Remove required attributes
+            $('#nameChinese, #contactNo').removeAttr('required');
+            $('#nameChineseRequired, #contactRequired').hide();
+            
+            // Clear values
+            $('#nameChinese, #nameEnglish, #nric, #email, #contactNo').val('');
+            
+            // Remove validation
+            $('#nameChinese, #contactNo').removeClass('is-invalid');
+            
+            // Show info message
+            TempleCore.showToast('Personal information fields hidden for anonymous donation', 'info');
+        } else {
+            // Show and enable personal info fields
+            $('#personalInfoFields').slideDown(300);
+            
+            // Add required attributes back
+            $('#nameChinese, #contactNo').attr('required', 'required');
+            $('#nameChineseRequired, #contactRequired').show();
+            
+            TempleCore.showToast('Personal information is now required', 'info');
+        }
+    });
+},
         initPledgeHandlers: function() {
             const self = this;
             
@@ -696,81 +752,93 @@
             });
         },
 
-        submitForm: async function() {
-            const formData = this.getFormData();
-            const shouldPrint = $('input[name="print_receipt"]').is(':checked');
+submitForm: async function() {
+    const formData = this.getFormData();
+    const shouldPrint = $('input[name="print_receipt"]').is(':checked');
+    const isAnonymous = formData.is_anonymous;
+    
+    // Show loading state
+    const $submitBtn = $('#btnSubmit');
+    const originalText = $submitBtn.html();
+    $submitBtn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Processing...');
+    
+    try {
+        const response = await TempleAPI.post('/donations', formData);
+        
+        if (response.success) {
+            // Success animation
+            gsap.to('.donation-form-card', {
+                scale: 1.02,
+                duration: 0.2,
+                yoyo: true,
+                repeat: 1,
+                ease: 'power2.inOut'
+            });
             
-            // Show loading state
-            const $submitBtn = $('#btnSubmit');
-            const originalText = $submitBtn.html();
-            $submitBtn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Processing...');
+            // Show success message
+            let message = 'Donation recorded successfully!';
+            if (isAnonymous && formData.is_pledge) {
+                message = `Anonymous pledge donation of RM ${formData.pledge_amount} recorded successfully! Initial payment: RM ${formData.amount}`;
+            } else if (isAnonymous) {
+                message = 'Anonymous donation recorded successfully!';
+            } else if (formData.is_pledge) {
+                message = `Pledge donation of RM ${formData.pledge_amount} recorded successfully! Initial payment: RM ${formData.amount}`;
+            }
             
-            try {
-                const response = await TempleAPI.post('/donations', formData);
-                
-                if (response.success) {
-                    // Success animation
-                    gsap.to('.donation-form-card', {
-                        scale: 1.02,
-                        duration: 0.2,
-                        yoyo: true,
-                        repeat: 1,
-                        ease: 'power2.inOut'
-                    });
-                    
-                    // Show success message
-                    const message = formData.is_pledge 
-                        ? `Pledge donation of RM ${formData.pledge_amount} recorded successfully! Initial payment: RM ${formData.amount}` 
-                        : 'Donation recorded successfully!';
-                    TempleCore.showToast(message, 'success');
-                    
-                    // Get the booking ID from response
-                    const bookingId = response.data.booking.id;
-                    
-                    // Navigate based on print option
-                    setTimeout(() => {
-                        this.cleanup();
-                        if (shouldPrint) {
-                            // Redirect to print page
-                            TempleRouter.navigate('donations/receipt-print', { id: bookingId });
-                        } else {
-                            // Redirect to list page
-                            TempleRouter.navigate('donations/list');
-                        }
-                    }, 1500);
+            TempleCore.showToast(message, 'success');
+            
+            // Get the booking ID from response
+            const bookingId = response.data.booking.id;
+            
+            // Navigate based on print option
+            setTimeout(() => {
+                this.cleanup();
+                if (shouldPrint) {
+                    // Redirect to print page
+                    TempleRouter.navigate('donations/receipt-print', { id: bookingId });
                 } else {
-                    throw new Error(response.message || 'Failed to record donation');
+                    // Redirect to list page
+                    TempleRouter.navigate('donations/list');
                 }
-            } catch (error) {
-                console.error('Error submitting donation:', error);
-                TempleCore.showToast(error.message || 'Failed to record donation', 'error');
-                $submitBtn.prop('disabled', false).html(originalText);
-            }
-        },
-
-        getFormData: function() {
-            const isPledge = $('#isPledge').is(':checked');
-            
-            const formData = {
-                donation_id: $('input[name="donation_id"]:checked').val(),
-                name_chinese: $('input[name="name_chinese"]').val(),
-                name_english: $('input[name="name_english"]').val(),
-                nric: $('input[name="nric"]').val(),
-                email: $('input[name="email"]').val(),
-                contact_no: $('input[name="contact_no"]').val(),
-                amount: parseFloat($('input[name="amount"]').val()),
-                payment_mode_id: $('input[name="payment_mode_id"]:checked').val(),
-                print_option: $('input[name="print_receipt"]').is(':checked') ? 'SINGLE_PRINT' : 'NO_PRINT',
-                notes: $('textarea[name="notes"]').val(),
-                is_pledge: isPledge
-            };
-            
-            if (isPledge) {
-                formData.pledge_amount = parseFloat($('#pledgeAmount').val());
-            }
-            
-            return formData;
-        },
+            }, 1500);
+        } else {
+            throw new Error(response.message || 'Failed to record donation');
+        }
+    } catch (error) {
+        console.error('Error submitting donation:', error);
+        TempleCore.showToast(error.message || 'Failed to record donation', 'error');
+        $submitBtn.prop('disabled', false).html(originalText);
+    }
+},
+       getFormData: function() {
+    const isPledge = $('#isPledge').is(':checked');
+    const isAnonymous = $('#isAnonymous').is(':checked');
+    
+    const formData = {
+        donation_id: $('input[name="donation_id"]:checked').val(),
+        amount: parseFloat($('input[name="amount"]').val()),
+        payment_mode_id: $('input[name="payment_mode_id"]:checked').val(),
+        print_option: $('input[name="print_receipt"]').is(':checked') ? 'SINGLE_PRINT' : 'NO_PRINT',
+        notes: $('textarea[name="notes"]').val(),
+        is_pledge: isPledge,
+        is_anonymous: isAnonymous
+    };
+    
+    // Only add personal info if not anonymous
+    if (!isAnonymous) {
+        formData.name_chinese = $('input[name="name_chinese"]').val();
+        formData.name_english = $('input[name="name_english"]').val();
+        formData.nric = $('input[name="nric"]').val();
+        formData.email = $('input[name="email"]').val();
+        formData.contact_no = $('input[name="contact_no"]').val();
+    }
+    
+    if (isPledge) {
+        formData.pledge_amount = parseFloat($('#pledgeAmount').val());
+    }
+    
+    return formData;
+},
 
         resetForm: function() {
             $('#donationForm')[0].reset();

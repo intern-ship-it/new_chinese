@@ -1,0 +1,1552 @@
+/* ============================================
+   Sales Module CSS - Enhanced with Animations
+   Temple Management System
+   ============================================ */
+
+/* Sales Module Container */
+.sales-container {
+    padding: 20px;
+    background: #f8f9fa;
+    min-height: 100vh;
+    animation: salesPageFadeIn 0.5s ease-in-out;
+}
+
+@keyframes salesPageFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ============================================
+   Header with Animated Gradient Background
+   ============================================ */
+.sales-header {
+    position: relative;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    padding: 40px 0;
+    margin-bottom: 30px;
+    border-radius: 0 0 30px 30px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(255, 0, 255, 0.3);
+    animation: gradientShift 8s ease infinite;
+    background-size: 200% 200%;
+}
+
+.sales-header-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 0.1) 25%,
+        transparent 25%,
+        transparent 50%,
+        rgba(255, 255, 255, 0.1) 50%,
+        rgba(255, 255, 255, 0.1) 75%,
+        transparent 75%,
+        transparent
+    );
+    background-size: 50px 50px;
+    opacity: 0.3;
+    animation: movePattern 20s linear infinite;
+}
+
+@keyframes movePattern {
+    0% {
+        background-position: 0 0;
+    }
+    100% {
+        background-position: 50% 50%;
+    }
+}
+
+
+@keyframes gradientShift {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+.sales-header .container-fluid {
+    position: relative;
+    z-index: 1;
+}
+
+.sales-title-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    color: white;
+}
+
+.sales-header-icon {
+    font-size: 48px;
+    color: #ffd700;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+    animation: salesIconPulse 2s ease-in-out infinite;
+}
+
+@keyframes salesIconPulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+.sales-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin: 0;
+    color: white;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.sales-subtitle {
+    font-size: 1.1rem;
+    margin: 5px 0 0 0;
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 300;
+}
+
+/* ============================================
+   Card Styling with Animations
+   ============================================ */
+.sales-card {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    padding: 24px;
+    margin-bottom: 20px;
+    transition: all 0.3s ease;
+}
+
+.sales-card:hover {
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+}
+
+.sales-form-card {
+    border: none;
+    transition: all 0.3s ease;
+    border-radius: 20px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+}
+
+.sales-form-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 40px rgba(0, 102, 204, 0.15);
+}
+
+.sales-card-header {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.sales-card-title {
+    font-size: 2.5rem;
+    font-weight: 600;
+    color: #fff;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.sales-card-title i {
+    color: #fff7f7;
+}
+
+.sales-card-subtitle {
+    font-size: 1.1rem;
+    color: #fff;
+    margin: 4px 0 0 0;
+}
+
+/* ============================================
+   Stat Cards with Animations
+   ============================================ */
+.stat-card {
+    border: none;
+    border-radius: 16px;
+    padding: 1.5rem;
+    transition: all 0.3s ease;
+    border-left: 4px solid;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    background: white;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+}
+
+.stat-card-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover .stat-card-icon {
+    transform: scale(1.1) rotate(5deg);
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0.5rem 0 0 0;
+    color: #1a1a1a;
+}
+
+.stat-label {
+    color: #6c757d;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+.stat-card-primary {
+    border-left-color: var(--primary-color, #0066cc);
+}
+
+.stat-card-primary .stat-card-icon {
+    background: linear-gradient(135deg, rgba(0, 102, 204, 0.15) 0%, rgba(0, 102, 204, 0.05) 100%);
+    color: var(--primary-color, #0066cc);
+}
+
+.stat-card-success {
+    border-left-color: #28a745;
+}
+
+.stat-card-success .stat-card-icon {
+    background: linear-gradient(135deg, rgba(40, 167, 69, 0.15) 0%, rgba(40, 167, 69, 0.05) 100%);
+    color: #28a745;
+}
+
+.stat-card-warning {
+    border-left-color: #ffc107;
+}
+
+.stat-card-warning .stat-card-icon {
+    background: linear-gradient(135deg, rgba(255, 193, 7, 0.15) 0%, rgba(255, 193, 7, 0.05) 100%);
+    color: #e0a800;
+}
+
+.stat-card-info {
+    border-left-color: #17a2b8;
+}
+
+.stat-card-info .stat-card-icon {
+    background: linear-gradient(135deg, rgba(23, 162, 184, 0.15) 0%, rgba(23, 162, 184, 0.05) 100%);
+    color: #17a2b8;
+}
+
+.stat-card-danger {
+    border-left-color: #dc3545;
+}
+
+.stat-card-danger .stat-card-icon {
+    background: linear-gradient(135deg, rgba(220, 53, 69, 0.15) 0%, rgba(220, 53, 69, 0.05) 100%);
+    color: #dc3545;
+}
+
+/* ============================================
+   Section Headers with Gradient
+   ============================================ */
+.sales-section-header {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--primary-color, #0066cc);
+    margin: 24px 0 16px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sales-section-header i {
+    font-size: 18px;
+}
+
+.section-header-gradient {
+    background: linear-gradient(135deg, var(--primary-color, #0066cc) 0%, var(--secondary-color, #004499) 100%);
+    padding: 1rem 1.5rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 4px 15px rgba(0, 102, 204, 0.2);
+    animation: salesGradientShift 8s ease infinite;
+    background-size: 200% 200%;
+}
+
+.section-header-gradient i {
+    font-size: 1.5rem;
+    color: white;
+}
+
+.section-header-gradient span {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: white;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* ============================================
+   Form Group Styling
+   ============================================ */
+.sales-form-group {
+    margin-bottom: 20px;
+}
+
+.sales-form-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #4a4a4a;
+    margin-bottom: 8px;
+}
+
+.sales-form-label .required {
+    color: #dc3545;
+    margin-left: 2px;
+}
+
+.sales-form-input,
+.sales-form-select,
+.sales-form-textarea {
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 14px;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.sales-form-input:focus,
+.sales-form-select:focus,
+.sales-form-textarea:focus {
+    outline: none;
+    border-color: var(--primary-color, #0066cc);
+    box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.1);
+}
+
+.sales-form-input:hover:not(:focus),
+.sales-form-select:hover:not(:focus),
+.sales-form-textarea:hover:not(:focus) {
+    border-color: #cbd5e1;
+    background: #fafbfc;
+}
+
+.sales-form-textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+/* ============================================
+   Input Group with Prefix
+   ============================================ */
+.sales-input-group {
+    display: flex;
+    align-items: stretch;
+}
+
+.sales-input-prefix {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #6c757d;
+    background: #f8f9fa;
+    border: 2px solid #e5e7eb;
+    border-right: none;
+    border-radius: 10px 0 0 10px;
+}
+
+.sales-input-group .sales-form-input {
+    border-radius: 0 10px 10px 0;
+    flex: 1;
+}
+
+/* ============================================
+   Grid System
+   ============================================ */
+.sales-row {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 0 -10px;
+}
+
+.sales-col {
+    padding: 0 10px;
+    flex: 1;
+}
+
+.sales-col-2 {
+    flex: 0 0 50%;
+    max-width: 50%;
+}
+
+.sales-col-3 {
+    flex: 0 0 33.333%;
+    max-width: 33.333%;
+}
+
+.sales-col-4 {
+    flex: 0 0 25%;
+    max-width: 25%;
+}
+
+@media (max-width: 768px) {
+    .sales-col-2,
+    .sales-col-3,
+    .sales-col-4 {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+}
+
+/* ============================================
+   Toggle Switch with Animation
+   ============================================ */
+.sales-toggle-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.sales-toggle {
+    position: relative;
+    display: inline-block;
+    width: 52px;
+    height: 28px;
+}
+
+.sales-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.sales-toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #cbd5e0;
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    border-radius: 28px;
+}
+
+.sales-toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 22px;
+    width: 22px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.sales-toggle input:checked + .sales-toggle-slider {
+    background: linear-gradient(135deg, var(--primary-color, #0066cc) 0%, var(--secondary-color, #004499) 100%);
+}
+
+.sales-toggle input:checked + .sales-toggle-slider:before {
+    transform: translateX(24px);
+}
+
+.sales-toggle-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #4a4a4a;
+}
+
+/* ============================================
+   Checkbox Styling
+   ============================================ */
+.sales-checkbox-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border: 2px solid #e5e7eb;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.sales-checkbox-wrapper:hover {
+    border-color: var(--primary-color, #0066cc);
+    background: rgba(0, 102, 204, 0.05);
+}
+
+.sales-checkbox {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--primary-color, #0066cc);
+    cursor: pointer;
+}
+
+.sales-checkbox-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #4a4a4a;
+    cursor: pointer;
+    margin: 0;
+}
+
+/* ============================================
+   Multiselect Dropdown - COMPLETE STYLES
+   ============================================ */
+.sales-multiselect {
+    position: relative;
+}
+
+.sales-multiselect-input {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-height: 48px;
+}
+
+.sales-multiselect-input:hover {
+    border-color: #cbd5e1;
+    background: #fafbfc;
+}
+
+.sales-multiselect-input:focus {
+    outline: none;
+    border-color: var(--primary-color, #0066cc);
+    box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.1);
+}
+
+.sales-multiselect-input span {
+    font-size: 14px;
+    color: #6c757d;
+}
+
+.sales-multiselect-input i {
+    font-size: 14px;
+    color: #6c757d;
+    transition: transform 0.3s ease;
+}
+
+.sales-multiselect-dropdown.active + .sales-multiselect-input i,
+.sales-multiselect-input:focus i {
+    transform: rotate(180deg);
+}
+
+.sales-multiselect-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 2px solid #e5e7eb;
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    z-index: 1000;
+    transition: all 0.3s ease;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.sales-multiselect-dropdown.active {
+    max-height: 250px;
+    overflow-y: auto;
+    opacity: 1;
+    border-color: var(--primary-color, #0066cc);
+}
+
+.sales-multiselect-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.sales-multiselect-option:last-child {
+    border-bottom: none;
+}
+
+.sales-multiselect-option:hover {
+    background: rgba(0, 102, 204, 0.08);
+}
+
+.sales-multiselect-option.selected {
+    background: rgba(0, 102, 204, 0.12);
+}
+
+.sales-multiselect-option .sales-checkbox {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.sales-multiselect-option span {
+    font-size: 14px;
+    color: #4a4a4a;
+}
+
+.sales-multiselect-option.selected span {
+    color: var(--primary-color, #0066cc);
+    font-weight: 500;
+}
+
+/* Multiselect Tags */
+.sales-multiselect-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.sales-multiselect-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: linear-gradient(135deg, rgba(0, 102, 204, 0.15) 0%, rgba(0, 102, 204, 0.08) 100%);
+    border: 1px solid rgba(0, 102, 204, 0.25);
+    border-radius: 20px;
+    font-size: 13px;
+    color: var(--primary-color, #0066cc);
+    font-weight: 500;
+    animation: tagFadeIn 0.3s ease;
+}
+
+@keyframes tagFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.sales-multiselect-tag-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--primary-color, #0066cc);
+    cursor: pointer;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+.sales-multiselect-tag-remove:hover {
+    background: rgba(0, 102, 204, 0.2);
+    color: #dc3545;
+}
+
+/* ============================================
+   Help Text
+   ============================================ */
+.sales-help-text {
+    display: block;
+    font-size: 12px;
+    color: #6c757d;
+    margin-top: 6px;
+}
+
+/* ============================================
+   Primary Buttons with Gradient & Glow
+   ============================================ */
+.sales-btn-primary {
+    padding: 12px 24px;
+    background: linear-gradient(135deg, var(--primary-color, #0066cc) 0%, var(--secondary-color, #004499) 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 15px rgba(0, 102, 204, 0.3);
+}
+
+.sales-btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 102, 204, 0.4);
+    background: linear-gradient(135deg, var(--secondary-color, #004499) 0%, var(--primary-color, #0066cc) 100%);
+}
+
+.sales-btn-primary:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 10px rgba(0, 102, 204, 0.3);
+}
+
+.sales-btn-glow {
+    animation: salesBtnGlow 2s ease-in-out infinite;
+}
+
+@keyframes salesBtnGlow {
+    0%, 100% {
+        box-shadow: 0 4px 15px rgba(0, 102, 204, 0.3);
+    }
+    50% {
+        box-shadow: 0 4px 25px rgba(0, 102, 204, 0.5);
+    }
+}
+
+/* ============================================
+   Secondary Buttons
+   ============================================ */
+.sales-btn-secondary {
+    padding: 12px 24px;
+    background: #f8f9fa;
+    color: #495057;
+    border: 2px solid #dee2e6;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sales-btn-secondary:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+    transform: translateY(-2px);
+}
+
+.sales-btn-secondary:active {
+    transform: translateY(0);
+}
+
+/* ============================================
+   Button Group
+   ============================================ */
+.sales-btn-group {
+    display: flex;
+    gap: 12px;
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 2px solid #f0f0f0;
+}
+
+/* ============================================
+   Add Button
+   ============================================ */
+.sales-add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: transparent;
+    color: var(--primary-color, #0066cc);
+    border: 2px dashed var(--primary-color, #0066cc);
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 16px;
+}
+
+.sales-add-btn:hover {
+    background: rgba(0, 102, 204, 0.08);
+    border-style: solid;
+}
+
+.sales-add-btn i {
+    font-size: 16px;
+}
+
+/* ============================================
+   Table Styling with Animations
+   ============================================ */
+.sales-table-wrapper {
+    margin-top: 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.sales-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.sales-table thead {
+    background: linear-gradient(135deg, var(--primary-color, #0066cc) 0%, var(--secondary-color, #004499) 100%);
+}
+
+.sales-table th {
+    padding: 14px 16px;
+    text-align: left;
+    font-size: 13px;
+    font-weight: 600;
+    color: white;
+    border: none;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.sales-table td {
+    padding: 14px 16px;
+    font-size: 14px;
+    color: #4a4a4a;
+    border-bottom: 1px solid #f0f0f0;
+    vertical-align: middle;
+}
+
+.sales-table tbody tr {
+    transition: all 0.2s ease;
+}
+
+.sales-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.sales-table tbody tr:hover {
+    background-color: rgba(0, 102, 204, 0.05);
+}
+
+.sales-table .sales-form-select,
+.sales-table .sales-form-input {
+    padding: 8px 12px;
+    font-size: 13px;
+}
+
+/* ============================================
+   Delete Button in Table
+   ============================================ */
+.sales-delete-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: transparent;
+    color: #dc3545;
+    border: 1px solid #dc3545;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.sales-delete-btn:hover {
+    background: #dc3545;
+    color: white;
+}
+
+/* ============================================
+   Commission Summary
+   ============================================ */
+.sales-commission-summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: rgba(0, 102, 204, 0.08);
+    border: 1px solid rgba(0, 102, 204, 0.2);
+    border-radius: 10px;
+    margin-bottom: 16px;
+}
+
+.sales-commission-summary i {
+    color: var(--primary-color, #0066cc);
+    font-size: 16px;
+}
+
+.sales-commission-summary span {
+    font-size: 14px;
+    color: #4a4a4a;
+}
+
+.sales-commission-value {
+    font-weight: 600;
+    color: var(--primary-color, #0066cc);
+}
+
+/* ============================================
+   Warning Alert
+   ============================================ */
+.sales-warning-alert {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: rgba(255, 193, 7, 0.15);
+    border: 1px solid rgba(255, 193, 7, 0.4);
+    border-radius: 10px;
+    margin-bottom: 16px;
+}
+
+.sales-warning-alert i {
+    color: #e0a800;
+    font-size: 18px;
+}
+
+.sales-warning-alert span {
+    font-size: 14px;
+    color: #856404;
+}
+
+/* ============================================
+   Image Upload
+   ============================================ */
+.sales-image-upload {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 20px;
+    border: 2px dashed #e5e7eb;
+    border-radius: 12px;
+    background: #fafbfc;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-height: 150px;
+}
+
+.sales-image-upload:hover {
+    border-color: var(--primary-color, #0066cc);
+    background: rgba(0, 102, 204, 0.05);
+}
+
+.sales-image-upload input[type="file"] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.sales-image-upload-icon {
+    font-size: 36px;
+    color: #adb5bd;
+    margin-bottom: 10px;
+    transition: all 0.3s ease;
+}
+
+.sales-image-upload:hover .sales-image-upload-icon {
+    color: var(--primary-color, #0066cc);
+    transform: scale(1.1);
+}
+
+.sales-image-upload-text {
+    font-size: 14px;
+    font-weight: 500;
+    color: #6c757d;
+    margin-bottom: 5px;
+}
+
+.sales-image-upload .sales-help-text {
+    margin-top: 0;
+}
+
+.sales-image-preview {
+    max-width: 100%;
+    max-height: 120px;
+    border-radius: 8px;
+    margin-top: 10px;
+    object-fit: contain;
+}
+
+/* ============================================
+   Status Badges with Animation
+   ============================================ */
+.sales-status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.sales-status-badge.active {
+    background: linear-gradient(135deg, rgba(40, 167, 69, 0.15) 0%, rgba(40, 167, 69, 0.05) 100%);
+    color: #28a745;
+    border: 1px solid rgba(40, 167, 69, 0.3);
+}
+
+.sales-status-badge.inactive {
+    background: linear-gradient(135deg, rgba(108, 117, 125, 0.15) 0%, rgba(108, 117, 125, 0.05) 100%);
+    color: #6c757d;
+    border: 1px solid rgba(108, 117, 125, 0.3);
+}
+
+.sales-status-badge:hover {
+    transform: scale(1.05);
+}
+
+/* ============================================
+   Action Buttons in Table
+   ============================================ */
+.btn-group {
+    display: flex;
+    gap: 6px;
+}
+
+.btn-group .btn {
+    transition: all 0.2s ease;
+}
+
+.btn-group .btn:hover {
+    transform: translateY(-2px);
+}
+
+.btn-sm {
+    padding: 8px 12px;
+    font-size: 13px;
+    border-radius: 8px;
+}
+
+.btn-outline-primary {
+    color: var(--primary-color, #0066cc);
+    border: 2px solid var(--primary-color, #0066cc);
+    background: transparent;
+}
+
+.btn-outline-primary:hover {
+    background: var(--primary-color, #0066cc);
+    color: white;
+    box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
+}
+
+.btn-outline-danger {
+    color: #dc3545;
+    border: 2px solid #dc3545;
+    background: transparent;
+}
+
+.btn-outline-danger:hover {
+    background: #dc3545;
+    color: white;
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+}
+
+/* ============================================
+   Loading State with Spinner Animation
+   ============================================ */
+.sales-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+}
+
+.sales-spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid var(--primary-color, #0066cc);
+    border-radius: 50%;
+    animation: salesSpin 1s linear infinite;
+}
+
+@keyframes salesSpin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.sales-loading p {
+    margin-top: 16px;
+    font-size: 14px;
+    color: #6c757d;
+}
+
+/* ============================================
+   Empty State with Animation
+   ============================================ */
+.sales-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 20px;
+    animation: salesEmptyFadeIn 0.5s ease-out;
+}
+
+@keyframes salesEmptyFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.sales-empty-state-icon {
+    font-size: 80px;
+    color: #d1d5db;
+    margin-bottom: 20px;
+    animation: salesEmptyIconFloat 3s ease-in-out infinite;
+}
+
+@keyframes salesEmptyIconFloat {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+.sales-empty-state-title {
+    font-size: 22px;
+    font-weight: 600;
+    color: #4a4a4a;
+    margin-bottom: 8px;
+}
+
+.sales-empty-state-text {
+    font-size: 14px;
+    color: #6c757d;
+    margin-bottom: 24px;
+}
+
+/* ============================================
+   Badge Styling
+   ============================================ */
+.badge {
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.badge:hover {
+    transform: scale(1.05);
+}
+
+.badge.bg-secondary {
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%) !important;
+}
+
+.badge.bg-light {
+    background: #f8f9fa !important;
+    border: 1px solid #e9ecef;
+}
+
+/* ============================================
+   AOS Animation Overrides
+   ============================================ */
+[data-aos] {
+    pointer-events: auto;
+}
+
+[data-aos="fade-up"] {
+    transform: translateY(50px);
+    opacity: 0;
+}
+
+[data-aos="fade-up"].aos-animate {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+[data-aos="fade-down"] {
+    transform: translateY(-50px);
+    opacity: 0;
+}
+
+[data-aos="fade-down"].aos-animate {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+/* ============================================
+   Responsive Styles
+   ============================================ */
+@media (max-width: 992px) {
+    .sales-header {
+        padding: 30px 0;
+    }
+    
+    .sales-title {
+        font-size: 2rem;
+    }
+    
+    .stat-card-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 1.5rem;
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .sales-container {
+        padding: 15px;
+    }
+    
+    .sales-header {
+        padding: 25px 15px;
+        margin: -15px -15px 20px -15px;
+        border-radius: 0 0 20px 20px;
+    }
+    
+    .sales-title-wrapper {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+    
+    .sales-header-icon {
+        font-size: 36px;
+    }
+    
+    .sales-title {
+        font-size: 1.6rem;
+    }
+    
+    .sales-subtitle {
+        font-size: 0.9rem;
+    }
+    
+    .sales-card {
+        padding: 16px;
+        border-radius: 12px;
+    }
+    
+    .stat-card {
+        margin-bottom: 12px;
+    }
+    
+    .stat-card-icon {
+        width: 45px;
+        height: 45px;
+        font-size: 1.25rem;
+    }
+    
+    .stat-value {
+        font-size: 1.3rem;
+    }
+    
+    .sales-btn-primary,
+    .sales-btn-secondary {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .sales-btn-group {
+        flex-direction: column;
+    }
+    
+    .btn-group {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .btn-group .btn {
+        width: 100%;
+    }
+    
+    .text-md-end {
+        text-align: center !important;
+        margin-top: 15px;
+    }
+    
+    /* Responsive multiselect */
+    .sales-multiselect-dropdown {
+        max-height: 200px;
+    }
+    
+    .sales-multiselect-tags {
+        gap: 6px;
+    }
+    
+    .sales-multiselect-tag {
+        padding: 4px 10px;
+        font-size: 12px;
+    }
+}
+
+/* ============================================
+   Utility Classes
+   ============================================ */
+.text-primary {
+    color: var(--primary-color, #0066cc) !important;
+}
+
+.bg-primary {
+    background-color: var(--primary-color, #0066cc) !important;
+}
+
+.d-flex {
+    display: flex !important;
+}
+
+.align-items-center {
+    align-items: center !important;
+}
+
+.justify-content-between {
+    justify-content: space-between !important;
+}
+
+.gap-2 {
+    gap: 0.5rem !important;
+}
+
+.gap-3 {
+    gap: 1rem !important;
+}
+
+.mb-0 {
+    margin-bottom: 0 !important;
+}
+
+.mb-2 {
+    margin-bottom: 0.5rem !important;
+}
+
+.mb-3 {
+    margin-bottom: 1rem !important;
+}
+
+.mb-4 {
+    margin-bottom: 1.5rem !important;
+}
+
+.mt-3 {
+    margin-top: 1rem !important;
+}
+
+.ms-3 {
+    margin-left: 1rem !important;
+}
+
+.me-1 {
+    margin-right: 0.25rem !important;
+}
+
+.flex-grow-1 {
+    flex-grow: 1 !important;
+}
+
+.text-muted {
+    color: #6c757d !important;
+}
+
+.fw-bold {
+    font-weight: 700 !important;
+}
+
+/* ============================================
+   DataTables Override
+   ============================================ */
+.dataTables_wrapper .dataTables_length select {
+    padding: 8px 12px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.dataTables_wrapper .dataTables_length select:focus {
+    border-color: var(--primary-color, #0066cc);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+}
+
+.dataTables_wrapper .dataTables_filter input {
+    padding: 8px 14px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.dataTables_wrapper .dataTables_filter input:focus {
+    border-color: var(--primary-color, #0066cc);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+    padding: 8px 14px;
+    margin: 0 3px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+    background: linear-gradient(135deg, var(--primary-color, #0066cc) 0%, var(--secondary-color, #004499) 100%) !important;
+    color: white !important;
+    border: none;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+    background: rgba(0, 102, 204, 0.1) !important;
+    color: var(--primary-color, #0066cc) !important;
+    border: none;
+    transform: translateY(-2px);
+}
+
+/* ============================================
+   Scrollbar Styling for Multiselect
+   ============================================ */
+.sales-multiselect-dropdown::-webkit-scrollbar {
+    width: 8px;
+}
+
+.sales-multiselect-dropdown::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.sales-multiselect-dropdown::-webkit-scrollbar-thumb {
+    background: #cbd5e0;
+    border-radius: 4px;
+}
+
+.sales-multiselect-dropdown::-webkit-scrollbar-thumb:hover {
+    background: #a0aec0;
+}
+/* Additional CSS for sales-image-upload component */
+/* Add this to your sales.css file */
+
+.sales-image-upload {
+    position: relative;
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
+    padding: 30px 20px;
+    text-align: center;
+    background: #f8f9fa;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-height: 150px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.sales-image-upload:hover {
+    border-color: var(--primary-color, #0066cc);
+    background: #e7f3ff;
+}
+
+.sales-image-upload input[type="file"] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.sales-image-upload-icon {
+    font-size: 2.5rem;
+    color: #6c757d;
+    margin-bottom: 10px;
+}
+
+.sales-image-upload-text {
+    font-weight: 500;
+    color: #495057;
+    margin-bottom: 5px;
+}
+
+.sales-image-preview {
+    max-width: 100%;
+    max-height: 200px;
+    object-fit: contain;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.sales-image-remove-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.3s ease;
+}
+
+.sales-image-remove-btn:hover {
+    background: #c82333;
+}
+
+.sales-image-remove-btn i {
+    font-size: 14px;
+}
+
+/* Hide upload icons when image is shown */
+.sales-image-upload.has-image .sales-image-upload-icon,
+.sales-image-upload.has-image .sales-image-upload-text {
+    display: none;
+}

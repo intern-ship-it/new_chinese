@@ -12,6 +12,7 @@ class DonationMaster extends Model
         'name',
         'secondary_name',
         'type',
+        'ledger_id',
         'details',
         'status',
         'created_by',
@@ -22,6 +23,7 @@ class DonationMaster extends Model
 
     protected $casts = [
         'status' => 'integer',
+        'ledger_id' => 'integer',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
@@ -77,5 +79,9 @@ protected $keyType = 'string';
             return "{$this->name} ({$this->secondary_name})";
         }
         return $this->name;
+    }
+    public function ledger()
+    {
+        return $this->belongsTo(\App\Models\Ledger::class, 'ledger_id', 'id');
     }
 }

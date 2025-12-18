@@ -131,7 +131,8 @@
                 'RomSharedModule',
                 'DharmaAssemblySharedModule',
                 'BuddhaLampSharedModule',
-                'OccasionsSharedModule'
+                'OccasionsSharedModule',
+                'SalesSharedModule'
             ];
             
             sharedModules.forEach(moduleName => {

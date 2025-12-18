@@ -15,11 +15,21 @@ if (typeof DonationAPI === 'undefined') {
         permissions: {},
         donations: [],
         types: [],
+        ledgers: [],
         selectedDonation: null,
         editMode: false,
         currentPage: 1,
         perPage: 20,
         modal: null,
+
+        // Helper to get API headers
+        getApiHeaders: function() {
+            const temple = JSON.parse(localStorage.getItem(window.APP_CONFIG.STORAGE.TEMPLE) || '{}');
+            return {
+                'Authorization': `Bearer ${localStorage.getItem(window.APP_CONFIG.STORAGE.ACCESS_TOKEN)}`,
+                'X-Temple-ID': temple.id || temple.temple_id || ''
+            };
+        },
 
         // Initialize page
         init: function (params) {
@@ -28,7 +38,7 @@ if (typeof DonationAPI === 'undefined') {
             this.loadCSS();
             this.render();
             this.bindEvents();
-            this.loadTypes();
+            this.loadLedgers(); // Load ledgers first
 
             setTimeout(() => {
                 this.loadDonations();
@@ -54,9 +64,15 @@ if (typeof DonationAPI === 'undefined') {
                 this.modal = null;
             }
 
+            // Destroy Select2 instance
+            if ($('#donationLedger').data('select2')) {
+                $('#donationLedger').select2('destroy');
+            }
+
             // Clear data
             this.donations = [];
             this.types = [];
+            this.ledgers = [];
             this.permissions = {};
         },
 
@@ -71,16 +87,36 @@ if (typeof DonationAPI === 'undefined') {
             }
         },
 
+        // Load ledgers from API
+        loadLedgers: function () {
+            const self = this;
+            
+            $.ajax({
+                url: `${window.APP_CONFIG.API.BASE_URL}/donation-masters/ledgers`,
+                method: 'GET',
+                headers: self.getApiHeaders(),
+                success: function (response) {
+                    if (response.success) {
+                        self.ledgers = response.data || [];
+                        console.log('Loaded ledgers:', self.ledgers.length);
+                    }
+                },
+                error: function (error) {
+                    console.error('Error loading ledgers:', error);
+                    if (typeof Toast !== 'undefined') {
+                        Toast.error('Failed to load ledgers');
+                    }
+                }
+            });
+        },
+
         // Load existing types
         loadTypes: function () {
             const self = this;
             $.ajax({
-                url: `${window.APP_CONFIG.API_BASE_URL}/donation-masters/types`,
+                url: `${window.APP_CONFIG.API.BASE_URL}/donation-masters/types`,
                 method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem(window.APP_CONFIG.STORAGE.TOKEN)}`,
-                    'X-Temple-ID': window.APP_CONFIG.CURRENT_TEMPLE_ID
-                },
+                headers: self.getApiHeaders(),
                 success: function (response) {
                     if (response.success) {
                         self.types = response.data || [];
@@ -97,26 +133,20 @@ if (typeof DonationAPI === 'undefined') {
             const html = `
                 <div class="donation-masters-page">
                     <!-- Page Header -->
-                    <div class="page-header mb-4">
-                        <div class="row align-items-center">
-                            <div class="col-md-6">
-                                <h1 class="h2">
-                                    <i class="bi bi-heart-fill"></i> Donation Masters
-                                </h1>
-                                <nav aria-label="breadcrumb">
-                                    <ol class="breadcrumb">
-                                        <li class="breadcrumb-item"><a href="#" onclick="TempleRouter.navigate('dashboard'); return false;">Dashboard</a></li>
-                                        <li class="breadcrumb-item">Donation</li>
-                                        <li class="breadcrumb-item active">Masters</li>
-                                    </ol>
-                                </nav>
+                    <div class="hero-banner" style="background: linear-gradient(135deg, #b8651b 0%, #d4782a 100%); border-radius: 12px; padding: 30px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(184, 101, 27, 0.3);">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                <div style="background: rgba(255,255,255,0.2); border-radius: 50%; width: 70px; height: 70px; display: flex; align-items: center; justify-content: center; margin-right: 20px;">
+                                    <i class="bi bi-gift-fill" style="font-size: 35px; color: white;"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1" style="color: white; font-size: 32px; font-weight: 700;">Donation Masters</h1>
+                                    <p class="mb-0" style="color: rgba(255,255,255,0.9); font-size: 15px;">捐款管理 • Temple Donation Masters Management</p>
+                                </div>
                             </div>
-                            <div class="col-md-6 text-end">
-                                <button class="btn btn-outline-secondary me-2" id="btnRefresh">
-                                    <i class="bi bi-arrow-clockwise"></i> Refresh
-                                </button>
-                                <button class="btn btn-primary" id="btnAddNew">
-                                    <i class="bi bi-plus-circle"></i> Add New
+                            <div class="d-flex gap-2">
+                                <button class="btn" id="btnAddNew" style="background: rgba(255,255,255,0.2); color: white; border: 2px solid white; padding: 10px 20px; border-radius: 8px; font-weight: 600;">
+                                    <i class="bi bi-plus-circle me-2"></i>Add New
                                 </button>
                             </div>
                         </div>
@@ -168,7 +198,7 @@ if (typeof DonationAPI === 'undefined') {
                                             <th width="5%">#</th>
                                             <th width="20%">Primary Name</th>
                                             <th width="20%">Secondary Name</th>
-                                            <th width="10%">Type</th>
+                                            <th width="15%">Ledger</th>
                                             <th width="20%">Details</th>
                                             <th width="10%">Status</th>
                                             <th width="15%">Actions</th>
@@ -233,17 +263,13 @@ if (typeof DonationAPI === 'undefined') {
                                             <small class="form-text text-muted">Optional alternative name</small>
                                         </div>
 
-                                        <!-- Type (dropdown) -->
+                                        <!-- Ledger (Select2 dropdown) -->
                                         <div class="col-md-6 mb-3">
-                                            <label class="form-label required">Type</label>
-                                            <select class="form-select" id="donationType" required>
-                                                <option value="">Select Type</option>
-                                                <option value="maintenance">Maintenance</option>
-                                                <option value="meal">Meal</option>
-                                                <option value="voucher">Voucher</option>
-                                                <option value="general">General</option>
+                                            <label class="form-label required">Ledger</label>
+                                            <select class="form-select" id="donationLedger" required style="width: 100%">
+                                                <option value="">Select Ledger</option>
                                             </select>
-                                            <div class="invalid-feedback">Please select donation type</div>
+                                            <div class="invalid-feedback">Please select a ledger</div>
                                         </div>
 
                                         <!-- Status -->
@@ -343,6 +369,12 @@ if (typeof DonationAPI === 'undefined') {
             $(document).on('hidden.bs.modal', '#donationModal', function () {
                 $('#donationForm')[0].reset();
                 $('#donationForm').removeClass('was-validated');
+                
+                // Destroy Select2 instance
+                if ($('#donationLedger').data('select2')) {
+                    $('#donationLedger').select2('destroy');
+                }
+                
                 self.editMode = false;
                 self.selectedDonation = null;
             });
@@ -436,14 +468,16 @@ if (typeof DonationAPI === 'undefined') {
                     ? '<span class="badge bg-success">Active</span>'
                     : '<span class="badge bg-danger">Inactive</span>';
 
-                const typeLabel = item.type.charAt(0).toUpperCase() + item.type.slice(1);
+                const ledgerInfo = item.ledger 
+                    ? `${item.ledger.name}`
+                    : '<span class="text-muted">-</span>';
 
                 html += `
                     <tr>
                         <td>${startIndex + index + 1}</td>
                         <td><strong>${item.name}</strong></td>
                         <td>${item.secondary_name || '<span class="text-muted">-</span>'}</td>
-                        <td><span class="badge bg-primary">${typeLabel}</span></td>
+                        <td>${ledgerInfo}</td>
                         <td>${item.details || '<span class="text-muted">-</span>'}</td>
                         <td>${statusBadge}</td>
                         <td>
@@ -502,6 +536,36 @@ if (typeof DonationAPI === 'undefined') {
             $('#paginationControls').html(paginationHtml);
         },
 
+        // Initialize Select2 for Ledger dropdown
+        initLedgerSelect2: function () {
+            const self = this;
+            
+            // Destroy existing Select2 instance if it exists
+            if ($('#donationLedger').data('select2')) {
+                $('#donationLedger').select2('destroy');
+            }
+            
+            // Clear existing options
+            $('#donationLedger').empty().append('<option value="">Select Ledger</option>');
+            
+            // Add ledger options
+            self.ledgers.forEach(function(ledger) {
+                $('#donationLedger').append(
+                    $('<option></option>')
+                        .val(ledger.id)
+                        .text(`${ledger.name}`)
+                );
+            });
+            
+            // Initialize Select2
+            $('#donationLedger').select2({
+                dropdownParent: $('#donationModal'),
+                placeholder: 'Select Ledger',
+                allowClear: true,
+                width: '100%'
+            });
+        },
+
         // Show add modal
         showAddModal: function () {
             this.editMode = false;
@@ -514,6 +578,12 @@ if (typeof DonationAPI === 'undefined') {
 
             this.modal = new bootstrap.Modal(document.getElementById('donationModal'));
             this.modal.show();
+            
+            // Initialize Select2 after modal is shown
+            const self = this;
+            setTimeout(function() {
+                self.initLedgerSelect2();
+            }, 100);
         },
 
         // Show edit modal
@@ -535,12 +605,18 @@ if (typeof DonationAPI === 'undefined') {
             $('#modalTitle').html('<i class="bi bi-pencil"></i> Edit Type');
             $('#donationName').val(donation.name);
             $('#donationSecondaryName').val(donation.secondary_name || '');
-            $('#donationType').val(donation.type);
             $('#donationDetails').val(donation.details || '');
             $('#donationStatus').val(donation.status);
 
             this.modal = new bootstrap.Modal(document.getElementById('donationModal'));
             this.modal.show();
+            
+            // Initialize Select2 and set value after modal is shown
+            const self = this;
+            setTimeout(function() {
+                self.initLedgerSelect2();
+                $('#donationLedger').val(donation.ledger_id).trigger('change');
+            }, 100);
         },
 
         // Save donation
@@ -556,7 +632,7 @@ if (typeof DonationAPI === 'undefined') {
             const data = {
                 name: $('#donationName').val().trim(),
                 secondary_name: $('#donationSecondaryName').val().trim() || null,
-                type: $('#donationType').val().trim().toLowerCase(),
+                ledger_id: parseInt($('#donationLedger').val()),
                 details: $('#donationDetails').val().trim(),
                 status: parseInt($('#donationStatus').val())
             };

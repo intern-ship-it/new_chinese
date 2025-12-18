@@ -1,0 +1,533 @@
+/* ============================================
+   VOLUNTEERS MODULE STYLES
+   Professional styling for volunteer management
+   Updated with Orange Theme (Matching Donations)
+   ============================================ */
+
+/* ============================================
+   PAGE HEADER STYLES
+   ============================================ */
+.volunteers-header {
+    position: relative;
+    background: linear-gradient(135deg, #b8651b 0%, #a0571a 100%);
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+    overflow: hidden;
+    border-radius: 0 0 1rem 1rem;
+    box-shadow: 0 4px 20px rgba(184, 101, 27, 0.3);
+}
+
+.volunteers-header-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
+    pointer-events: none;
+}
+
+.volunteers-title-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    position: relative;
+    z-index: 1;
+}
+
+.volunteers-header-icon {
+    font-size: 3.5rem;
+    color: rgba(255, 255, 255, 0.9);
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+}
+
+.volunteers-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    letter-spacing: -0.5px;
+}
+
+.volunteers-subtitle {
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.85);
+    margin: 0.25rem 0 0 0;
+    font-weight: 400;
+}
+
+/* ============================================
+   CONTENT CARD
+   ============================================ */
+.volunteers-content-card {
+    border-radius: 1rem;
+    border: none;
+    margin-bottom: 2rem;
+    transition: all 0.3s ease;
+}
+
+.volunteers-content-card:hover {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+}
+
+/* ============================================
+   SECTION HEADERS
+   ============================================ */
+.section-header-gradient {
+    background: linear-gradient(135deg, #b8651b 0%, #a0571a 100%);
+    color: white;
+    padding: 0.75rem 1.25rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 8px rgba(184, 101, 27, 0.2);
+}
+
+.section-header-gradient i {
+    font-size: 1.25rem;
+}
+
+/* ============================================
+   FILTERS SECTION
+   ============================================ */
+.filters-section {
+    padding: 1.5rem;
+    background: linear-gradient(to right, #f8f9fa, #ffffff);
+    border-radius: 0.75rem;
+    border: 1px solid #e9ecef;
+}
+
+.filters-section .form-label {
+    margin-bottom: 0.5rem;
+    color: #495057;
+}
+
+/* ============================================
+   TABLE STYLES
+   ============================================ */
+.table-container {
+    background: white;
+    border-radius: 0.75rem;
+    overflow: hidden;
+}
+
+#departmentsTable {
+    margin-bottom: 0;
+}
+
+#departmentsTable thead {
+    background: linear-gradient(to right, #f8f9fa, #e9ecef);
+}
+
+#departmentsTable thead th {
+    font-weight: 600;
+    color: #495057;
+    border-bottom: 2px solid #dee2e6;
+    padding: 1rem;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+#departmentsTable tbody td {
+    padding: 1rem;
+    vertical-align: middle;
+}
+
+#departmentsTable tbody tr {
+    transition: all 0.2s ease;
+}
+
+#departmentsTable tbody tr:hover {
+    background-color: rgba(184, 101, 27, 0.05);
+    transform: translateX(2px);
+}
+
+/* ============================================
+   BADGES & STATUS
+   ============================================ */
+.badge {
+    padding: 0.35em 0.75em;
+    font-weight: 500;
+    font-size: 0.75rem;
+    border-radius: 0.375rem;
+}
+
+.badge i {
+    font-size: 0.875rem;
+}
+
+.badge.bg-primary {
+    background: linear-gradient(135deg, #b8651b 0%, #a0571a 100%) !important;
+    box-shadow: 0 2px 4px rgba(184, 101, 27, 0.3);
+}
+
+.badge.bg-success {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;
+    box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+}
+
+.badge.bg-warning {
+    background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%) !important;
+    color: #000 !important;
+    box-shadow: 0 2px 4px rgba(255, 193, 7, 0.3);
+}
+
+.badge.bg-secondary {
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%) !important;
+    box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3);
+}
+
+.badge.bg-info {
+    background: linear-gradient(135deg, #17a2b8 0%, #138496 100%) !important;
+    box-shadow: 0 2px 4px rgba(23, 162, 184, 0.3);
+}
+
+/* ============================================
+   BUTTONS
+   ============================================ */
+.btn {
+    border-radius: 0.5rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    border: none;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #b8651b 0%, #a0571a 100%);
+    box-shadow: 0 2px 8px rgba(184, 101, 27, 0.3);
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #a0571a 0%, #8a4b16 100%);
+    box-shadow: 0 4px 12px rgba(184, 101, 27, 0.4);
+}
+
+.btn-outline-primary {
+    border: 2px solid #b8651b;
+    color: #b8651b;
+}
+
+.btn-outline-primary:hover {
+    background: linear-gradient(135deg, #b8651b 0%, #a0571a 100%);
+    border-color: transparent;
+    color: white;
+}
+
+.btn-secondary {
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+    color: #000;
+}
+
+.btn-light {
+    background: white;
+    color: #b8651b;
+    border: 2px solid white;
+    font-weight: 600;
+}
+
+.btn-light:hover {
+    background: #f8f9fa;
+    color: #a0571a;
+}
+
+/* Button groups */
+.btn-group-sm .btn {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+/* ============================================
+   FORM CONTROLS
+   ============================================ */
+.form-control,
+.form-select {
+    border-radius: 0.5rem;
+    border: 1px solid #ced4da;
+    padding: 0.625rem 0.875rem;
+    transition: all 0.2s ease;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #b8651b;
+    box-shadow: 0 0 0 0.2rem rgba(184, 101, 27, 0.25);
+}
+
+.form-label {
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: #495057;
+}
+
+.form-control.text-uppercase {
+    text-transform: uppercase;
+}
+
+/* ============================================
+   MODAL STYLES
+   ============================================ */
+.modal-content {
+    border-radius: 1rem;
+    border: none;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+    border-radius: 1rem 1rem 0 0;
+    padding: 1.25rem 1.5rem;
+}
+
+.modal-header.bg-primary {
+    background: linear-gradient(135deg, #b8651b 0%, #a0571a 100%) !important;
+}
+
+.modal-header.bg-danger {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%) !important;
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #dee2e6;
+}
+
+/* ============================================
+   ALERTS
+   ============================================ */
+.alert {
+    border-radius: 0.75rem;
+    border: none;
+    padding: 1rem 1.25rem;
+}
+
+.alert-info {
+    background: linear-gradient(to right, #d1ecf1, #c3e6f0);
+    color: #0c5460;
+}
+
+.alert-warning {
+    background: linear-gradient(to right, #fff3cd, #ffe69c);
+    color: #856404;
+}
+
+.alert-danger {
+    background: linear-gradient(to right, #f8d7da, #f1aeb5);
+    color: #721c24;
+}
+
+/* ============================================
+   EMPTY STATE
+   ============================================ */
+.empty-state {
+    padding: 3rem 1rem;
+    text-align: center;
+}
+
+.empty-state i {
+    display: block;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+.empty-state h5 {
+    margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+    margin-bottom: 1.5rem;
+}
+
+/* ============================================
+   LOADING STATE
+   ============================================ */
+.spinner-border {
+    width: 2rem;
+    height: 2rem;
+    border-width: 0.25em;
+}
+
+/* ============================================
+   DATATABLE CUSTOMIZATION
+   ============================================ */
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter,
+.dataTables_wrapper .dataTables_info,
+.dataTables_wrapper .dataTables_paginate {
+    padding: 0.75rem 0;
+}
+
+.dataTables_wrapper .dataTables_filter input {
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #ced4da;
+    margin-left: 0.5rem;
+}
+
+.dataTables_wrapper .dataTables_length select {
+    border-radius: 0.5rem;
+    padding: 0.375rem 0.75rem;
+    border: 1px solid #ced4da;
+    margin: 0 0.5rem;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+    border-radius: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    margin: 0 0.125rem;
+    border: 1px solid transparent;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+    background: linear-gradient(135deg, #b8651b 0%, #a0571a 100%);
+    color: white !important;
+    border: 1px solid transparent;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+    background: linear-gradient(135deg, #b8651b 0%, #a0571a 100%) !important;
+    color: white !important;
+    border: 1px solid transparent !important;
+}
+
+/* ============================================
+   RESPONSIVE STYLES
+   ============================================ */
+@media (max-width: 768px) {
+    .volunteers-title {
+        font-size: 1.75rem;
+    }
+    
+    .volunteers-header-icon {
+        font-size: 2.5rem;
+    }
+    
+    .volunteers-title-wrapper {
+        gap: 1rem;
+    }
+    
+    .section-header-gradient {
+        font-size: 0.875rem;
+        padding: 0.625rem 1rem;
+    }
+    
+    .btn-group-sm .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .volunteers-header {
+        padding: 1.5rem 0;
+    }
+    
+    .volunteers-title {
+        font-size: 1.5rem;
+    }
+    
+    .volunteers-subtitle {
+        font-size: 0.875rem;
+    }
+    
+    .filters-section {
+        padding: 1rem;
+    }
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+.text-gradient {
+    background: linear-gradient(135deg, #b8651b 0%, #a0571a 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.shadow-soft {
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.transition-all {
+    transition: all 0.3s ease;
+}
+
+/* ============================================
+   ANIMATION CLASSES
+   ============================================ */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in-up {
+    animation: fadeInUp 0.5s ease;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+.pulse {
+    animation: pulse 2s infinite;
+}
+
+/* ============================================
+   PRINT STYLES
+   ============================================ */
+@media print {
+    .volunteers-header,
+    .filters-section,
+    .btn,
+    .modal {
+        display: none !important;
+    }
+    
+    .volunteers-content-card {
+        box-shadow: none;
+        border: 1px solid #dee2e6;
+    }
+}

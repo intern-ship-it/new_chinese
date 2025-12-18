@@ -261,6 +261,7 @@
                                         <th style="color: white; font-weight: 600; padding: 15px; border: none;">Date</th>
                                         <th style="color: white; font-weight: 600; padding: 15px; border: none;">Donor Name</th>
                                         <th style="color: white; font-weight: 600; padding: 15px; border: none;">Donation Type</th>
+                                        
                                         <th style="color: white; font-weight: 600; padding: 15px; border: none;">Amount<br/>(RM)</th>
                                         <th style="color: white; font-weight: 600; padding: 15px; border: none;">Payment Method</th>
                                         <th style="color: white; font-weight: 600; padding: 15px; border: none;">Contact</th>

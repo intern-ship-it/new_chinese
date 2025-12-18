@@ -61,6 +61,14 @@
           return "reconciliation/report";
         }
       }
+
+
+
+
+      // Handle special-occasions/print/9
+      if (pathParts[0] === 'special-occasions' && pathParts[1] === 'print' && pathParts[2]) {
+        return 'special-occasions/print';
+      }
       // Handle purchase routes with view/edit/print actions
       if (pathParts[0] === "purchase" && pathParts.length >= 4) {
         const module = pathParts[1]; // e.g., 'invoices'
@@ -90,20 +98,6 @@
           return "members/edit";
         }
       }
-		// UUID pattern for booking IDs
-        const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-		// Handle routes with UUID ID parameter (e.g., buddha-lamp/view/uuid, buddha-lamp/edit/uuid)
-		// Pattern: module/action/uuid (3 parts)
-		if (pathParts.length === 3) {
-			const lastPart = pathParts[2];
-			const secondPart = pathParts[1];
-
-			// Check if last part is a UUID and second part is view/edit/print/copy
-			if (uuidPattern.test(lastPart) && ['view', 'edit', 'print', 'copy'].includes(secondPart)) {
-				// Return path without the UUID (e.g., buddha-lamp/view)
-				return pathParts.slice(0, 2).join('/');
-			}
-		}
       // Check for edit/view routes with ID parameter
       // Pattern: entries/receipt/edit/1 or entries/payment/view/2
       if (pathParts.length >= 4) {
@@ -117,6 +111,23 @@
         ) {
           // Return path without the ID
           return pathParts.slice(0, -1).join("/");
+        }
+      }
+      // Check for 3-part edit/view/copy routes with ID parameter
+      // Pattern: sale-items/edit/2 or sale-items/view/2
+      if (pathParts.length === 3) {
+        const lastPart = pathParts[2];
+        const secondPart = pathParts[1];
+
+        // UUID pattern: 8-4-4-4-12 characters
+        const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const isNumericId = /^\d+$/.test(lastPart);
+        const isUuid = uuidPattern.test(lastPart);
+
+        // Check if last part is ID (numeric or UUID) and second part is edit/view/copy/print
+        if ((isNumericId || isUuid) && ['edit', 'view', 'copy', 'print'].includes(secondPart)) {
+          // Return path without the ID (e.g., sale-items/edit or buddha-lamp/edit)
+          return pathParts.slice(0, 2).join('/');
         }
       }
       // Add this to the getCurrentPage function in router.js
@@ -153,95 +164,105 @@
           }
         }
       }
-		if (pathParts.includes('view') || pathParts.includes('edit') || pathParts.includes('copy')) {
-			pathParts.pop();
-		}
+      if (pathParts.includes('view') || pathParts.includes('edit') || pathParts.includes('copy')) {
+        pathParts.pop();
+      }
       // Join remaining parts with /
       return pathParts.join("/");
     },
 
     // Get parameters from URL
     getUrlParams: function () {
-		const pathParts = window.location.pathname.split('/').filter(Boolean);
-		const params = {};
+      const pathParts = window.location.pathname.split('/').filter(Boolean);
+      const params = {};
 
-		// Remove temple ID
-		if (pathParts.length > 0) {
-			pathParts.shift();
-		}
-		if (pathParts[0] === 'reconciliation') {
-			// Handle reconciliation/process/27
-			if (pathParts[1] === 'process' && pathParts[2]) {
-				params.id = pathParts[2];
-			}
-			// Handle reconciliation/27/process
-			else if (pathParts[1] && !isNaN(pathParts[1]) && pathParts[2] === 'process') {
-				params.id = pathParts[1];
-			}
-			// Handle reconciliation/view/27
-			else if (pathParts[1] === 'view' && pathParts[2]) {
-				params.id = pathParts[2];
-			}
-			// Handle reconciliation/27/view
-			else if (pathParts[1] && !isNaN(pathParts[1]) && pathParts[2] === 'view') {
-				params.id = pathParts[1];
-			}
-			// Handle reconciliation/report/27
-			else if (pathParts[1] === 'report' && pathParts[2]) {
-				params.id = pathParts[2];
-			}
-		}
-		// Handle purchase routes with ID parameter
-		if (pathParts[0] === 'purchase' && pathParts.length >= 4) {
-			const action = pathParts[2];
-			const id = pathParts[3];
+      // Remove temple ID
+      if (pathParts.length > 0) {
+        pathParts.shift();
+      }
+      if (pathParts[0] === 'reconciliation') {
+        // Handle reconciliation/process/27
+        if (pathParts[1] === 'process' && pathParts[2]) {
+          params.id = pathParts[2];
+        }
+        // Handle reconciliation/27/process
+        else if (pathParts[1] && !isNaN(pathParts[1]) && pathParts[2] === 'process') {
+          params.id = pathParts[1];
+        }
+        // Handle reconciliation/view/27
+        else if (pathParts[1] === 'view' && pathParts[2]) {
+          params.id = pathParts[2];
+        }
+        // Handle reconciliation/27/view
+        else if (pathParts[1] && !isNaN(pathParts[1]) && pathParts[2] === 'view') {
+          params.id = pathParts[1];
+        }
+        // Handle reconciliation/report/27
+        else if (pathParts[1] === 'report' && pathParts[2]) {
+          params.id = pathParts[2];
+        }
+      }
 
-			if (['view', 'edit', 'print'].includes(action) && id) {
-				params.id = id;
-			}
-		}
-		if (pathParts.length === 4 && pathParts[2] === 'print') {
-			params.id = pathParts[3];
-		}
 
-		// Check for member UUID
-		if (pathParts.length === 2 && pathParts[0] === 'members') {
-			const possibleUuid = pathParts[1];
-			const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-			if (uuidPattern.test(possibleUuid)) {
-				params.id = possibleUuid;
-			}
-		}
 
-		// UUID pattern for booking IDs
-		const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      // Handle special-occasions/print/9
+      if (pathParts[0] === 'special-occasions' && pathParts[1] === 'print' && pathParts[2]) {
+        params.id = pathParts[2];
+      }
+      // Handle purchase routes with ID parameter
+      if (pathParts[0] === 'purchase' && pathParts.length >= 4) {
+        const action = pathParts[2];
+        const id = pathParts[3];
 
-		// Handle routes with UUID ID parameter (e.g., buddha-lamp/view/uuid, buddha-lamp/edit/uuid)
-		// Pattern: module/action/uuid (3 parts)
-		if (pathParts.length === 3) {
-			const lastPart = pathParts[2];
-			const secondPart = pathParts[1];
+        if (['view', 'edit', 'print'].includes(action) && id) {
+          params.id = id;
+        }
+      }
+      if (pathParts.length === 4 && pathParts[2] === 'print') {
+        params.id = pathParts[3];
+      }
 
-			// Check if last part is a UUID and second part is view/edit/print/copy
-			if (uuidPattern.test(lastPart) && ['view', 'edit', 'print', 'copy'].includes(secondPart)) {
-				params.id = lastPart;
-			}
-		}
+      // Check for member UUID
+      if (pathParts.length === 2 && pathParts[0] === 'members') {
+        const possibleUuid = pathParts[1];
+        const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-		// Check for edit/view/copy routes with ID (numeric or UUID)
-		if (pathParts.length >= 4) {
-			const lastPart = pathParts[pathParts.length - 1];
-			const secondLastPart = pathParts[pathParts.length - 2];
+        if (uuidPattern.test(possibleUuid)) {
+          params.id = possibleUuid;
+        }
+      }
 
-			// Check if last part is a number (ID) or UUID and second last is edit/view/copy/print
-			if ((/^\d+$/.test(lastPart) || uuidPattern.test(lastPart)) && ['edit', 'view', 'copy', 'print'].includes(secondLastPart)) {
-				params.id = lastPart;
-			}
-		}
+      // Check for edit/view/copy routes with ID (numeric or UUID)
+      if (pathParts.length >= 4) {
+        const lastPart = pathParts[pathParts.length - 1];
+        const secondLastPart = pathParts[pathParts.length - 2];
 
-		return params;
-	},
+        // Check if last part is a number (ID) or UUID and second last is edit/view/copy/print
+        if ((/^\d+$/.test(lastPart) || uuidPattern.test(lastPart)) && ['edit', 'view', 'copy', 'print'].includes(secondLastPart)) {
+          params.id = lastPart;
+        }
+      }
+
+      // Check for 3-part edit/view/copy routes with ID
+      // Pattern: sale-items/edit/2 or sale-items/view/2
+      if (pathParts.length === 3) {
+        const lastPart = pathParts[2];
+        const secondPart = pathParts[1];
+
+        // UUID pattern: 8-4-4-4-12 characters
+        const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const isNumericId = /^\d+$/.test(lastPart);
+        const isUuid = uuidPattern.test(lastPart);
+
+        // Check if last part is ID (numeric or UUID) and second part is edit/view/copy/print
+        if ((isNumericId || isUuid) && ['edit', 'view', 'copy', 'print'].includes(secondPart)) {
+          params.id = lastPart;
+        }
+      }
+
+      return params;
+    },
 
     // Navigate to page
     navigate: function (page, params) {
@@ -260,6 +281,11 @@
         // For member edit
         if (page === "members/edit") {
           url = "/" + templeId + "/members/" + params.id;
+        }
+
+        // For special-occasions print
+        if (page === 'special-occasions/print') {
+          url = '/' + templeId + '/special-occasions/print/' + params.id;
         }
         // For entries edit/view/copy - append the ID to the URL
         else if (
@@ -281,8 +307,8 @@
     // Load current page based on URL
     loadCurrentPage: function () {
       const page = this.getCurrentPage();
-	  console.log('page');
-	  console.log(page);
+      console.log('page');
+      console.log(page);
       const params = this.getUrlParams();
       console.log("Loading page:", page, "with params:", params); // Debug log
       this.loadPage(page, params);
@@ -378,9 +404,9 @@
         parts[0] = "donations"; // Add 's' to match folder name
         return "/js/pages/" + parts.join("/") + ".js";
       }
-	  if (parts[0] === "events" && parts.length >= 2) {
-		return "/js/pages/" + parts[0] + '/' + parts[1] + ".js";
-	  }
+      if (parts[0] === "events" && parts.length >= 2) {
+        return "/js/pages/" + parts[0] + '/' + parts[1] + ".js";
+      }
 
       // Handle dharma-assembly routes
       if (parts[0] === "dharma-assembly") {
@@ -395,6 +421,19 @@
             "/js/pages/dharma-assembly/" + parts.slice(1).join("/") + ".js"
           );
         }
+      }
+
+
+
+      // Handle special-occasions routes
+      if (parts[0] === 'special-occasions') {
+        if (parts[1] === 'print') {
+          return '/js/pages/special-occasions/receipt/print.js';
+        }
+        if (parts.length === 1) {
+          return '/js/pages/special-occasions/index.js';
+        }
+        return '/js/pages/special-occasions/' + parts[1] + '.js';
       }
 
       // Handle accounts/reconciliation routes

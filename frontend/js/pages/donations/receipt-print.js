@@ -215,20 +215,24 @@
         },
         
         generatePrintHTML: function() {
-            const donation = this.donationData;
-            const temple = this.templeSettings;
-            
-            const receiptNumber = donation.receipt_no || this.generateReceiptNumber(donation.date);
-            const logoHTML = this.getTempleLogoHTML();
-            const amountInWords = this.numberToWords(donation.amount);
-            const donationTypeDisplay = this.getDonationTypeDisplay(donation);
-            
-            const donorNameEnglish = donation.name_english || donation.donor?.name_english || '';
-            const donorNameChinese = donation.name_chinese || donation.donor?.name_chinese || '';
-            const donorNric = donation.nric || donation.donor?.nric || '';
-            const donorEmail = donation.email || donation.donor?.email || '';
-            const donorContact = donation.contact_no || donation.donor?.contact_no || '';
-            const donationCode = donation.booking_number || donation.donation_code || '';
+           const donation = this.donationData;
+    const temple = this.templeSettings;
+    
+    const receiptNumber = donation.receipt_no || this.generateReceiptNumber(donation.date);
+    const logoHTML = this.getTempleLogoHTML();
+    const amountInWords = this.numberToWords(donation.amount);
+    const donationTypeDisplay = this.getDonationTypeDisplay(donation);
+    
+    // Check if anonymous
+    const isAnonymous = donation.is_anonymous || false;
+    
+    const donorNameEnglish = isAnonymous ? 'Anonymous Donor' : (donation.name_english || donation.donor?.name_english || '');
+    const donorNameChinese = isAnonymous ? '匿名捐赠者' : (donation.name_chinese || donation.donor?.name_chinese || '');
+    const donorNric = isAnonymous ? 'N/A' : (donation.nric || donation.donor?.nric || '');
+    const donorEmail = isAnonymous ? 'N/A' : (donation.email || donation.donor?.email || '');
+    const donorContact = isAnonymous ? 'N/A' : (donation.contact_no || donation.donor?.contact_no || '');
+    
+ const donationCode = donation.booking_number || donation.donation_code || '';
             const donationDate = donation.date || donation.booking_date || new Date().toISOString();
             
             // ========== PLEDGE INFORMATION ==========
@@ -302,6 +306,27 @@
                             border-radius: 20px;
                             font-size: 14px;
                             margin-left: 10px;
+                        }
+ .anonymous-badge {
+                            display: inline-block;
+                            background: #6c757d;
+                            color: white;
+                            padding: 5px 15px;
+                            border-radius: 20px;
+                            font-size: 14px;
+                            margin-left: 10px;
+                        }
+                        .anonymous-notice {
+                            background: #fff3cd;
+                            border: 2px solid #ffc107;
+                            padding: 15px;
+                            margin: 20px 0;
+                            border-radius: 5px;
+                            text-align: center;
+                        }
+                        .anonymous-notice strong {
+                            color: #856404;
+                            font-size: 16px;
                         }
                         .receipt-details {
                             margin: 20px 0;
@@ -389,10 +414,21 @@
                         </div>
                         
                         <!-- Receipt Title -->
-                        <div class="receipt-title">
+                       <div class="receipt-title">
                             Donation Receipt
                             ${isPledge ? '<span class="pledge-badge">PLEDGE DONATION</span>' : ''}
+                            ${isAnonymous ? '<span class="anonymous-badge"><i class="bi bi-incognito"></i> ANONYMOUS</span>' : ''}
                         </div>
+                        
+                        <!-- Anonymous Notice (if applicable) -->
+                        ${isAnonymous ? `
+                        <div class="anonymous-notice">
+                            <strong>🔒 ANONYMOUS DONATION</strong><br>
+                            <span style="font-size: 12px; color: #856404;">
+                                This donation was made anonymously. Donor information is kept confidential.
+                            </span>
+                        </div>
+                        ` : ''}
                         
                         <!-- Receipt Details -->
                         <div class="receipt-details">

@@ -847,68 +847,70 @@ generatePledgeSummaryHTML: function () {
         },
         
         // ========== UPDATED: DONATIONS TABLE WITH PLEDGE INFO ==========
-        generateDonationsTableHTML: function() {
-            const donations = this.reportData.donations;
-            
-            if (!donations || donations.length === 0) {
-                return '<p class="text-center">No donations found for the selected criteria.</p>';
-            }
-            
-            let tableHTML = `
-                <table class="donations-table">
-                    <thead>
-                        <tr>
-                            <th>No.</th>
-                            <th>ID</th>
-                            <th>Date</th>
-                            <th>Donor Name</th>
-                            <th>Type</th>
-                            <th>Payment</th>
-                            <th>Amount</th>
-                            <th>Pledge Info</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-            
-            donations.forEach((donation, index) => {
-                const pledgeInfo = donation.is_pledge 
-                    ? `<span class="pledge-badge">PLEDGE</span><br>
-                       <small>Total: RM ${this.formatCurrency(donation.pledge_amount)}<br>
-                       Paid: RM ${this.formatCurrency(donation.paid_amount)}<br>
-                       Bal: RM ${this.formatCurrency(donation.pledge_balance)}</small><br>
-                       <span class="status-badge ${donation.pledge_status === 'FULFILLED' ? 'status-fulfilled' : 'status-pending'}">
-                           ${donation.pledge_status}
-                       </span>`
-                    : '-';
-                    
-                tableHTML += `
-                    <tr>
-                        <td style="text-align: center;">${index + 1}</td>
-                        <td>${donation.id}</td>
-                        <td>${this.formatDate(donation.date)}</td>
-                        <td>${donation.donor_name}</td>
-                        <td>${donation.type}</td>
-                        <td>${donation.payment_method}</td>
-                        <td class="amount">RM ${this.formatCurrency(donation.amount)}</td>
-                        <td style="text-align: center;">${pledgeInfo}</td>
-                    </tr>
-                `;
-            });
-            
-            tableHTML += `
-                    <tr class="total-row">
-                        <td colspan="6" style="text-align: right; font-weight: bold;">TOTAL:</td>
-                        <td class="amount">RM ${this.formatCurrency(this.reportData.summary.total_amount)}</td>
-                        <td></td>
-                    </tr>
-                </tbody>
-            </table>
-            `;
-            
-            return tableHTML;
-        },
+generateDonationsTableHTML: function() {
+    const donations = this.reportData.donations;
+    
+    if (!donations || donations.length === 0) {
+        return '<p class="text-center">No donations found for the selected criteria.</p>';
+    }
+    
+    let tableHTML = `
+        <table class="donations-table">
+            <thead>
+                <tr>
+                    <th>No.</th>
+                    <th>ID</th>
+                    <th>Date</th>
+                    <th>Donor Name</th>
+                    <th>Type</th>
+                    <th>Payment</th>
+                    <th>Amount</th>
+                    <th>Info</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    donations.forEach((donation, index) => {
+        const isAnonymous = donation.is_anonymous || false;
+        const donorName = isAnonymous ? '<span style="color: #666; font-style: italic;">Anonymous Donor 匿名</span>' : donation.donor_name;
         
+        const pledgeInfo = donation.is_pledge 
+            ? `<span class="pledge-badge">PLEDGE</span><br>
+               <small>Total: RM ${this.formatCurrency(donation.pledge_amount)}<br>
+               Paid: RM ${this.formatCurrency(donation.paid_amount)}<br>
+               Bal: RM ${this.formatCurrency(donation.pledge_balance)}</small><br>
+               <span class="status-badge ${donation.pledge_status === 'FULFILLED' ? 'status-fulfilled' : 'status-pending'}">
+                   ${donation.pledge_status}
+               </span>`
+            : (isAnonymous ? '<span class="status-badge" style="background: #6c757d;">ANONYMOUS</span>' : '-');
+                
+        tableHTML += `
+            <tr>
+                <td style="text-align: center;">${index + 1}</td>
+                <td>${donation.id}</td>
+                <td>${this.formatDate(donation.date)}</td>
+                <td>${donorName}</td>
+                <td>${donation.type}</td>
+                <td>${donation.payment_method}</td>
+                <td class="amount">RM ${this.formatCurrency(donation.amount)}</td>
+                <td style="text-align: center;">${pledgeInfo}</td>
+            </tr>
+        `;
+    });
+    
+    tableHTML += `
+            <tr class="total-row">
+                <td colspan="6" style="text-align: right; font-weight: bold;">TOTAL:</td>
+                <td class="amount">RM ${this.formatCurrency(this.reportData.summary.total_amount)}</td>
+                <td></td>
+            </tr>
+        </tbody>
+    </table>
+    `;
+    
+    return tableHTML;
+},
         formatCurrency: function(amount) {
             return parseFloat(amount || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
         },

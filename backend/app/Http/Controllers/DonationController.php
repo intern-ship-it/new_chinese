@@ -71,21 +71,37 @@ class DonationController extends Controller
      */
     public function store(Request $request)
     {
-        $validator = Validator::make($request->all(), [
+        $isAnonymous = $request->input('is_anonymous', false);
+        
+        // Base validation rules
+        $rules = [
             'donation_id' => 'required|string',
-            'name_chinese' => 'required|string|max:255',
-            'name_english' => 'nullable|string|max:255',
-            'nric' => 'nullable|string|max:50',
-            'email' => 'nullable|email|max:255',
-            'contact_no' => 'required|string|max:50',
             'amount' => 'required|numeric|min:0.01',
             'payment_mode_id' => 'required|integer|exists:payment_modes,id',
             'notes' => 'nullable|string',
             'print_option' => 'nullable|in:NO_PRINT,SINGLE_PRINT',
+            'is_anonymous' => 'nullable|boolean',
             // Pledge fields
             'is_pledge' => 'nullable|boolean',
             'pledge_amount' => 'nullable|numeric|min:0.01',
-        ]);
+        ];
+        
+        // Make personal info optional if anonymous
+        if (!$isAnonymous) {
+            $rules['name_chinese'] = 'required|string|max:255';
+            $rules['contact_no'] = 'required|string|max:50';
+            $rules['name_english'] = 'nullable|string|max:255';
+            $rules['nric'] = 'nullable|string|max:50';
+            $rules['email'] = 'nullable|email|max:255';
+        } else {
+            $rules['name_chinese'] = 'nullable|string|max:255';
+            $rules['contact_no'] = 'nullable|string|max:50';
+            $rules['name_english'] = 'nullable|string|max:255';
+            $rules['nric'] = 'nullable|string|max:50';
+            $rules['email'] = 'nullable|email|max:255';
+        }
+
+        $validator = Validator::make($request->all(), $rules);
 
         if ($validator->fails()) {
             Log::warning('Donation validation failed', ['errors' => $validator->errors()]);
@@ -121,6 +137,7 @@ class DonationController extends Controller
             $user = auth()->user();
             $isPledge = $request->input('is_pledge', false);
             $pledgeAmount = $request->input('pledge_amount', 0);
+            $isAnonymous = $request->input('is_anonymous', false);
 
             // Get donation details
             $donation = DonationMaster::find($request->donation_id);
@@ -140,7 +157,8 @@ class DonationController extends Controller
                 'user_id' => $user->id,
                 'amount' => $request->amount,
                 'is_pledge' => $isPledge,
-                'pledge_amount' => $pledgeAmount
+                'pledge_amount' => $pledgeAmount,
+                'is_anonymous' => $isAnonymous
             ]);
 
             // Determine booking and payment status based on pledge
@@ -195,18 +213,30 @@ class DonationController extends Controller
 
             // Store metadata
             $metaData = [
-                'nric' => $request->nric,
-                'name_primary' => $request->name_english,
-                'name_secondary' => $request->name_chinese,
-                'email' => $request->email,
-                'phone_no' => $request->contact_no,
                 'donation_type' => $donation->type,
                 'donation_name' => $donation->name,
                 'donation_id' => $donation->id,
-                // Pledge metadata
-                'is_pledge' => $isPledge ? 'true' : 'false',
+                'is_anonymous' => $isAnonymous ? 'true' : 'false',
             ];
+            
+            // Add personal info only if not anonymous
+            if (!$isAnonymous) {
+                $metaData['nric'] = $request->nric ?? '';
+                $metaData['name_primary'] = $request->name_english ?? '';
+                $metaData['name_secondary'] = $request->name_chinese ?? '';
+                $metaData['email'] = $request->email ?? '';
+                $metaData['phone_no'] = $request->contact_no ?? '';
+            } else {
+                $metaData['nric'] = '';
+                $metaData['name_primary'] = 'Anonymous Donor';
+                $metaData['name_secondary'] = '匿名捐赠者';
+                $metaData['email'] = '';
+                $metaData['phone_no'] = '';
+            }
 
+            // Pledge metadata
+            $metaData['is_pledge'] = $isPledge ? 'true' : 'false';
+            
             if ($isPledge) {
                 $metaData['pledge_amount'] = $pledgeAmount;
                 $metaData['pledge_balance'] = $pledgeAmount - $request->amount;
@@ -241,6 +271,11 @@ class DonationController extends Controller
 
             Log::info('Payment record created', ['payment_id' => $payment->id]);
 
+            // Account Migration
+          
+                $this->accountMigration($booking->id);
+        
+
             DB::commit();
 
             // Load relationships for response
@@ -248,15 +283,26 @@ class DonationController extends Controller
 
             Log::info('Donation created successfully', ['booking_id' => $booking->id]);
 
+            // Determine success message
+            $message = 'Donation recorded successfully';
+            if ($isAnonymous && $isPledge) {
+                $message = 'Anonymous pledge donation recorded successfully';
+            } elseif ($isAnonymous) {
+                $message = 'Anonymous donation recorded successfully';
+            } elseif ($isPledge) {
+                $message = 'Pledge donation recorded successfully';
+            }
+
             return response()->json([
                 'success' => true,
-                'message' => $isPledge ? 'Pledge donation recorded successfully' : 'Donation recorded successfully',
+                'message' => $message,
                 'data' => [
                     'booking' => $booking,
                     'booking_number' => $bookingNumber,
                     'payment_reference' => $paymentReference,
                     'is_pledge' => $isPledge,
-                    'pledge_amount' => $pledgeAmount
+                    'pledge_amount' => $pledgeAmount,
+                    'is_anonymous' => $isAnonymous
                 ]
             ], 201);
         } catch (Exception $e) {
@@ -273,6 +319,219 @@ class DonationController extends Controller
                     'line' => $e->getLine()
                 ] : null
             ], 500);
+        }
+    }
+
+    /**
+     * Account Migration
+     * This method creates accounting entries for donation transactions
+     */
+    protected function accountMigration($bookingId)
+    {
+        try {
+            Log::info('Starting account migration', ['booking_id' => $bookingId]);
+
+            // Get booking details
+            $booking = Booking::with(['bookingPayments.paymentMode', 'bookingMeta'])
+                ->findOrFail($bookingId);
+
+            // Get payment details
+            $payment = $booking->bookingPayments->first();
+            if (!$payment) {
+                throw new Exception('No payment found for booking');
+            }
+
+            $paymentMode = $payment->paymentMode;
+            if (!$paymentMode) {
+                throw new Exception('Payment mode not found');
+            }
+
+            // Check if payment mode has ledger_id
+            if (empty($paymentMode->ledger_id)) {
+                Log::warning('Payment mode does not have ledger_id', [
+                    'payment_mode_id' => $paymentMode->id,
+                    'payment_mode_name' => $paymentMode->name
+                ]);
+                throw new Exception('Payment mode ledger configuration missing');
+            }
+
+            // Get donation metadata
+            $meta = $booking->bookingMeta->pluck('meta_value', 'meta_key');
+            $donationId = $meta['donation_id'] ?? null;
+
+            if (!$donationId) {
+                throw new Exception('Donation ID not found in metadata');
+            }
+
+            // Get donation details for credit ledger
+            $donation = DonationMaster::find($donationId);
+            if (!$donation) {
+                throw new Exception('Donation type not found');
+            }
+
+            // Determine credit ledger (Income side)
+            $creditLedgerId = null;
+            
+            if (!empty($donation->ledger_id)) {
+                $creditLedgerId = $donation->ledger_id;
+            } else {
+                // Get or create "All Incomes" ledger under Incomes group
+                $incomesGroup = DB::table('groups')->where('code', '8000')->first();
+                
+                if (!$incomesGroup) {
+                    // Create Incomes group if it doesn't exist
+                    $incomesGroupId = DB::table('groups')->insertGetId([
+                        'parent_id' => 0,
+                        'name' => 'Incomes',
+                        'code' => '8000',
+                        'added_by' => auth()->id(),
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+                } else {
+                    $incomesGroupId = $incomesGroup->id;
+                }
+
+                // Get or create "All Incomes" ledger
+                $allIncomesLedger = DB::table('ledgers')
+                    ->where('name', 'All Incomes')
+                    ->where('group_id', $incomesGroupId)
+                    ->first();
+
+                if (!$allIncomesLedger) {
+                    // Get the next right_code for this group
+                    $lastRightCode = DB::table('ledgers')
+                        ->where('group_id', $incomesGroupId)
+                        ->where('left_code', '8913')
+                        ->orderBy('right_code', 'desc')
+                        ->value('right_code');
+
+                    $newRightCode = str_pad(((int)$lastRightCode + 1), 4, '0', STR_PAD_LEFT);
+
+                    $creditLedgerId = DB::table('ledgers')->insertGetId([
+                        'group_id' => $incomesGroupId,
+                        'name' => 'All Incomes',
+                        'left_code' => '8913',
+                        'right_code' => $newRightCode,
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+                } else {
+                    $creditLedgerId = $allIncomesLedger->id;
+                }
+            }
+
+            // Debit ledger is from payment mode
+            $debitLedgerId = $paymentMode->ledger_id;
+
+            // Generate entry code
+            $date = $booking->booking_date;
+            $year = $date->format('y');
+            $month = $date->format('m');
+
+            // Get last entry code for the month
+            $lastEntry = DB::table('entries')
+                ->whereYear('date', $date->format('Y'))
+                ->whereMonth('date', $month)
+                ->where('entrytype_id', 1) // Receipt entry type
+                ->orderBy('id', 'desc')
+                ->first();
+
+            $lastNumber = 0;
+            if ($lastEntry && !empty($lastEntry->entry_code)) {
+                $lastNumber = (int)substr($lastEntry->entry_code, -5);
+            }
+
+            $entryCode = 'REC' . $year . $month . str_pad($lastNumber + 1, 5, '0', STR_PAD_LEFT);
+
+            // Get next entry number
+            $lastEntryNumber = DB::table('entries')
+                ->where('entrytype_id', 1)
+                ->orderBy('id', 'desc')
+                ->value('number');
+
+            $entryNumber = $lastEntryNumber ? (int)$lastEntryNumber + 1 : 1;
+
+            // Prepare narration
+            $donorName = $meta['name_primary'] ?? 'Anonymous';
+            $donorNric = $meta['nric'] ?? '';
+            $donorEmail = $meta['email'] ?? '';
+            
+            $narration = "Cash Donation ({$booking->booking_number})\n";
+            $narration .= "Name: {$donorName}\n";
+            if ($donorNric) {
+                $narration .= "NRIC: {$donorNric}\n";
+            }
+            if ($donorEmail) {
+                $narration .= "Email: {$donorEmail}\n";
+            }
+
+            // Create entry
+            $entryId = DB::table('entries')->insertGetId([
+                'entrytype_id' => 1, // Receipt type
+                'number' => $entryCode,
+                'date' => $date,
+                'dr_total' => $booking->paid_amount,
+                'cr_total' => $booking->paid_amount,
+                'narration' => $narration,
+                'inv_id' => $bookingId,
+                'inv_type' => 2, // Donation type
+                'entry_code' => $entryCode,
+                'created_by' => auth()->id(),
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            Log::info('Entry created', [
+                'entry_id' => $entryId,
+                'entry_code' => $entryCode
+            ]);
+
+            // Create debit entry item (Payment mode ledger)
+            DB::table('entryitems')->insert([
+                'entry_id' => $entryId,
+                'ledger_id' => $debitLedgerId,
+                'amount' => $booking->paid_amount,
+                'details' => "Cash Donation ({$booking->booking_number})",
+                'dc' => 'D', // Debit
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            Log::info('Debit entry item created', [
+                'ledger_id' => $debitLedgerId,
+                'amount' => $booking->paid_amount
+            ]);
+
+            // Create credit entry item (Income ledger)
+            DB::table('entryitems')->insert([
+                'entry_id' => $entryId,
+                'ledger_id' => $creditLedgerId,
+                'amount' => $booking->paid_amount,
+                'details' => "Cash Donation ({$booking->booking_number})",
+                'dc' => 'C', // Credit
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            Log::info('Credit entry item created', [
+                'ledger_id' => $creditLedgerId,
+                'amount' => $booking->paid_amount
+            ]);
+
+            Log::info('Account migration completed successfully', [
+                'booking_id' => $bookingId,
+                'entry_id' => $entryId
+            ]);
+
+            return true;
+
+        } catch (Exception $e) {
+            Log::error('Error in account migration: ' . $e->getMessage(), [
+                'booking_id' => $bookingId,
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
         }
     }
 
@@ -321,6 +580,22 @@ class DonationController extends Controller
                 } elseif ($pledgeStatus === 'non_pledge') {
                     $query->whereHas('bookingMeta', function ($q) {
                         $q->where('meta_key', 'is_pledge')
+                            ->where('meta_value', 'false');
+                    });
+                }
+            }
+
+            // Filter by anonymous status
+            if ($request->has('anonymous_status')) {
+                $anonymousStatus = $request->anonymous_status;
+                if ($anonymousStatus === 'anonymous_only') {
+                    $query->whereHas('bookingMeta', function ($q) {
+                        $q->where('meta_key', 'is_anonymous')
+                            ->where('meta_value', 'true');
+                    });
+                } elseif ($anonymousStatus === 'non_anonymous') {
+                    $query->whereHas('bookingMeta', function ($q) {
+                        $q->where('meta_key', 'is_anonymous')
                             ->where('meta_value', 'false');
                     });
                 }
@@ -512,6 +787,9 @@ class DonationController extends Controller
                 ['booking_id' => $booking->id, 'meta_key' => 'pledge_status'],
                 ['meta_value' => $pledgeStatus, 'meta_type' => 'string']
             );
+
+            // Account Migration for partial payment
+            $this->accountMigrationPartialPayment($booking->id, $request->amount, $paymentMode);
             
             DB::commit();
             
@@ -540,6 +818,158 @@ class DonationController extends Controller
                 'success' => false,
                 'message' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Account Migration for Partial Payment
+     */
+    protected function accountMigrationPartialPayment($bookingId, $amount, $paymentMode)
+    {
+        try {
+            Log::info('Starting account migration for partial payment', [
+                'booking_id' => $bookingId,
+                'amount' => $amount
+            ]);
+
+            $booking = Booking::with(['bookingMeta'])->findOrFail($bookingId);
+
+            // Check if payment mode has ledger_id
+            if (empty($paymentMode->ledger_id)) {
+                Log::warning('Payment mode does not have ledger_id', [
+                    'payment_mode_id' => $paymentMode->id,
+                    'payment_mode_name' => $paymentMode->name
+                ]);
+                throw new Exception('Payment mode ledger configuration missing');
+            }
+
+            // Get donation metadata
+            $meta = $booking->bookingMeta->pluck('meta_value', 'meta_key');
+            $donationId = $meta['donation_id'] ?? null;
+
+            if (!$donationId) {
+                throw new Exception('Donation ID not found in metadata');
+            }
+
+            // Get donation details for credit ledger
+            $donation = DonationMaster::find($donationId);
+            if (!$donation) {
+                throw new Exception('Donation type not found');
+            }
+
+            // Determine credit ledger (same as initial donation)
+            $creditLedgerId = null;
+            
+            if (!empty($donation->ledger_id)) {
+                $creditLedgerId = $donation->ledger_id;
+            } else {
+                // Get "All Incomes" ledger
+                $incomesGroup = DB::table('groups')->where('code', '8000')->first();
+                if ($incomesGroup) {
+                    $allIncomesLedger = DB::table('ledgers')
+                        ->where('name', 'All Incomes')
+                        ->where('group_id', $incomesGroup->id)
+                        ->first();
+                    
+                    if ($allIncomesLedger) {
+                        $creditLedgerId = $allIncomesLedger->id;
+                    }
+                }
+            }
+
+            if (!$creditLedgerId) {
+                throw new Exception('Income ledger not found for donation type');
+            }
+
+            // Debit ledger is from payment mode
+            $debitLedgerId = $paymentMode->ledger_id;
+
+            // Generate entry code
+            $date = now();
+            $year = $date->format('y');
+            $month = $date->format('m');
+
+            // Get last entry code for the month
+            $lastEntry = DB::table('entries')
+                ->whereYear('date', $date->format('Y'))
+                ->whereMonth('date', $month)
+                ->where('entrytype_id', 1)
+                ->orderBy('id', 'desc')
+                ->first();
+
+            $lastNumber = 0;
+            if ($lastEntry && !empty($lastEntry->entry_code)) {
+                $lastNumber = (int)substr($lastEntry->entry_code, -5);
+            }
+
+            $entryCode = 'REC' . $year . $month . str_pad($lastNumber + 1, 5, '0', STR_PAD_LEFT);
+
+            // Get next entry number
+            $lastEntryNumber = DB::table('entries')
+                ->where('entrytype_id', 1)
+                ->orderBy('id', 'desc')
+                ->value('number');
+
+            $entryNumber = $lastEntryNumber ? (int)$lastEntryNumber + 1 : 1;
+
+            // Prepare narration
+            $donorName = $meta['name_primary'] ?? 'Anonymous';
+            $narration = "Partial Pledge Payment ({$booking->booking_number})\n";
+            $narration .= "Name: {$donorName}\n";
+            $narration .= "Payment Amount: RM " . number_format($amount, 2);
+
+            // Create entry
+            $entryId = DB::table('entries')->insertGetId([
+                'entrytype_id' => 1,
+                'number' => $entryCode,
+                'date' => $date,
+                'dr_total' => $amount,
+                'cr_total' => $amount,
+                'narration' => $narration,
+                'inv_id' => $bookingId,
+                'inv_type' => 2, // Donation type
+                'entry_code' => $entryCode,
+                'created_by' => auth()->id(),
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            // Create debit entry item
+            DB::table('entryitems')->insert([
+                'entry_id' => $entryId,
+                'ledger_id' => $debitLedgerId,
+                'amount' => $amount,
+                'details' => "Partial Pledge Payment ({$booking->booking_number})",
+                'dc' => 'D',
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            // Create credit entry item
+            DB::table('entryitems')->insert([
+                'entry_id' => $entryId,
+                'ledger_id' => $creditLedgerId,
+                'amount' => $amount,
+                'details' => "Partial Pledge Payment ({$booking->booking_number})",
+                'dc' => 'C',
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            Log::info('Account migration for partial payment completed', [
+                'booking_id' => $bookingId,
+                'entry_id' => $entryId,
+                'amount' => $amount
+            ]);
+
+            return true;
+
+        } catch (Exception $e) {
+            Log::error('Error in partial payment account migration: ' . $e->getMessage(), [
+                'booking_id' => $bookingId,
+                'amount' => $amount
+            ]);
+            throw $e;
         }
     }
 
@@ -595,6 +1025,19 @@ class DonationController extends Controller
                             ->where('meta_value', 'FULFILLED');
                     })
                     ->count(),
+                // Anonymous donations statistics
+                'anonymous_donations' => Booking::where('booking_type', 'DONATION')
+                    ->whereHas('bookingMeta', function ($q) {
+                        $q->where('meta_key', 'is_anonymous')
+                            ->where('meta_value', 'true');
+                    })
+                    ->count(),
+                'anonymous_amount' => Booking::where('booking_type', 'DONATION')
+                    ->whereHas('bookingMeta', function ($q) {
+                        $q->where('meta_key', 'is_anonymous')
+                            ->where('meta_value', 'true');
+                    })
+                    ->sum('total_amount'),
             ];
 
             return response()->json([
@@ -615,20 +1058,36 @@ class DonationController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $validator = Validator::make($request->all(), [
+        $isAnonymous = $request->input('is_anonymous', false);
+        
+        // Base validation rules
+        $rules = [
             'donation_id' => 'required|string',
-            'name_chinese' => 'required|string|max:255',
-            'name_english' => 'nullable|string|max:255',
-            'nric' => 'nullable|string|max:50',
-            'email' => 'nullable|email|max:255',
-            'contact_no' => 'required|string|max:50',
             'amount' => 'required|numeric|min:0.01',
             'payment_mode_id' => 'required|integer|exists:payment_modes,id',
             'notes' => 'nullable|string',
+            'is_anonymous' => 'nullable|boolean',
             // Pledge fields
             'is_pledge' => 'nullable|boolean',
             'pledge_amount' => 'nullable|numeric|min:0.01',
-        ]);
+        ];
+        
+        // Make personal info optional if anonymous
+        if (!$isAnonymous) {
+            $rules['name_chinese'] = 'required|string|max:255';
+            $rules['contact_no'] = 'required|string|max:50';
+            $rules['name_english'] = 'nullable|string|max:255';
+            $rules['nric'] = 'nullable|string|max:50';
+            $rules['email'] = 'nullable|email|max:255';
+        } else {
+            $rules['name_chinese'] = 'nullable|string|max:255';
+            $rules['contact_no'] = 'nullable|string|max:50';
+            $rules['name_english'] = 'nullable|string|max:255';
+            $rules['nric'] = 'nullable|string|max:50';
+            $rules['email'] = 'nullable|email|max:255';
+        }
+
+        $validator = Validator::make($request->all(), $rules);
 
         if ($validator->fails()) {
             return response()->json([
@@ -664,6 +1123,7 @@ class DonationController extends Controller
             $user = auth()->user();
             $isPledge = $request->input('is_pledge', false);
             $pledgeAmount = $request->input('pledge_amount', 0);
+            $isAnonymous = $request->input('is_anonymous', false);
 
             // Get donation details
             $donation = DonationMaster::find($request->donation_id);
@@ -678,7 +1138,8 @@ class DonationController extends Controller
                 'booking_id' => $id,
                 'booking_number' => $booking->booking_number,
                 'updated_by' => $user->id,
-                'is_pledge' => $isPledge
+                'is_pledge' => $isPledge,
+                'is_anonymous' => $isAnonymous
             ]);
 
             // Determine payment status
@@ -712,16 +1173,27 @@ class DonationController extends Controller
 
             // Update metadata
             $metaUpdates = [
-                'nric' => $request->nric,
-                'name_primary' => $request->name_english,
-                'name_secondary' => $request->name_chinese,
-                'email' => $request->email,
-                'phone_no' => $request->contact_no,
                 'donation_type' => $donation->type,
                 'donation_name' => $donation->name,
                 'donation_id' => $donation->id,
                 'is_pledge' => $isPledge ? 'true' : 'false',
+                'is_anonymous' => $isAnonymous ? 'true' : 'false',
             ];
+            
+            // Update personal info based on anonymous status
+            if (!$isAnonymous) {
+                $metaUpdates['nric'] = $request->nric ?? '';
+                $metaUpdates['name_primary'] = $request->name_english ?? '';
+                $metaUpdates['name_secondary'] = $request->name_chinese ?? '';
+                $metaUpdates['email'] = $request->email ?? '';
+                $metaUpdates['phone_no'] = $request->contact_no ?? '';
+            } else {
+                $metaUpdates['nric'] = '';
+                $metaUpdates['name_primary'] = 'Anonymous Donor';
+                $metaUpdates['name_secondary'] = '匿名捐赠者';
+                $metaUpdates['email'] = '';
+                $metaUpdates['phone_no'] = '';
+            }
 
             if ($isPledge) {
                 $metaUpdates['pledge_amount'] = $pledgeAmount;
@@ -880,16 +1352,18 @@ class DonationController extends Controller
         $pledgeAmount = $isPledge ? (float)($meta['pledge_amount'] ?? 0) : 0;
         $pledgeBalance = $isPledge ? (float)($meta['pledge_balance'] ?? 0) : 0;
         $pledgeStatus = $isPledge ? ($meta['pledge_status'] ?? 'PENDING') : null;
+        
+        $isAnonymous = ($meta['is_anonymous'] ?? 'false') === 'true';
 
         return [
             'id' => $booking->id,
             'booking_number' => $booking->booking_number,
             'date' => $booking->booking_date->format('Y-m-d'),
-            'name_english' => $meta['name_primary'] ?? '',
-            'name_chinese' => $meta['name_secondary'] ?? '',
-            'nric' => $meta['nric'] ?? '',
-            'email' => $meta['email'] ?? '',
-            'contact_no' => $meta['phone_no'] ?? '',
+            'name_english' => $isAnonymous ? 'Anonymous Donor' : ($meta['name_primary'] ?? ''),
+            'name_chinese' => $isAnonymous ? '匿名捐赠者' : ($meta['name_secondary'] ?? ''),
+            'nric' => $isAnonymous ? '' : ($meta['nric'] ?? ''),
+            'email' => $isAnonymous ? '' : ($meta['email'] ?? ''),
+            'contact_no' => $isAnonymous ? '' : ($meta['phone_no'] ?? ''),
             'donation_type' => $meta['donation_type'] ?? '',
             'donation_name' => $meta['donation_name'] ?? '',
             'amount' => $booking->total_amount,
@@ -906,145 +1380,192 @@ class DonationController extends Controller
             'pledge_amount' => $pledgeAmount,
             'pledge_balance' => $pledgeBalance,
             'pledge_status' => $pledgeStatus,
+            // Anonymous flag
+            'is_anonymous' => $isAnonymous,
         ];
     }
+
+    /**
+     * Get donation report
+     */
     public function getReport(Request $request)
-{
-    try {
-        $query = Booking::where('booking_type', 'DONATION')
-            ->with(['bookingItems', 'bookingPayments.paymentMode', 'bookingMeta']);
+    {
+        try {
+            $query = Booking::where('booking_type', 'DONATION')
+                ->with(['bookingItems', 'bookingPayments.paymentMode', 'bookingMeta']);
 
-        // Apply filters
-        if ($request->has('donation_type')) {
-            $query->whereHas('bookingMeta', function ($q) use ($request) {
-                $q->where('meta_key', 'donation_type')
-                    ->where('meta_value', $request->donation_type);
-            });
-        }
-
-        if ($request->has('payment_mode_id')) {
-            $query->whereHas('bookingPayments', function ($q) use ($request) {
-                $q->where('payment_mode_id', $request->payment_mode_id);
-            });
-        }
-
-        if ($request->has('from_date')) {
-            $query->whereDate('booking_date', '>=', $request->from_date);
-        }
-
-        if ($request->has('to_date')) {
-            $query->whereDate('booking_date', '<=', $request->to_date);
-        }
-
-        // Filter by pledge status
-        if ($request->has('pledge_status')) {
-            $pledgeStatus = $request->pledge_status;
-            if ($pledgeStatus === 'pledge_only') {
-                $query->whereHas('bookingMeta', function ($q) {
-                    $q->where('meta_key', 'is_pledge')
-                        ->where('meta_value', 'true');
-                });
-            } elseif ($pledgeStatus === 'non_pledge') {
-                $query->whereHas('bookingMeta', function ($q) {
-                    $q->where('meta_key', 'is_pledge')
-                        ->where('meta_value', 'false');
-                });
-            } elseif ($pledgeStatus === 'PENDING') {
-                $query->whereHas('bookingMeta', function ($q) {
-                    $q->where('meta_key', 'pledge_status')
-                        ->where('meta_value', 'PENDING');
-                });
-            } elseif ($pledgeStatus === 'FULFILLED') {
-                $query->whereHas('bookingMeta', function ($q) {
-                    $q->where('meta_key', 'pledge_status')
-                        ->where('meta_value', 'FULFILLED');
+            // Apply filters (same as index method)
+            if ($request->has('donation_type')) {
+                $query->whereHas('bookingMeta', function ($q) use ($request) {
+                    $q->where('meta_key', 'donation_type')
+                        ->where('meta_value', $request->donation_type);
                 });
             }
-        }
 
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('booking_number', 'like', "%$search%")
-                    ->orWhereHas('bookingMeta', function ($mq) use ($search) {
-                        $mq->where('meta_key', 'name_primary')
-                            ->where('meta_value', 'like', "%$search%");
-                    })
-                    ->orWhereHas('bookingMeta', function ($mq) use ($search) {
-                        $mq->where('meta_key', 'name_secondary')
-                            ->where('meta_value', 'like', "%$search%");
+            if ($request->has('payment_mode_id')) {
+                $query->whereHas('bookingPayments', function ($q) use ($request) {
+                    $q->where('payment_mode_id', $request->payment_mode_id);
+                });
+            }
+
+            if ($request->has('from_date')) {
+                $query->whereDate('booking_date', '>=', $request->from_date);
+            }
+
+            if ($request->has('to_date')) {
+                $query->whereDate('booking_date', '<=', $request->to_date);
+            }
+
+            if ($request->has('pledge_status')) {
+                $pledgeStatus = $request->pledge_status;
+                if ($pledgeStatus === 'pledge_only') {
+                    $query->whereHas('bookingMeta', function ($q) {
+                        $q->where('meta_key', 'is_pledge')
+                            ->where('meta_value', 'true');
                     });
+                } elseif ($pledgeStatus === 'non_pledge') {
+                    $query->whereHas('bookingMeta', function ($q) {
+                        $q->where('meta_key', 'is_pledge')
+                            ->where('meta_value', 'false');
+                    });
+                } elseif ($pledgeStatus === 'PENDING') {
+                    $query->whereHas('bookingMeta', function ($q) {
+                        $q->where('meta_key', 'pledge_status')
+                            ->where('meta_value', 'PENDING');
+                    });
+                } elseif ($pledgeStatus === 'FULFILLED') {
+                    $query->whereHas('bookingMeta', function ($q) {
+                        $q->where('meta_key', 'pledge_status')
+                            ->where('meta_value', 'FULFILLED');
+                    });
+                }
+            }
+
+            if ($request->has('anonymous_status')) {
+                $anonymousStatus = $request->anonymous_status;
+                if ($anonymousStatus === 'anonymous_only') {
+                    $query->whereHas('bookingMeta', function ($q) {
+                        $q->where('meta_key', 'is_anonymous')
+                            ->where('meta_value', 'true');
+                    });
+                } elseif ($anonymousStatus === 'non_anonymous') {
+                    $query->whereHas('bookingMeta', function ($q) {
+                        $q->where('meta_key', 'is_anonymous')
+                            ->where('meta_value', 'false');
+                    });
+                }
+            }
+
+            if ($request->has('search')) {
+                $search = $request->search;
+                $query->where(function ($q) use ($search) {
+                    $q->where('booking_number', 'like', "%$search%")
+                        ->orWhereHas('bookingMeta', function ($mq) use ($search) {
+                            $mq->where('meta_key', 'name_primary')
+                                ->where('meta_value', 'like', "%$search%");
+                        })
+                        ->orWhereHas('bookingMeta', function ($mq) use ($search) {
+                            $mq->where('meta_key', 'name_secondary')
+                                ->where('meta_value', 'like', "%$search%");
+                        });
+                });
+            }
+
+            $donations = $query->orderBy('booking_date', 'desc')->get();
+
+            // Format donations
+            $formattedDonations = $donations->map(function ($booking) {
+                return $this->formatDonationResponse($booking);
             });
+
+            // Calculate summary statistics
+            $summary = [
+                'total_donations' => $formattedDonations->count(),
+                'total_amount' => $formattedDonations->sum('amount'),
+                'average_amount' => $formattedDonations->avg('amount') ?: 0,
+                
+                // Payment method breakdown
+                'cash_amount' => $formattedDonations->where('payment_method', 'Cash')->sum('amount'),
+                'card_amount' => $formattedDonations->where('payment_method', 'Card')->sum('amount'),
+                'ebanking_amount' => $formattedDonations->filter(function($d) {
+                    return stripos($d['payment_method'], 'banking') !== false || 
+                           stripos($d['payment_method'], 'bank') !== false;
+                })->sum('amount'),
+                'cheque_amount' => $formattedDonations->where('payment_method', 'Cheque')->sum('amount'),
+                'duitnow_amount' => $formattedDonations->where('payment_method', 'DuitNow')->sum('amount'),
+                
+                // Pledge statistics
+                'total_pledges' => $formattedDonations->where('is_pledge', true)->count(),
+                'active_pledges' => $formattedDonations->where('is_pledge', true)
+                    ->where('pledge_status', 'PENDING')->count(),
+                'fulfilled_pledges' => $formattedDonations->where('is_pledge', true)
+                    ->where('pledge_status', 'FULFILLED')->count(),
+                'total_pledge_amount' => $formattedDonations->where('is_pledge', true)
+                    ->sum('pledge_amount'),
+                'total_pledge_paid' => $formattedDonations->where('is_pledge', true)
+                    ->sum('paid_amount'),
+                'total_pledge_balance' => $formattedDonations->where('is_pledge', true)
+                    ->sum('pledge_balance'),
+                
+                // Anonymous statistics
+                'anonymous_donations' => $formattedDonations->where('is_anonymous', true)->count(),
+                'anonymous_amount' => $formattedDonations->where('is_anonymous', true)->sum('amount'),
+            ];
+
+            // Prepare report data
+            $reportData = [
+                'title' => 'Donations Report',
+                'period' => [
+                    'from' => $request->from_date ?: ($donations->first()->booking_date ?? now()),
+                    'to' => $request->to_date ?: ($donations->last()->booking_date ?? now())
+                ],
+                'filters' => [
+                    'type' => $request->donation_type ?: '',
+                    'payment_method' => $request->payment_mode_id ?: '',
+                    'pledge_status' => $request->pledge_status ?: '',
+                    'anonymous_status' => $request->anonymous_status ?: ''
+                ],
+                'summary' => $summary,
+                'donations' => $formattedDonations,
+                'generated_at' => now()->toISOString()
+            ];
+
+            return response()->json([
+                'success' => true,
+                'data' => $reportData
+            ]);
+
+        } catch (Exception $e) {
+            Log::error('Error generating donations report: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to generate report'
+            ], 500);
         }
-
-        $donations = $query->orderBy('booking_date', 'desc')->get();
-
-        // Format donations
-        $formattedDonations = $donations->map(function ($booking) {
-            return $this->formatDonationResponse($booking);
-        });
-
-        // Calculate summary statistics
-        $summary = [
-            'total_donations' => $formattedDonations->count(),
-            'total_amount' => $formattedDonations->sum('amount'),
-            'average_amount' => $formattedDonations->avg('amount') ?: 0,
-            
-            // Payment method breakdown
-            'cash_amount' => $formattedDonations->where('payment_method', 'Cash')->sum('amount'),
-            'card_amount' => $formattedDonations->where('payment_method', 'Card')->sum('amount'),
-            'ebanking_amount' => $formattedDonations->filter(function($d) {
-                return stripos($d['payment_method'], 'banking') !== false || 
-                       stripos($d['payment_method'], 'bank') !== false;
-            })->sum('amount'),
-            'cheque_amount' => $formattedDonations->where('payment_method', 'Cheque')->sum('amount'),
-            'duitnow_amount' => $formattedDonations->where('payment_method', 'DuitNow')->sum('amount'),
-            
-            // Pledge statistics
-            'total_pledges' => $formattedDonations->where('is_pledge', true)->count(),
-            'active_pledges' => $formattedDonations->where('is_pledge', true)
-                ->where('pledge_status', 'PENDING')->count(),
-            'fulfilled_pledges' => $formattedDonations->where('is_pledge', true)
-                ->where('pledge_status', 'FULFILLED')->count(),
-            'total_pledge_amount' => $formattedDonations->where('is_pledge', true)
-                ->sum('pledge_amount'),
-            'total_pledge_paid' => $formattedDonations->where('is_pledge', true)
-                ->sum('paid_amount'),
-            'total_pledge_balance' => $formattedDonations->where('is_pledge', true)
-                ->sum('pledge_balance'),
-        ];
-
-        // Prepare report data
-        $reportData = [
-            'title' => 'Donations Report',
-            'period' => [
-                'from' => $request->from_date ?: ($donations->first()->booking_date ?? now()),
-                'to' => $request->to_date ?: ($donations->last()->booking_date ?? now())
-            ],
-            'filters' => [
-                'type' => $request->donation_type ?: '',
-                'payment_method' => $request->payment_mode_id ?: '',
-                'pledge_status' => $request->pledge_status ?: ''
-            ],
-            'summary' => $summary,
-            'donations' => $formattedDonations,
-            'generated_at' => now()->toISOString()
-        ];
-
-        return response()->json([
-            'success' => true,
-            'data' => $reportData
-        ]);
-
-    } catch (Exception $e) {
-        Log::error('Error generating donations report: ' . $e->getMessage());
-        return response()->json([
-            'success' => false,
-            'message' => 'Failed to generate report'
-        ], 500);
     }
-}
 
+    /**
+     * Get active ledgers
+     */
+    public function getActiveLedgers()
+    {
+        try {
+            $ledgers = DB::table('ledgers')
+                ->whereNull('deleted_at')
+                ->select('id', 'name', 'left_code', 'right_code', 'type')
+                ->orderBy('name')
+                ->get();
 
-
+            return response()->json([
+                'success' => true,
+                'data' => $ledgers
+            ]);
+        } catch (Exception $e) {
+            Log::error('Error fetching ledgers: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch ledgers'
+            ], 500);
+        }
+    }
 }

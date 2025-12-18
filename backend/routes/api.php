@@ -11,6 +11,7 @@ use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\PackageController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\OccasionServiceController;
 use App\Http\Controllers\StockMovementController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\DashboardController;
@@ -70,10 +71,13 @@ use App\Http\Controllers\MemberReportController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\DonationController;
 use App\Http\Controllers\BuddhaLampController;
-use App\Http\Controllers\API\SaleCategoryController;
-use App\Http\Controllers\API\SaleSessionController;
-use App\Http\Controllers\API\SaleItemController;
-use App\Http\Controllers\API\DeityController;
+use App\Http\Controllers\SaleCategoryController;
+use App\Http\Controllers\SaleSessionController;
+use App\Http\Controllers\SaleItemController;
+use App\Http\Controllers\DeityController;
+use App\Http\Controllers\VolunteerDepartmentController;
+
+
 
 Route::prefix('v1')->group(function () {
 	// Temple validation (no middleware needed - this should be accessible without temple context)
@@ -133,7 +137,7 @@ Route::prefix('v1')->group(function () {
 			Route::get('/settings/default-values', [SupplierController::class, 'getDefaultValues']);
 
 			Route::prefix('sales')->group(function () {
-    
+
 				// Sale Categories Routes
 				Route::prefix('categories')->group(function () {
 					Route::get('/', [SaleCategoryController::class, 'index']);
@@ -143,7 +147,7 @@ Route::prefix('v1')->group(function () {
 					Route::put('/{id}', [SaleCategoryController::class, 'update']);
 					Route::delete('/{id}', [SaleCategoryController::class, 'destroy']);
 				});
-				
+
 				// Sale Sessions Routes
 				Route::prefix('sessions')->group(function () {
 					Route::get('/', [SaleSessionController::class, 'index']);
@@ -153,7 +157,7 @@ Route::prefix('v1')->group(function () {
 					Route::put('/{id}', [SaleSessionController::class, 'update']);
 					Route::delete('/{id}', [SaleSessionController::class, 'destroy']);
 				});
-				
+
 				// Sale Items Routes
 				Route::prefix('items')->group(function () {
 					Route::get('/', [SaleItemController::class, 'index']);
@@ -165,7 +169,7 @@ Route::prefix('v1')->group(function () {
 					Route::delete('/{id}', [SaleItemController::class, 'destroy']);
 				});
 			});
-			Route::prefix('deities')->middleware(['auth:sanctum'])->group(function () {
+			Route::prefix('deities')->group(function () {
 				Route::get('/', [DeityController::class, 'index']);
 				Route::get('/active', [DeityController::class, 'active']);
 				Route::post('/', [DeityController::class, 'store']);
@@ -504,10 +508,10 @@ Route::prefix('v1')->group(function () {
 					Route::post('/generate-code', [EntriesController::class, 'generateCode']);
 
 						/* Route::get('/pending-approvals', [EntriesController::class, 'getPendingApprovals']);
-		Route::get('/pending-approvals/{id}', [EntriesController::class, 'getPendingApprovalDetail']);
-		Route::post('/{id}/approve', [EntriesController::class, 'processApproval']);
-		Route::get('/approval-history', [EntriesController::class, 'getApprovalHistory']);
-		Route::get('/approval-history/{id}', [EntriesController::class, 'getApprovalHistoryDetail']) */;
+Route::get('/pending-approvals/{id}', [EntriesController::class, 'getPendingApprovalDetail']);
+Route::post('/{id}/approve', [EntriesController::class, 'processApproval']);
+Route::get('/approval-history', [EntriesController::class, 'getApprovalHistory']);
+Route::get('/approval-history/{id}', [EntriesController::class, 'getApprovalHistoryDetail']) */;
 					Route::prefix('approval')->group(function () {
 						// View approvals
 						Route::get('/list', [EntriesApprovalController::class, 'getPendingApprovals']);
@@ -1279,12 +1283,61 @@ Route::prefix('v1')->group(function () {
 				Route::put('/{id}', [App\Http\Controllers\SpecialOccasionController::class, 'update']);
 				Route::delete('/{id}', [App\Http\Controllers\SpecialOccasionController::class, 'destroy']);
 				Route::patch('/{id}/status', [App\Http\Controllers\SpecialOccasionController::class, 'updateStatus']);
-				Route::post('/bookings', [App\Http\Controllers\SpecialOccasionController::class, 'storeBooking']);
-				Route::get('/bookings/history', [App\Http\Controllers\SpecialOccasionController::class, 'getBookingHistory']);
+				// Route::post('/bookings', [App\Http\Controllers\SpecialOccasionController::class, 'storeBooking']);
+				// Route::get('/bookings/history', [App\Http\Controllers\SpecialOccasionController::class, 'getBookingHistory']);
 			});
 
 
+			// ✅ CORRECT ORDER:
+			Route::prefix('special-occasions/bookings')->group(function () {
+				// SPECIFIC ROUTES FIRST
+				Route::get('/dates/{optionId}', [SpecialOccasionBookingController::class, 'getAvailableDates']);
+				Route::get('/slots', [SpecialOccasionBookingController::class, 'getAvailableSlots']);
 
+				// WILDCARD ROUTES LAST
+				Route::get('/', [SpecialOccasionBookingController::class, 'index']);
+				Route::post('/', [SpecialOccasionBookingController::class, 'store']);
+				Route::get('/{id}', [SpecialOccasionBookingController::class, 'show']);
+				Route::patch('/{id}/status', [SpecialOccasionBookingController::class, 'updateStatus']);
+				Route::delete('/{id}', [SpecialOccasionBookingController::class, 'destroy']);
+			});
+
+
+			// Occasion Options (Temple Event Packages) Routes
+			Route::prefix('occasion-options')->middleware(['auth:api', 'validate.temple.access'])->group(function () {
+				// Get lookup data (ledgers, services)
+				Route::get('/lookups', [App\Http\Controllers\OccasionOptionController::class, 'getLookups']);
+
+				// Get all options for a specific occasion
+				Route::get('/occasion/{occasionId}', [App\Http\Controllers\OccasionOptionController::class, 'index']);
+
+				// Get single option with full details
+				Route::get('/{id}', [App\Http\Controllers\OccasionOptionController::class, 'show']);
+
+				// Create new option
+				Route::post('/', [App\Http\Controllers\OccasionOptionController::class, 'store']);
+
+				// Update option
+				Route::put('/{id}', [App\Http\Controllers\OccasionOptionController::class, 'update']);
+				Route::post('/{id}', [App\Http\Controllers\OccasionOptionController::class, 'update']); // For FormData with files
+
+				// Delete option
+				Route::delete('/{id}', [App\Http\Controllers\OccasionOptionController::class, 'destroy']);
+
+				// Update status
+				Route::patch('/{id}/status', [App\Http\Controllers\OccasionOptionController::class, 'updateStatus']);
+			});
+
+			// Occasion Services Routes
+			Route::prefix('occasion-services')->group(function () {
+				Route::get('/', [OccasionServiceController::class, 'index']);
+				Route::get('/active', [OccasionServiceController::class, 'getActive']);
+				Route::get('/{id}', [OccasionServiceController::class, 'show']);
+				Route::post('/', [OccasionServiceController::class, 'store']);
+				Route::put('/{id}', [OccasionServiceController::class, 'update']);
+				Route::patch('/{id}/status', [OccasionServiceController::class, 'updateStatus']);
+				Route::delete('/{id}', [OccasionServiceController::class, 'destroy']);
+			});
 
 			Route::prefix('pagoda')->group(function () {
 
@@ -1538,7 +1591,7 @@ Route::prefix('v1')->group(function () {
 
 				// Get active donations for dropdown
 				Route::get('/active', [DonationMasterController::class, 'getActiveDonations']);
-
+				Route::get('/ledgers', [DonationMasterController::class, 'getDonationLedgers']);
 				// Get single donation master
 				Route::get('/{id}', [DonationMasterController::class, 'show']);
 
@@ -1553,6 +1606,7 @@ Route::prefix('v1')->group(function () {
 				// Delete donation master
 				Route::delete('/{id}', [DonationMasterController::class, 'destroy'])
 					->middleware(['role:super_admin']);
+
 
 				// Get user permissions
 				Route::get('/user/{userId}/permissions', [DonationMasterController::class, 'getUserPermissions']);
@@ -1680,11 +1734,36 @@ Route::prefix('v1')->group(function () {
 				Route::post('/', [DonationController::class, 'store']);
 				Route::put('/{id}', [DonationController::class, 'update']);
 				Route::patch('/{id}', [DonationController::class, 'update']);
-				Route::delete('/{id}', [DonationController::class, 'destroy']); 
-				Route::post('/{id}/partial-payment', [DonationController::class, 'partialPayment']);  
-				Route::get('/{id}/payments', [DonationController::class, 'getPayments']);           
-    Route::get('/report', [DonationController::class, 'getReport']);
+				Route::delete('/{id}', [DonationController::class, 'destroy']);
+				Route::post('/{id}/partial-payment', [DonationController::class, 'partialPayment']);
+				Route::get('/{id}/payments', [DonationController::class, 'getPayments']);
+				Route::get('/report', [DonationController::class, 'getReport']);
+				Route::get('/ledgers/active', [DonationController::class, 'getActiveLedgers']);
+			});
 
+			Route::prefix('volunteers')->group(function () {
+				// DEPARTMENT MASTER
+				Route::prefix('departments')->group(function () {
+					// List all departments (with filters)
+					Route::get('/', [VolunteerDepartmentController::class, 'index']);
+					// Get active departments only (for dropdowns)
+					Route::get('/active', [VolunteerDepartmentController::class, 'active']);
+					// Get single department
+					Route::get('/{id}', [VolunteerDepartmentController::class, 'show']);
+					// Check if department can be deleted
+					Route::get('/{id}/can-delete', [VolunteerDepartmentController::class, 'canDelete']);
+					// Admin only routes
+					Route::middleware(['role:super_admin|admin'])->group(function () {
+						// Create department
+						Route::post('/', [VolunteerDepartmentController::class, 'store']);
+						// Update department
+						Route::put('/{id}', [VolunteerDepartmentController::class, 'update']);
+						// Soft delete department (only if not used)
+						Route::delete('/{id}', [VolunteerDepartmentController::class, 'destroy']);
+						// Toggle status (active/inactive)
+						Route::patch('/{id}/toggle-status', [VolunteerDepartmentController::class, 'toggleStatus']);
+					});
+				});
 			});
 		});
 	});
