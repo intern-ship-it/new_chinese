@@ -20,6 +20,8 @@
     <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.4.24/dist/sweetalert2.min.css" rel="stylesheet">
     <!-- AOS Animation Library -->
     <link href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" rel="stylesheet">
+   <!-- Html5Qrcode Library for QR Scanner -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
     <!-- ✅ ADD PAGODA CSS -->
     <link href="/css/auspicious-light.css" rel="stylesheet">
@@ -80,13 +82,18 @@
     <script src="/js/components/sidebar.js"></script>
     <script src="/js/components/footer.js"></script>
     <script src="/js/services/pagoda-api.js"></script>
-
+  <script src="/js/services/devotee-api.js"></script>
     <script src="/js/pages/fund-budget-templates/index.js"></script>
     <script src="/js/pages/fund-budgets/report.js"></script>
 
     <script>
         $(document).ready(function () {
             TempleApp.init();
+
+            // Initialize Forgot Password Modal
+            if (typeof ForgotPasswordModal !== 'undefined') {
+                ForgotPasswordModal.init();
+            }
         });
     </script>
 </body>

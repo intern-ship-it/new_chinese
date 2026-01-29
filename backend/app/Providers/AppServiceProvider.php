@@ -45,6 +45,7 @@ class AppServiceProvider extends ServiceProvider
         Route::aliasMiddleware('permission', \Spatie\Permission\Middleware\PermissionMiddleware::class);
         Route::aliasMiddleware('role_or_permission', \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class);
         Route::aliasMiddleware('temple', \App\Http\Middleware\TempleMiddleware::class);
+		Route::aliasMiddleware('temple.public', \App\Http\Middleware\TemplePublicMiddleware::class);
         Route::aliasMiddleware('check.active', \App\Http\Middleware\CheckUserActive::class);
         Route::aliasMiddleware('check.user.type', \App\Http\Middleware\CheckUserType::class);
         Route::aliasMiddleware('org.permission', \App\Http\Middleware\CheckOrganizationPermission::class);

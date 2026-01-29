@@ -44,4 +44,9 @@ class TaxMaster extends Model
     {
         return $query->whereIn('applicable_for', ['service', 'both']);
     }
+
+    public function scopeForPackages($query)
+    {
+        return $query->where('applicable_for', 'package');
+    }
 }

@@ -1,0 +1,620 @@
+/* css/daily-closing.css */
+/* Daily Closing Page Styles - Exact Donations UI Match */
+/* Updated December 27, 2025 */
+
+:root {
+    --daily-closing-accent: #e5521c;
+}
+
+/* ================================================
+   PAGE ANIMATIONS (Donations Style)
+   ================================================ */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes gradientShift {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+@keyframes movePattern {
+    0% {
+        background-position: 0 0;
+    }
+    100% {
+        background-position: 50% 50%;
+    }
+}
+
+@keyframes iconPulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes cardFloat {
+    0%, 100% {
+        transform: translateY(-5px);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+/* ================================================
+   BASE PAGE STYLES (Donations Style)
+   ================================================ */
+.daily-closing-page {
+    padding: 1.5rem;
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+/* ================================================
+   PAGE HEADER WITH ANIMATED BACKGROUND (Donations Style)
+   ================================================ */
+.daily-closing-page .daily-closing-header {
+    position: relative;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    padding: 40px 0;
+    margin-bottom: 30px;
+    border-radius: 0 0 30px 30px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(184, 101, 27, 0.3);
+    animation: gradientShift 8s ease infinite;
+    background-size: 200% 200%;
+}
+
+.daily-closing-page .daily-closing-header-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 0.1) 25%,
+        transparent 25%,
+        transparent 50%,
+        rgba(255, 255, 255, 0.1) 50%,
+        rgba(255, 255, 255, 0.1) 75%,
+        transparent 75%,
+        transparent
+    );
+    background-size: 50px 50px;
+    opacity: 0.3;
+    animation: movePattern 20s linear infinite;
+}
+
+.daily-closing-page .daily-closing-header .container-fluid {
+    position: relative;
+    z-index: 1;
+}
+
+.daily-closing-page .daily-closing-title-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    color: white;
+}
+
+.daily-closing-page .daily-closing-header-icon {
+    font-size: 48px;
+    color: #ffd700;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+    animation: iconPulse 2s ease-in-out infinite;
+}
+
+.daily-closing-page .daily-closing-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin: 0;
+    color: white;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.daily-closing-page .daily-closing-subtitle {
+    font-size: 1.1rem;
+    margin: 5px 0 0 0;
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 300;
+}
+
+.daily-closing-page .btn-outline-light {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(10px);
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.daily-closing-page .btn-outline-light:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* ================================================
+   STAT CARDS (Donations Style) 
+   ================================================ */
+.daily-closing-page .stat-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    border-left: 4px solid transparent;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+.daily-closing-page .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.1) 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.daily-closing-page .stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+}
+
+.daily-closing-page .stat-card:hover::before {
+    opacity: 1;
+}
+
+.daily-closing-page .stat-card-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+    flex-shrink: 0;
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.daily-closing-page .stat-card:hover .stat-card-icon {
+    transform: scale(1.15) rotate(5deg);
+}
+
+.daily-closing-page .stat-card-body {
+    flex: 1;
+}
+
+.daily-closing-page .stat-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #2c3e50;
+    line-height: 1.2;
+    margin-bottom: 0.25rem;
+    transition: all 0.3s ease;
+}
+
+.daily-closing-page .stat-card:hover .stat-value {
+    transform: scale(1.05);
+}
+
+.daily-closing-page .stat-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+/* Stat Card Variants */
+.daily-closing-page .stat-card-sales {
+    border-left-color: #4e73df;
+}
+
+.daily-closing-page .stat-card-sales .stat-card-icon {
+    background: linear-gradient(135deg, rgba(78, 115, 223, 0.15) 0%, rgba(78, 115, 223, 0.05) 100%);
+    color: #4e73df;
+}
+
+.daily-closing-page .stat-card-donation {
+    border-left-color: #28a745;
+}
+
+.daily-closing-page .stat-card-donation .stat-card-icon {
+    background: linear-gradient(135deg, rgba(40, 167, 69, 0.15) 0%, rgba(40, 167, 69, 0.05) 100%);
+    color: #28a745;
+}
+
+.daily-closing-page .stat-card-buddha {
+    border-left-color: #ff9800;
+}
+
+.daily-closing-page .stat-card-buddha .stat-card-icon {
+    background: linear-gradient(135deg, rgba(255, 152, 0, 0.15) 0%, rgba(255, 152, 0, 0.05) 100%);
+    color: #ff9800;
+}
+
+.daily-closing-page .stat-card-temple {
+    border-left-color: #9c27b0;
+}
+
+.daily-closing-page .stat-card-temple .stat-card-icon {
+    background: linear-gradient(135deg, rgba(156, 39, 176, 0.15) 0%, rgba(156, 39, 176, 0.05) 100%);
+    color: #9c27b0;
+}
+
+.daily-closing-page .stat-card-grand-total {
+    border-left-color: var(--primary-color);
+}
+
+.daily-closing-page .stat-card-grand-total .stat-card-icon {
+    background: linear-gradient(135deg, rgba(184, 101, 27, 0.15) 0%, rgba(184, 101, 27, 0.05) 100%);
+    color: var(--primary-color);
+}
+
+/* ================================================
+   FILTER CARD (Donations Style)
+   ================================================ */
+.daily-closing-page .filter-card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+}
+
+.daily-closing-page .filter-card:hover {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1) !important;
+}
+
+.daily-closing-page .card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+}
+
+.daily-closing-page .card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* ================================================
+   FORM CONTROLS (Donations Style)
+   ================================================ */
+.daily-closing-page .form-label {
+    font-weight: 500;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+.daily-closing-page .form-control,
+.daily-closing-page .form-select {
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    padding: 12px 16px;
+    transition: all 0.3s ease;
+}
+
+.daily-closing-page .form-control:focus,
+.daily-closing-page .form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(184, 101, 27, 0.15);
+    outline: none;
+}
+
+.daily-closing-page .form-control:hover:not(:focus),
+.daily-closing-page .form-select:hover:not(:focus) {
+    background-color: #f8f9fa;
+    border-color: #cbd5e1;
+}
+
+/* ================================================
+   BUTTONS (Donations Style)
+   ================================================ */
+.daily-closing-page .btn {
+    border-radius: 8px;
+    font-weight: 500;
+    padding: 10px 20px;
+    transition: all 0.2s ease;
+}
+
+.daily-closing-page .btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.daily-closing-page .btn-primary {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    border: none;
+}
+
+.daily-closing-page .btn-primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, var(--secondary-color) 0%, var(--daily-closing-accent) 100%);
+    box-shadow: 0 8px 20px rgba(184, 101, 27, 0.3);
+}
+
+.daily-closing-page .btn-primary:active {
+    transform: translateY(0);
+}
+
+.daily-closing-page .btn-outline-primary {
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.daily-closing-page .btn-outline-primary:hover {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #fff;
+}
+
+/* ================================================
+   SECTION DETAILS CARDS (Donations Style)
+   ================================================ */
+.daily-closing-page .card-header {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%) !important;
+    color: white !important;
+    border: none !important;
+    padding: 1rem 1.5rem !important;
+    border-radius: 12px 12px 0 0 !important;
+    font-weight: 600 !important;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    box-shadow: 0 4px 15px rgba(184, 101, 27, 0.15);
+    animation: gradientShift 8s ease infinite;
+    background-size: 200% 200%;
+}
+
+.daily-closing-page .card-header i {
+    font-size: 1.25rem;
+}
+
+.daily-closing-page .card-body {
+    padding: 1.5rem;
+}
+
+/* ================================================
+   TABLE SECTIONS (Donations Style)
+   ================================================ */
+.daily-closing-page .table {
+    margin-bottom: 0;
+    font-size: 0.9rem;
+}
+
+.daily-closing-page .table thead th {
+
+
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: none !important;
+    padding: 1rem 0.75rem;
+    white-space: nowrap;
+}
+
+.daily-closing-page .table tbody td {
+    padding: 0.75rem;
+    vertical-align: middle;
+    border-bottom: 1px solid #f0f0f0;
+    transition: all 0.2s ease;
+}
+
+.daily-closing-page .table tbody tr {
+    transition: all 0.2s ease;
+}
+
+.daily-closing-page .table tbody tr:hover {
+    background-color: rgba(184, 101, 27, 0.05);
+    transform: scale(1.002);
+}
+
+.daily-closing-page .table tfoot td {
+    padding: 14px 16px;
+    font-weight: 700;
+    background: #f8f9fa;
+    border-top: 2px solid #dee2e6;
+}
+
+/* ================================================
+   BADGES (Donations Style)
+   ================================================ */
+.daily-closing-page .badge {
+    font-weight: 500;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.85rem;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.daily-closing-page .badge:hover {
+    transform: scale(1.05);
+}
+
+.badge-pledge {
+    background-color: #ffc107 !important;
+    color: #000 !important;
+}
+
+.badge-anonymous {
+    background-color: #6c757d !important;
+    color: #fff !important;
+}
+
+/* ================================================
+   LOADING SPINNER (Donations Style)
+   ================================================ */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.loading-spinner {
+    width: 3rem;
+    height: 3rem;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* ================================================
+   CUSTOM SCROLLBAR (Donations Style)
+   ================================================ */
+.table-responsive::-webkit-scrollbar {
+    height: 8px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: var(--secondary-color);
+}
+
+/* ================================================
+   PRINT STYLES
+   ================================================ */
+@media print {
+    .daily-closing-page .daily-closing-header {
+        background: var(--primary-color) !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    
+    .daily-closing-page .btn,
+    .daily-closing-page .filter-card {
+        display: none !important;
+    }
+    
+    .daily-closing-page .card-header {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    
+    .daily-closing-page .table thead {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}
+
+/* ================================================
+   RESPONSIVE (Donations Style)
+   ================================================ */
+@media (max-width: 992px) {
+    .daily-closing-page {
+        padding: 1rem;
+    }
+    
+    .daily-closing-page .daily-closing-title {
+        font-size: 1.8rem;
+    }
+    
+    .daily-closing-page .daily-closing-header {
+        padding: 30px 0;
+        border-radius: 0 0 20px 20px;
+    }
+    
+    .daily-closing-page .daily-closing-title-wrapper {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+    
+    .daily-closing-page .daily-closing-header-icon {
+        font-size: 36px;
+    }
+}
+
+@media (max-width: 768px) {
+    .daily-closing-page .daily-closing-title {
+        font-size: 1.5rem;
+    }
+    
+    .daily-closing-page .daily-closing-subtitle {
+        font-size: 0.9rem;
+    }
+    
+    .daily-closing-page .table-responsive {
+        font-size: 0.85rem;
+    }
+    
+    .daily-closing-page .stat-card {
+        margin-bottom: 1rem;
+    }
+}
+
+/* ================================================
+   UTILITY CLASSES (Donations Style)
+   ================================================ */
+.shadow-sm {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+.shadow-md {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+.shadow-lg {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15) !important;
+}
+
+.text-primary {
+    color: var(--primary-color) !important;
+}

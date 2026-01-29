@@ -1,5 +1,5 @@
 // js/pages/buddha-lamp/edit.js
-// Buddha Lamp Booking Edit Page - Dynamic Version with GSAP + AOS animations
+// Buddha Lamp Booking Edit Page - Dynamic Version with Custom Amount Support
 
 (function($, window) {
     'use strict';
@@ -72,9 +72,11 @@
         bookingId: null,
         bookingData: null,
         paymentModes: [],
+        buddhaLampMasters: [],
         intervals: [],
         timeouts: [],
         hasChanges: false,
+        selectedMaster: null,
         
         // Page initialization
         init: function(params) {
@@ -118,7 +120,9 @@
             this.bookingData = null;
             this.bookingId = null;
             this.paymentModes = [];
+            this.buddhaLampMasters = [];
             this.hasChanges = false;
+            this.selectedMaster = null;
             
             console.log(`${this.pageId} cleanup completed`);
         },
@@ -162,27 +166,38 @@
             this.bindCancelButton();
         },
         
-        // Load initial data (payment modes + booking data)
+        // Load initial data (Buddha Lamp masters, payment modes, then booking data)
         loadInitialData: function() {
             const self = this;
             
-            // Load payment modes first, then booking data
-            TempleAPI.get('/masters/payment-modes/active')
-                .done(function(response) {
-                    if (response.success && response.data) {
-                        self.paymentModes = response.data;
-                    } else {
-                        self.paymentModes = [];
-                        console.warn('No payment modes found');
-                    }
-                })
-                .fail(function(error) {
-                    console.error('Failed to load payment modes:', error);
+            // Load Buddha Lamp masters and payment modes first, then booking data
+            Promise.all([
+                TempleAPI.get('/bookings/buddha-lamp/masters/active'),
+                TempleAPI.get('/masters/payment-modes/active')
+            ])
+            .then(function([mastersResponse, paymentResponse]) {
+                if (mastersResponse.success && mastersResponse.data) {
+                    self.buddhaLampMasters = mastersResponse.data;
+                } else {
+                    self.buddhaLampMasters = [];
+                    console.warn('No Buddha Lamp masters found');
+                }
+                
+                if (paymentResponse.success && paymentResponse.data) {
+                    self.paymentModes = paymentResponse.data;
+                } else {
                     self.paymentModes = [];
-                })
-                .always(function() {
-                    self.loadBookingData();
-                });
+                    console.warn('No payment modes found');
+                }
+            })
+            .catch(function(error) {
+                console.error('Failed to load initial data:', error);
+                self.buddhaLampMasters = [];
+                self.paymentModes = [];
+            })
+            .finally(function() {
+                self.loadBookingData();
+            });
         },
         
         // Load booking data from API
@@ -223,6 +238,55 @@
                 });
         },
         
+        // Generate Buddha Lamp Master cards HTML
+        generateBuddhaLampMastersHTML: function() {
+            const currency = TempleCore.getCurrency() || 'RM';
+            
+            if (!this.buddhaLampMasters || this.buddhaLampMasters.length === 0) {
+                return `
+                    <div class="col-12">
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            No predefined Buddha Lamp types available. Please enter a custom amount below.
+                        </div>
+                    </div>
+                `;
+            }
+            
+            return this.buddhaLampMasters.map((master, index) => {
+                const amount = parseFloat(master.amount || 0);
+                const formattedAmount = amount.toLocaleString('en-MY', { 
+                    minimumFractionDigits: 2, 
+                    maximumFractionDigits: 2 
+                });
+                
+                return `
+                    <div class="col-lg-20p col-md-4 col-sm-6">
+                        <div class="form-check form-check-card buddha-lamp-card">
+                            <input class="form-check-input" type="radio" name="buddha_lamp_master" 
+                                   id="master${master.id}" value="${master.id}" 
+                                   data-amount="${amount}"
+                                   data-name="${master.name || ''}">
+                            <label class="form-check-label" for="master${master.id}">
+                                <div class="buddha-lamp-card-content">
+                                    <i class="bi bi-brightness-high-fill text-warning" style="font-size: 2rem;"></i>
+                                    <h5 class="mt-2 mb-1">${master.name || 'Buddha Lamp'}</h5>
+                                    ${master.name_secondary ? `<p class="text-muted small mb-2">${master.name_secondary}</p>` : ''}
+                                    <div class="buddha-lamp-amount">
+                                        <span class="amount-label">Amount:</span>
+                                        <span class="amount-value">${currency} ${formattedAmount}</span>
+                                    </div>
+                                    ${master.description_primary ? `
+                                        <p class="small text-muted mt-2 mb-0">${master.description_primary}</p>
+                                    ` : ''}
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        },
+        
         // Generate payment methods HTML dynamically
         generatePaymentMethodsHTML: function() {
             if (!this.paymentModes || this.paymentModes.length === 0) {
@@ -237,10 +301,11 @@
             }
             
             return this.paymentModes.map((mode, index) => {
-                const iconDisplay = mode.icon_display_url || { type: 'bootstrap', value: 'bi-currency-dollar' };
+                const iconDisplay = mode.icon_display_url_data || { type: 'bootstrap', value: 'bi-currency-dollar' };
                 const iconHtml = iconDisplay.type === 'bootstrap' 
                     ? `<i class="bi ${iconDisplay.value}"></i>`
-                    : `<img src="${iconDisplay.value}" alt="${mode.name}" style="width: 24px; height: 24px; object-fit: contain;">`;
+                    : `<img src="${iconDisplay.value}" alt="${mode.name}" style="width: ${iconDisplay.width || 62}px; 
+                   height: ${iconDisplay.height || 28}px; object-fit: contain;">`;
                 
                 return `
                     <div class="col-lg-20p col-md-4 col-sm-6">
@@ -260,8 +325,10 @@
         // Render page HTML
         render: function() {
             const data = this.bookingData;
+            const buddhaLampMastersHTML = this.generateBuddhaLampMastersHTML();
             const paymentMethodsHTML = this.generatePaymentMethodsHTML();
             const currency = TempleCore.getCurrency() || 'RM';
+            const hasMasters = this.buddhaLampMasters && this.buddhaLampMasters.length > 0;
             
             const html = `
                 <div class="buddha-lamp-edit-page">
@@ -312,40 +379,40 @@
                                     <div class="col-12">
                                         <div class="section-header-gradient">
                                             <i class="bi bi-person-badge"></i>
-                                            <span>Personal Information</span>
+                                            <span>Personal Information 个人资料</span>
                                         </div>
                                     </div>
                                     
                                     <!-- Name Fields -->
                                     <div class="col-md-6">
-                                        <label class="form-label">Name (Chinese)<span class="text-danger">*</span></label>
+                                        <label class="form-label">Name (Chinese) 姓名 (中文) <span class="text-danger">*</span></label>
                                         <input type="text" class="form-control" name="name_chinese" id="nameChinese" required>
                                         <div class="invalid-feedback">Please enter Chinese name</div>
                                     </div>
                                     
                                     <div class="col-md-6">
-                                        <label class="form-label">Name (English)<span class="text-danger">*</span></label>
+                                        <label class="form-label">Name (English) 姓名 (英文) <span class="text-danger">*</span></label>
                                         <input type="text" class="form-control" name="name_english" id="nameEnglish" required>
                                         <div class="invalid-feedback">Please enter English name</div>
                                     </div>
                                     
                                     <!-- Contact Information -->
                                     <div class="col-md-6">
-                                        <label class="form-label">NRIC No.<span class="text-danger">*</span></label>
+                                        <label class="form-label">NRIC No. 身份证 <span class="text-danger">*</span></label>
                                         <input type="text" class="form-control" name="nric" id="nric" required 
                                                placeholder="e.g., 123456-12-1234">
                                         <div class="invalid-feedback">Please enter NRIC number</div>
                                     </div>
                                     
                                     <div class="col-md-6">
-                                        <label class="form-label">Email<span class="text-danger">*</span></label>
+                                        <label class="form-label">Email 电邮 <span class="text-danger">*</span></label>
                                         <input type="email" class="form-control" name="email" id="email" required
                                                placeholder="e.g., example@email.com">
                                         <div class="invalid-feedback">Please enter valid email</div>
                                     </div>
                                     
                                     <div class="col-md-6">
-                                        <label class="form-label">Contact No.<span class="text-danger">*</span></label>
+                                        <label class="form-label">Contact No. 手机号码 <span class="text-danger">*</span></label>
                                         <input type="tel" class="form-control" name="contact_no" id="contactNo" required
                                                placeholder="e.g., +60 12-345 6789">
                                         <div class="invalid-feedback">Please enter contact number</div>
@@ -355,77 +422,97 @@
                                     <div class="col-12 mt-4">
                                         <div class="section-header-gradient">
                                             <i class="bi bi-calendar-check"></i>
-                                            <span>Booking Details</span>
+                                            <span>Booking Details 预订详情</span>
                                         </div>
                                     </div>
                                     
                                     <!-- Booking Date -->
                                     <div class="col-md-6">
-                                        <label class="form-label">Booking Date<span class="text-danger">*</span></label>
+                                        <label class="form-label">Booking Date 预订日期 <span class="text-danger">*</span></label>
                                         <input type="date" class="form-control" name="booking_date" id="bookingDate" required>
                                         <div class="invalid-feedback">Please select booking date</div>
                                     </div>
                                     
-                                    <!-- Booking Status (Read Only for display) -->
+                                    <!-- Booking Status -->
                                     <div class="col-md-6">
-                                        <label class="form-label">Booking Status</label>
+                                        <label class="form-label">Booking Status 预订状态</label>
                                         <select class="form-select" name="booking_status" id="bookingStatus">
-                                            <option value="PENDING">Pending</option>
-                                            <option value="CONFIRMED">Confirmed</option>
-                                            <option value="CANCELLED">Cancelled</option>
+                                            <option value="PENDING">Pending 待处理</option>
+                                            <option value="CONFIRMED">Confirmed 已确认</option>
+                                            <option value="COMPLETED">Completed 已完成</option>
                                         </select>
                                     </div>
                                     
-                                    <!-- Amount Section -->
+                                    ${hasMasters ? `
+                                    <!-- Buddha Lamp Type Selection -->
                                     <div class="col-12 mt-3">
+                                        <label class="form-label d-flex align-items-center justify-content-between">
+                                            <span>
+                                                <i class="bi bi-brightness-high me-2"></i>
+                                                Select Buddha Lamp Type 选择佛灯类型 (Optional)
+                                            </span>
+                                            <button type="button" class="btn btn-sm btn-secondary" id="btnClearSelection" style="display: none;">
+                                                <i class="bi bi-x-circle"></i> Clear Selection
+                                            </button>
+                                        </label>
+                                        <div class="row g-3" id="buddhaLampMastersContainer">
+                                            ${buddhaLampMastersHTML}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Selected Amount Display -->
+                                    <div class="col-12">
+                                        <div class="alert alert-info d-none" id="selectedAmountDisplay">
+                                            <div class="d-flex align-items-center justify-content-between">
+                                                <div>
+                                                    <i class="bi bi-info-circle me-2"></i>
+                                                    <strong>Selected:</strong> <span id="selectedMasterName"></span>
+                                                </div>
+                                                <div>
+                                                    <strong>Amount:</strong> <span id="selectedAmount" class="fs-5 text-primary"></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    ` : `
+                                    <div class="col-12 mt-3">
+                                        ${buddhaLampMastersHTML}
+                                    </div>
+                                    `}
+                                    
+                                    <!-- Custom Amount Section -->
+                                    <div class="col-12 mt-3" id="customAmountSection" ${hasMasters ? 'style="display: block;"' : 'style="display: block;"'}>
                                         <label class="form-label d-flex align-items-center">
                                             <i class="bi bi-cash-stack me-2"></i>
-                                            Amount<span class="text-danger ms-1">*</span>
+                                            ${hasMasters ? 'Or Enter Custom Amount 或输入自定义金额' : 'Enter Amount 输入金额'} <span class="text-danger ms-1">*</span>
                                         </label>
-                                        
-                                        <!-- Fixed Amount Checkbox Card -->
-                                        <div class="amount-checkbox-card mb-3" id="amount5000Card">
-                                            <div class="form-check">
-                                                <input class="form-check-input" type="checkbox" id="amount5000" name="amount_preset">
-                                                <label class="form-check-label" for="amount5000">
-                                                    <div class="d-flex align-items-center">
-                                                        <i class="bi bi-check-circle-fill text-primary me-2" style="font-size: 1.5rem;"></i>
-                                                        <div>
-                                                            <h5 class="mb-0">${currency} 5,000.00</h5>
-                                                            <small class="text-muted">Standard Buddha Lamp Offering</small>
-                                                        </div>
-                                                    </div>
-                                                </label>
-                                            </div>
+                                        <div class="input-group input-group-lg">
+                                            <span class="input-group-text">${currency}</span>
+                                            <input type="number" class="form-control" name="custom_amount" id="customAmountInput"
+                                                   placeholder="0.00" step="0.01" min="0.01" ${!hasMasters ? 'required' : ''}>
+                                            <div class="invalid-feedback">Please enter a valid amount</div>
                                         </div>
-                                        
-                                        <!-- Custom Amount Input -->
-                                        <div id="customAmountSection">
-                                            <label class="form-label">Or Enter Custom Amount</label>
-                                            <div class="input-group">
-                                                <span class="input-group-text">${currency}</span>
-                                                <input type="number" class="form-control" name="amount" id="customAmount"
-                                                       placeholder="0.00" step="0.01" min="0">
-                                            </div>
-                                        </div>
+                                        <small class="text-muted">Enter the donation amount for Buddha Lamp offering</small>
                                     </div>
                                     
                                     <!-- Payment Method Section -->
                                     <div class="col-12 mt-4">
                                         <div class="section-header-gradient">
                                             <i class="bi bi-credit-card"></i>
-                                            <span>Payment Method</span>
+                                            <span>Payment Method 付款方式</span>
                                         </div>
                                     </div>
                                     
-                                    <!-- Payment Method Cards - Dynamic -->
-                                    ${paymentMethodsHTML}
+                                    <!-- Payment Method Cards -->
+                                    <div class="row g-3">
+                                        ${paymentMethodsHTML}
+                                    </div>
                                     
                                     <!-- Additional Notes -->
                                     <div class="col-12 mt-3">
                                         <label class="form-label">
                                             <i class="bi bi-sticky me-2"></i>
-                                            Additional Notes(Optional)
+                                            Additional Notes 备注 (Optional)
                                         </label>
                                         <textarea class="form-control" name="notes" id="notes" rows="3" 
                                                   placeholder="Enter any additional information..."></textarea>
@@ -438,7 +525,7 @@
                                         <input class="form-check-input" type="checkbox" id="printReceipt" name="print_receipt">
                                         <label class="form-check-label" for="printReceipt">
                                             <i class="bi bi-printer me-2"></i>
-                                            Print Receipt after saving
+                                            Print Receipt after saving 保存后打印收据
                                         </label>
                                     </div>
                                 </div>
@@ -471,6 +558,7 @@
         // Populate form with booking data
         populateForm: function() {
             const data = this.bookingData;
+            const hasMasters = this.buddhaLampMasters && this.buddhaLampMasters.length > 0;
             
             // Personal Information
             $('input[name="name_chinese"]').val(data.name_secondary || '');
@@ -483,18 +571,32 @@
             $('input[name="booking_date"]').val(data.booking_date || '');
             $('select[name="booking_status"]').val(data.booking_status || 'CONFIRMED');
             
-            // Amount
+            // Amount - Check if this was a master selection or custom amount
             const amount = parseFloat(data.total_amount) || 0;
-            if (amount === 5000) {
-                $('#amount5000').prop('checked', true).trigger('change');
+            const isCustomAmount = data.is_custom_amount === true || data.is_custom_amount === 'true';
+            const buddhaLampMasterId = data.buddha_lamp_master_id;
+            
+            if (hasMasters && !isCustomAmount && buddhaLampMasterId && buddhaLampMasterId !== 'custom') {
+                // Try to find and select the matching master
+                const matchingMaster = this.buddhaLampMasters.find(m => 
+                    m.id === buddhaLampMasterId || m.id === parseInt(buddhaLampMasterId)
+                );
+                
+                if (matchingMaster) {
+                    // Select the master radio button
+                    $(`#master${matchingMaster.id}`).prop('checked', true).trigger('change');
+                } else {
+                    // Master not found, use custom amount
+                    $('input[name="custom_amount"]').val(amount.toFixed(2));
+                }
             } else {
-                $('input[name="amount"]').val(amount.toFixed(2));
+                // Custom amount
+                $('input[name="custom_amount"]').val(amount.toFixed(2));
             }
             
             // Payment Method - try to match by ID or name
             const payment = data.payment;
             if (payment && payment.payment_method) {
-                // Try to find matching payment mode
                 const matchingMode = this.paymentModes.find(mode => 
                     mode.name.toLowerCase() === payment.payment_method.toLowerCase() ||
                     mode.id === payment.payment_mode_id
@@ -556,12 +658,13 @@
         // Bind events
         bindEvents: function() {
             const self = this;
+            const hasMasters = this.buddhaLampMasters && this.buddhaLampMasters.length > 0;
             
             this.bindCancelButton();
             
             // View button
             $('#btnView').on('click.' + this.eventNamespace, function() {
-				const bookingId = self.bookingId;
+                const bookingId = self.bookingId;
                 if (self.hasChanges) {
                     Swal.fire({
                         title: 'Unsaved Changes',
@@ -582,51 +685,138 @@
                 }
             });
             
-            // Fixed amount checkbox (RM 5000)
-            $('#amount5000').on('change.' + this.eventNamespace, function() {
-                const $card = $('#amount5000Card');
-                const $customAmount = $('input[name="amount"]');
-                
-                if ($(this).is(':checked')) {
+            // Buddha Lamp Master selection (only if masters are available)
+            if (hasMasters) {
+                $(document).on('change.' + this.eventNamespace, 'input[name="buddha_lamp_master"]', function() {
+                    const $card = $(this).closest('.form-check-card');
+                    const masterId = $(this).val();
+                    const masterName = $(this).data('name');
+                    const amount = parseFloat($(this).data('amount'));
+                    const currency = TempleCore.getCurrency() || 'RM';
+                    
+                    // Store selected master
+                    self.selectedMaster = {
+                        id: masterId,
+                        name: masterName,
+                        amount: amount
+                    };
+                    
+                    // Reset all Buddha Lamp cards
+                    $('.buddha-lamp-card').each(function() {
+                        gsap.to(this, {
+                            scale: 1,
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                            borderColor: '#dee2e6',
+                            duration: 0.3,
+                            ease: 'power2.out'
+                        });
+                    });
+                    
+                    // Animate selected card
                     gsap.to($card[0], {
-                        scale: 1.02,
-                        boxShadow: '0 8px 25px rgba(255, 0, 255, 0.25)',
-                        borderColor: '#ff00ff',
+                        scale: 1.05,
+                        boxShadow: '0 8px 20px rgba(255, 193, 7, 0.3)',
+                        borderColor: '#ffc107',
                         duration: 0.3,
                         ease: 'power2.out'
                     });
                     
-                    $card.addClass('checked');
-                    $customAmount.val('').prop('disabled', true);
+                    // Show selected amount display
+                    const formattedAmount = amount.toLocaleString('en-MY', { 
+                        minimumFractionDigits: 2, 
+                        maximumFractionDigits: 2 
+                    });
                     
+                    $('#selectedMasterName').text(masterName);
+                    $('#selectedAmount').text(`${currency} ${formattedAmount}`);
+                    $('#selectedAmountDisplay').removeClass('d-none');
+                    
+                    gsap.fromTo('#selectedAmountDisplay', 
+                        { opacity: 0, y: -10 },
+                        { opacity: 1, y: 0, duration: 0.3 }
+                    );
+                    
+                    // Hide custom amount section when a master is selected
                     gsap.to('#customAmountSection', {
-                        opacity: 0.5,
-                        duration: 0.3
-                    });
-                } else {
-                    gsap.to($card[0], {
-                        scale: 1,
-                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
-                        borderColor: '#e9ecef',
-                        duration: 0.3
+                        opacity: 0,
+                        height: 0,
+                        marginTop: 0,
+                        duration: 0.3,
+                        ease: 'power2.out',
+                        onComplete: function() {
+                            $('#customAmountSection').hide();
+                            $('#customAmountInput').val('').prop('required', false);
+                        }
                     });
                     
-                    $card.removeClass('checked');
-                    $customAmount.prop('disabled', false);
+                    // Show clear selection button
+                    $('#btnClearSelection').fadeIn(300);
                     
-                    gsap.to('#customAmountSection', {
-                        opacity: 1,
-                        duration: 0.3
-                    });
-                }
+                    self.hasChanges = true;
+                });
                 
-                self.hasChanges = true;
-            });
+                // Clear selection button
+                $('#btnClearSelection').on('click.' + this.eventNamespace, function() {
+                    // Clear selected master
+                    self.selectedMaster = null;
+                    
+                    // Uncheck all radio buttons
+                    $('input[name="buddha_lamp_master"]').prop('checked', false);
+                    
+                    // Reset all cards
+                    $('.buddha-lamp-card').each(function() {
+                        gsap.to(this, {
+                            scale: 1,
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                            borderColor: '#dee2e6',
+                            duration: 0.3
+                        });
+                    });
+                    
+                    // Hide selected amount display
+                    gsap.to('#selectedAmountDisplay', {
+                        opacity: 0,
+                        duration: 0.2,
+                        onComplete: function() {
+                            $('#selectedAmountDisplay').addClass('d-none');
+                        }
+                    });
+                    
+                    // Show custom amount section
+                    $('#customAmountSection').show();
+                    gsap.fromTo('#customAmountSection', 
+                        { opacity: 0, height: 0, marginTop: 0 },
+                        { 
+                            opacity: 1, 
+                            height: 'auto', 
+                            marginTop: '1rem',
+                            duration: 0.3,
+                            ease: 'power2.out',
+                            onStart: function() {
+                                $('#customAmountInput').prop('required', true);
+                            }
+                        }
+                    );
+                    
+                    // Hide clear button
+                    $(this).fadeOut(300);
+                    
+                    // Focus on custom amount input
+                    setTimeout(function() {
+                        $('#customAmountInput').focus();
+                    }, 400);
+                    
+                    self.hasChanges = true;
+                });
+            }
             
-            // Custom amount input
-            $('input[name="amount"]').on('input.' + this.eventNamespace, function() {
-                if ($(this).val() !== '') {
-                    $('#amount5000').prop('checked', false).trigger('change');
+            // Custom amount input validation
+            $('#customAmountInput').on('input.' + this.eventNamespace, function() {
+                const value = parseFloat($(this).val());
+                if (value && value > 0) {
+                    $(this).removeClass('is-invalid').addClass('is-valid');
+                } else {
+                    $(this).removeClass('is-valid');
                 }
                 self.hasChanges = true;
             });
@@ -641,22 +831,34 @@
                 e.preventDefault();
                 
                 // Custom validation for amount
-                const amount5000Checked = $('#amount5000').is(':checked');
-                const customAmount = $('input[name="amount"]').val();
+                const hasMasterSelected = self.selectedMaster !== null;
+                const customAmount = parseFloat($('#customAmountInput').val());
                 
-                if (!amount5000Checked && !customAmount) {
-                    TempleCore.showToast('Please select fixed amount or enter a custom amount', 'error');
-                    gsap.to('#amount5000Card', {
-                        x: [-10, 10, -10, 10, 0],
-                        duration: 0.5
+                // Check if either a master is selected OR a custom amount is entered
+                if (!hasMasterSelected && (!customAmount || customAmount <= 0)) {
+                    TempleCore.showToast('Please select a Buddha Lamp type or enter a custom amount', 'error');
+                    
+                    if (hasMasters) {
+                        gsap.to('.buddha-lamp-card', {
+                            x: [-5, 5, -5, 5, 0],
+                            duration: 0.4,
+                            stagger: 0.05
+                        });
+                    }
+                    
+                    gsap.to('#customAmountInput', {
+                        x: [-5, 5, -5, 5, 0],
+                        duration: 0.4
                     });
+                    
+                    $('#customAmountInput').focus();
                     return;
                 }
                 
                 // Validate payment method selection
                 if (!$('input[name="payment_method"]:checked').val()) {
                     TempleCore.showToast('Please select a payment method', 'error');
-                    gsap.to('.form-check-card', {
+                    gsap.to('.form-check-card:not(.buddha-lamp-card)', {
                         x: [-5, 5, -5, 5, 0],
                         duration: 0.4,
                         stagger: 0.05
@@ -697,11 +899,11 @@
                 });
             });
             
-            // Radio card selection animation
+            // Payment method selection animation
             $(document).on('change.' + this.eventNamespace, 'input[type="radio"][name="payment_method"]', function() {
                 const $parent = $(this).closest('.form-check-card');
                 
-                $('.form-check-card').each(function() {
+                $('.form-check-card').not('.buddha-lamp-card').each(function() {
                     gsap.to(this, {
                         scale: 1,
                         boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
@@ -812,6 +1014,11 @@
                 }
             };
             
+            // Add buddha_lamp_master_id only if a master was selected
+            if (formData.buddha_lamp_master_id) {
+                payload.buddha_lamp_master_id = formData.buddha_lamp_master_id;
+            }
+            
             // API call to update booking
             TempleAPI.put(`/bookings/buddha-lamp/${this.bookingId}`, payload)
                 .done(function(response) {
@@ -829,7 +1036,7 @@
                         
                         if (formData.print_receipt) {
                             sessionStorage.setItem('temp_booking_data', JSON.stringify(bookingData));
-							const bookingId = self.bookingId;
+                            const bookingId = self.bookingId;
                             self.cleanup();
                             TempleRouter.navigate('buddha-lamp/print', { 
                                 id: bookingData.id || bookingId 
@@ -858,14 +1065,14 @@
             
             Swal.fire({
                 icon: 'success',
-                title: 'Booking Updated!',
+                title: '🏮 Booking Updated! 预订已更新！',
                 html: `
                     <p>Your Buddha Lamp booking has been updated successfully.</p>
                     <p><strong>Booking No: ${bookingData.booking_number}</strong></p>
                 `,
-                confirmButtonText: 'Back to List',
+                confirmButtonText: 'Back to List 返回列表',
                 showCancelButton: true,
-                cancelButtonText: 'View Booking',
+                cancelButtonText: 'View Booking 查看预订',
                 confirmButtonColor: '#28a745',
                 cancelButtonColor: '#007bff'
             }).then((result) => {
@@ -873,7 +1080,7 @@
                     self.cleanup();
                     TempleRouter.navigate('buddha-lamp');
                 } else if (result.dismiss === Swal.DismissReason.cancel) {
-					const bookingId = self.bookingId;
+                    const bookingId = self.bookingId;
                     self.cleanup();
                     TempleRouter.navigate('buddha-lamp/view', { id: bookingId });
                 }
@@ -882,8 +1089,8 @@
         
         // Get form data
         getFormData: function() {
-            const amount5000Checked = $('#amount5000').is(':checked');
-            const customAmount = $('input[name="amount"]').val();
+            const hasMasterSelected = this.selectedMaster !== null;
+            const customAmount = parseFloat($('#customAmountInput').val());
             
             return {
                 name_chinese: $('input[name="name_chinese"]').val().trim(),
@@ -893,7 +1100,8 @@
                 contact_no: $('input[name="contact_no"]').val().trim(),
                 booking_date: $('input[name="booking_date"]').val(),
                 booking_status: $('select[name="booking_status"]').val(),
-                amount: amount5000Checked ? 5000.00 : parseFloat(customAmount) || 0,
+                buddha_lamp_master_id: hasMasterSelected ? this.selectedMaster.id : null,
+                amount: hasMasterSelected ? this.selectedMaster.amount : customAmount,
                 payment_method: $('input[name="payment_method"]:checked').val(),
                 notes: $('textarea[name="notes"]').val().trim(),
                 print_receipt: $('#printReceipt').is(':checked')

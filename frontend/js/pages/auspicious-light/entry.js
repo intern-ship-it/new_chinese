@@ -1,6 +1,43 @@
 // // frontend/js/pages/auspicious-light/entry.js
 // // Auspicious Light Entry Form - New Registration
 
+/**
+ * ================================================================
+ * UPDATED entry.js WITH FAMILY MEMBER FUNCTIONALITY
+ * Location: frontend/js/pages/auspicious-light/entry.js
+ * ================================================================
+ *
+ * CHANGES MADE:
+ * 1. Added familyData property to store family information
+ * 2. Added selectedFamilyMembers array to track checkbox selections
+ * 3. Added searchFamilyByNric() method
+ * 4. Added displayFamilyMembers() method
+ * 5. Added Family Members Section in the HTML
+ * 6. Added auto-assign toggle for family lights
+ * 7. Modified form submission to handle multiple registrations
+ */
+
+/**
+ * ================================================================
+ * UPDATED entry.js WITH LIGHT SELECTION VALIDATION
+ * ================================================================
+ *
+ * NEW FEATURES:
+ * 1. Validates that lights selected <= family members selected
+ * 2. Shows warning if trying to select more lights than members
+ * 3. Multiple light selection for family members
+ * 4. Auto-assign assigns exactly N lights for N members
+ */
+
+/**
+ * ================================================================
+ * FIXED entry.js - Sequential Light Assignment with Debug
+ * ================================================================
+ * 
+ * FIX: Auto-assign lights sequentially to prevent duplicate lights
+ * DEBUG: Added console logs to identify the issue
+ */
+
 (function ($, window) {
     'use strict';
 
@@ -9,47 +46,45 @@
         devoteeSearchTimeout: null,
         selectedDevotee: null,
         selectedLight: null,
+        selectedLights: [],
         paymentModes: [],
+
+        // Family data properties
+        familyData: null,
+        selectedFamilyMembers: [],
+        assignedLights: [],
 
         // Initialize page
         init: function (params) {
             const self = this;
             self.params = params || {};
+            self.selectedLights = [];
             self.render();
             self.loadPaymentModes();
+            self.loadTowerCategories();
             self.attachEventHandlers();
             self.initializeDatePickers();
         },
-        // ← ADD THIS ENTIRE CLEANUP FUNCTION
+
+        // Cleanup function
         cleanup: function () {
-            // Clear timeouts
             if (this.devoteeSearchTimeout) {
                 clearTimeout(this.devoteeSearchTimeout);
                 this.devoteeSearchTimeout = null;
             }
 
-            // Remove all event listeners
-            $(document).off('input', '#devoteeSearch');
-            $(document).off('click', '#clearDevoteeBtn');
-            $(document).off('change', '#assignmentMethod');
-            $(document).off('change', '#towerSelect');
-            $(document).off('change', '#blockSelect');
-            $(document).off('change', '#floorSelect');
-            $(document).off('click', '#searchLightsBtn');
-            $(document).off('click', '#clearLightBtn');
-            $(document).off('click', '#resetFormBtn');
-            $(document).off('submit', '#registrationForm');
-            $(document).off('change', '#offerDate');
-            $(document).off('change', '#expiryDate');
-            $(document).off('click', '.devotee-item');
-            $(document).off('click', '.light-card');
+            $(document).off('.auspiciousEntry');
 
-            // Clear data
             this.selectedDevotee = null;
             this.selectedLight = null;
+            this.selectedLights = [];
             this.paymentModes = [];
             this.params = {};
+            this.familyData = null;
+            this.selectedFamilyMembers = [];
+            this.assignedLights = [];
         },
+
         // Render page HTML
         render: function () {
             const html = `
@@ -62,7 +97,7 @@
                         </div>
                     </div>
 
-                    <form id="registrationForm">
+                    <form id="registrationForm" novalidate>
                         <!-- Personal Information Section -->
                         <div class="card mb-4 shadow-sm">
                             <div class="card-header bg-light">
@@ -72,18 +107,21 @@
                                 </h5>
                             </div>
                             <div class="card-body">
-                                <!-- Search Existing Devotee -->
+                                <!-- Search by NRIC -->
                                 <div class="row mb-4">
                                     <div class="col-12">
                                         <div class="alert alert-info">
                                             <i class="bi bi-info-circle me-2"></i>
-                                            Search by NRIC or Contact to auto-fill devotee details
+                                            <strong>Search by NRIC</strong> to auto-fill devotee details and load family members
                                         </div>
                                         <div class="input-group">
                                             <span class="input-group-text"><i class="bi bi-search"></i></span>
                                             <input type="text" class="form-control form-control-lg" 
                                                    id="devoteeSearch" 
-                                                   placeholder="Enter NRIC or Contact Number to search existing devotee...">
+                                                   placeholder="Enter NRIC to search devotee and family members...">
+                                            <button type="button" class="btn btn-primary" id="searchFamilyBtn">
+                                                <i class="bi bi-people"></i> Search
+                                            </button>
                                             <button type="button" class="btn btn-outline-secondary" id="clearDevoteeBtn">
                                                 <i class="bi bi-x-lg"></i> Clear
                                             </button>
@@ -92,32 +130,74 @@
                                     </div>
                                 </div>
 
-                                <div class="row g-3">
-                                    <div class="col-md-6">
-                                        <label class="form-label">姓名 Name (Chinese) <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control" id="nameChinese" name="name_chinese" required>
+                                <!-- Family Members Section -->
+                                <div id="familyMembersSection" class="mb-4" style="display: none;">
+                                    <div class="card border-primary">
+                                        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                                            <h6 class="mb-0">
+                                                <i class="bi bi-people-fill me-2"></i>
+                                                Family Members / 家庭成员
+                                            </h6>
+                                            <div>
+                                                <button type="button" class="btn btn-sm btn-light me-2" id="selectAllFamily">
+                                                    <i class="bi bi-check-all"></i> Select All
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-light" id="deselectAllFamily">
+                                                    <i class="bi bi-x-lg"></i> Deselect All
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="card-body">
+                                            <!-- Family Head Display -->
+                                            <div id="familyHeadDisplay" class="mb-3"></div>
+                                            
+                                            <!-- Family Members List with Checkboxes -->
+                                            <div id="familyMembersList"></div>
+                                            
+                                            <!-- Selected Count -->
+                                            <div class="mt-3 p-3 bg-light rounded">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <span>
+                                                        <strong>Selected Members:</strong> 
+                                                        <span id="selectedMemberCount" class="badge bg-primary fs-6">0</span>
+                                                    </span>
+                                                    <span>
+                                                        <strong>Lights Required:</strong> 
+                                                        <span id="lightsRequiredCount" class="badge bg-warning text-dark fs-6">0</span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label">姓名 Name (English) <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control" id="nameEnglish" name="name_english" required>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label">身份证 NRIC No. <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control" id="nric" name="nric" required>
-                                        <div class="invalid-feedback">NRIC already exists</div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label">电邮 Email</label>
-                                        <input type="email" class="form-control" id="email" name="email">
-                                        <div class="invalid-feedback">Please enter a valid email</div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label">手机号码 Contact No. <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control" id="contactNo" name="contact_no" required>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label">地址 Address</label>
-                                        <input type="text" class="form-control" id="address" name="address">
+                                </div>
+
+                                <!-- Devotee Details Form -->
+                                <div id="devoteeDetailsForm">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label">姓名 Name (Chinese) <span class="text-danger">*</span></label>
+                                            <input type="text" class="form-control" id="nameChinese" name="name_chinese">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">姓名 Name (English) <span class="text-danger">*</span></label>
+                                            <input type="text" class="form-control" id="nameEnglish" name="name_english">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">身份证 NRIC No. <span class="text-danger">*</span></label>
+                                            <input type="text" class="form-control" id="nric" name="nric">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">电邮 Email</label>
+                                            <input type="email" class="form-control" id="email" name="email">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">手机号码 Contact No. <span class="text-danger">*</span></label>
+                                            <input type="text" class="form-control" id="contactNo" name="contact_no">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">地址 Address</label>
+                                            <input type="text" class="form-control" id="address" name="address">
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -133,25 +213,44 @@
                             </div>
                             <div class="card-body">
                                 <div class="row g-3">
-                                    <div class="col-md-6">
-                                        <label class="form-label">Light Assignment Method <span class="text-danger">*</span></label>
-                                        <select class="form-select" id="assignmentMethod" required>
-                                            <option value="">-- Select Method --</option>
-                                            <option value="auto" selected>Auto-assign Next Available Light</option>
-                                            <option value="manual">Manual Selection</option>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Tower Category <span class="text-danger">*</span></label>
+                                        <select class="form-select" id="towerCategory">
+                                            <option value="">-- Select Category --</option>
                                         </select>
                                     </div>
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
+                                        <label class="form-label">Light Assignment Method <span class="text-danger">*</span></label>
+                                        <select class="form-select" id="assignmentMethod" disabled>
+                                            <option value="">-- Select Method --</option>
+                                            <option value="auto">Auto-assign Next Available Light</option>
+                                            <option value="manual">Manual Selection</option>
+                                        </select>
+                                        <small class="text-muted">Select a category first</small>
+                                    </div>
+                                    <div class="col-md-4">
                                         <label class="form-label">Light Option / 灯位类型 <span class="text-danger">*</span></label>
-                                        <select class="form-select" id="lightOption" name="light_option" required>
+                                        <select class="form-select" id="lightOption" name="light_option">
                                             <option value="">-- Select Option --</option>
                                             <option value="new_light">New Light (Individual) / 新灯</option>
                                             <option value="family_light">Family Light / 全家灯</option>
                                         </select>
                                     </div>
+                                    
+                                    <!-- Auto-Assign for Family Toggle -->
+                                    <div class="col-md-4" id="autoAssignFamilyContainer" style="display: none;">
+                                        <label class="form-label">Auto-Assign for Family</label>
+                                        <div class="form-check form-switch mt-2">
+                                            <input class="form-check-input" type="checkbox" id="autoAssignLights" style="width: 50px; height: 25px;">
+                                            <label class="form-check-label ms-2" for="autoAssignLights">
+                                                <span id="autoAssignLabel">Disabled</span>
+                                            </label>
+                                        </div>
+                                        <small class="text-muted">Auto-assigns lights to all selected family members</small>
+                                    </div>
                                 </div>
 
-                                <!-- Manual Selection Controls (Hidden by default) -->
+                                <!-- Manual Selection Controls -->
                                 <div id="manualSelectionControls" class="mt-3" style="display: none;">
                                     <div class="row g-3">
                                         <div class="col-md-4">
@@ -178,10 +277,19 @@
                                             <i class="bi bi-search"></i> Search Available Lights
                                         </button>
                                     </div>
+                                    
+                                    <!-- Validation Message for Light Selection -->
+                                    <div id="lightSelectionValidation" class="mt-3" style="display: none;">
+                                        <div class="alert alert-warning mb-0">
+                                            <i class="bi bi-exclamation-triangle me-2"></i>
+                                            <span id="lightValidationMessage"></span>
+                                        </div>
+                                    </div>
+                                    
                                     <div id="availableLightsContainer" class="mt-3"></div>
                                 </div>
 
-                                <!-- Selected Light Display -->
+                                <!-- Selected Light Display (for single) -->
                                 <div id="selectedLightDisplay" class="mt-4" style="display: none;">
                                     <div class="alert alert-success">
                                         <h6 class="alert-heading"><i class="bi bi-check-circle me-2"></i>Selected Light</h6>
@@ -208,6 +316,31 @@
                                         </button>
                                     </div>
                                 </div>
+
+                                <!-- Selected Lights Display (for multiple/family) -->
+                                <div id="selectedLightsDisplay" class="mt-4" style="display: none;">
+                                    <div class="alert alert-success">
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <h6 class="alert-heading mb-0">
+                                                <i class="bi bi-check-circle me-2"></i>
+                                                Selected Lights: <span id="selectedLightsCount" class="badge bg-primary">0</span>
+                                                / <span id="maxLightsAllowed" class="badge bg-secondary">0</span> allowed
+                                            </h6>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" id="clearAllLightsBtn">
+                                                <i class="bi bi-x-circle"></i> Clear All
+                                            </button>
+                                        </div>
+                                        <div id="selectedLightsList" class="row g-2"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Assigned Lights Display (for auto-assign) -->
+                                <div id="assignedLightsDisplay" class="mt-4" style="display: none;">
+                                    <div class="alert alert-info">
+                                        <h6 class="alert-heading"><i class="bi bi-lightbulb-fill me-2"></i>Assigned Lights for Family Members</h6>
+                                        <div id="assignedLightsList"></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -223,11 +356,11 @@
                                 <div class="row g-3">
                                     <div class="col-md-4">
                                         <label class="form-label">Offer Date / 供灯日期 <span class="text-danger">*</span></label>
-                                        <input type="date" class="form-control" id="offerDate" name="offer_date" required>
+                                        <input type="date" class="form-control" id="offerDate" name="offer_date">
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label">Expiry Date / 到期日期 <span class="text-danger">*</span></label>
-                                        <input type="date" class="form-control" id="expiryDate" name="expiry_date" required>
+                                        <input type="date" class="form-control" id="expiryDate" name="expiry_date">
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label">Duration (Days)</label>
@@ -236,11 +369,12 @@
                                     <div class="col-md-6">
                                         <label class="form-label">Merit Amount / 功德金 (RM) <span class="text-danger">*</span></label>
                                         <input type="number" class="form-control" id="meritAmount" name="merit_amount" 
-                                               step="0.01" min="0.01" required>
+                                               step="0.01" min="0.01">
+                                        <small class="text-muted" id="meritAmountHint"></small>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Payment Mode <span class="text-danger">*</span></label>
-                                        <select class="form-select" id="paymentMode" name="payment_mode_id" required>
+                                        <select class="form-select" id="paymentMode" name="payment_mode_id">
                                             <option value="">-- Select Payment Mode --</option>
                                         </select>
                                     </div>
@@ -270,9 +404,12 @@
                                     <button type="button" class="btn btn-outline-secondary btn-lg" id="resetFormBtn">
                                         <i class="bi bi-arrow-counterclockwise"></i> Reset Form
                                     </button>
-                                    <button type="submit" class="btn btn-success btn-lg px-5" id="submitBtn">
-                                        <i class="bi bi-check-circle"></i> Submit Registration
-                                    </button>
+                                    <div>
+                                        <span id="registrationSummary" class="me-3"></span>
+                                        <button type="submit" class="btn btn-success btn-lg px-5" id="submitBtn">
+                                            <i class="bi bi-check-circle"></i> Submit Registration
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -281,11 +418,7 @@
             `;
 
             $('#page-container').html(html);
-
-            // Set default offer date to today
             $('#offerDate').val(moment().format('YYYY-MM-DD'));
-
-            // Set default expiry date to 1 year from today
             $('#expiryDate').val(moment().add(1, 'year').format('YYYY-MM-DD'));
         },
 
@@ -293,7 +426,7 @@
         loadPaymentModes: function () {
             const self = this;
 
-            TempleAPI.get('/masters/payment-modes/active')  // Correct path from routes
+            TempleAPI.get('/masters/payment-modes/active')
                 .done(function (response) {
                     if (response.success && response.data) {
                         self.paymentModes = response.data;
@@ -305,7 +438,6 @@
                 });
         },
 
-        // Populate payment modes dropdown
         populatePaymentModes: function () {
             const $select = $('#paymentMode');
             $select.empty().append('<option value="">-- Select Payment Mode --</option>');
@@ -315,13 +447,30 @@
             });
         },
 
-        
-        // Initialize date pickers
-        initializeDatePickers: function () {
+        // Load tower categories
+        loadTowerCategories: function () {
             const self = this;
 
-            // Calculate duration when dates change - USE DELEGATED EVENTS
-            $(document).on('change', '#offerDate, #expiryDate', function () {
+            PagodaAPI.towerCategories.getActive()
+                .done(function (response) {
+                    if (response.success && response.data) {
+                        const categories = response.data;
+                        const $select = $('#towerCategory');
+                        $select.empty().append('<option value="">-- Select Category --</option>');
+
+                        categories.forEach(function (category) {
+                            $select.append(`<option value="${category.id}">${category.full_name}</option>`);
+                        });
+                    }
+                })
+                .fail(function () {
+                    console.warn('Failed to load tower categories');
+                    TempleUtils.showWarning('Could not load tower categories. Please refresh the page.');
+                });
+        },
+
+        initializeDatePickers: function () {
+            $(document).on('change.auspiciousEntry', '#offerDate, #expiryDate', function () {
                 const offerDate = $('#offerDate').val();
                 const expiryDate = $('#expiryDate').val();
 
@@ -341,45 +490,108 @@
         },
 
         // Attach event handlers
-       
         attachEventHandlers: function () {
             const self = this;
 
-            // Devotee search - USE DELEGATED EVENT
-            $(document).on('input', '#devoteeSearch', function () {
-                clearTimeout(self.devoteeSearchTimeout);
-                const query = $(this).val().trim();
-
-                if (query.length >= 3) {
-                    self.devoteeSearchTimeout = setTimeout(function () {
-                        self.searchDevotee(query);
-                    }, 500);
+            // Search Family Button
+            $(document).on('click.auspiciousEntry', '#searchFamilyBtn', function () {
+                const nric = $('#devoteeSearch').val().trim();
+                if (nric.length >= 3) {
+                    self.searchFamilyByNric(nric);
                 } else {
-                    $('#devoteeSearchResults').empty();
+                    TempleUtils.showWarning('Please enter at least 3 characters');
+                }
+            });
+
+            // Enter key triggers search
+            $(document).on('keypress.auspiciousEntry', '#devoteeSearch', function (e) {
+                if (e.which === 13) {
+                    e.preventDefault();
+                    $('#searchFamilyBtn').click();
                 }
             });
 
             // Clear devotee search
-            $(document).on('click', '#clearDevoteeBtn', function () {
+            $(document).on('click.auspiciousEntry', '#clearDevoteeBtn', function () {
                 self.clearDevoteeSearch();
             });
 
+            // Family member checkbox change
+            $(document).on('change.auspiciousEntry', '.family-member-checkbox', function () {
+                self.updateSelectedFamilyMembers();
+            });
+
+            // Select All Family
+            $(document).on('click.auspiciousEntry', '#selectAllFamily', function () {
+                $('.family-member-checkbox').prop('checked', true);
+                self.updateSelectedFamilyMembers();
+            });
+
+            // Deselect All Family
+            $(document).on('click.auspiciousEntry', '#deselectAllFamily', function () {
+                $('.family-member-checkbox').prop('checked', false);
+                self.updateSelectedFamilyMembers();
+            });
+
+            // Auto-assign toggle change
+            $(document).on('change.auspiciousEntry', '#autoAssignLights', function () {
+                const isEnabled = $(this).is(':checked');
+                $('#autoAssignLabel').text(isEnabled ? 'Enabled' : 'Disabled');
+
+                if (isEnabled && self.selectedFamilyMembers.length > 0) {
+                    self.autoAssignLightsForFamily();
+                } else {
+                    self.clearAssignedLights();
+                }
+            });
+
+            // Tower category change
+            $(document).on('change.auspiciousEntry', '#towerCategory', function () {
+                const categoryId = $(this).val();
+
+                if (categoryId) {
+                    // Enable assignment method dropdown when category is selected
+                    $('#assignmentMethod').prop('disabled', false);
+                    $('#assignmentMethod').next('small').text('Select how to assign lights');
+                } else {
+                    // Disable and reset assignment method when no category selected
+                    $('#assignmentMethod').prop('disabled', true).val('');
+                    $('#assignmentMethod').next('small').text('Select a category first');
+                    $('#manualSelectionControls').hide();
+                    $('#autoAssignFamilyContainer').hide();
+                }
+            });
+
             // Assignment method change
-            $(document).on('change', '#assignmentMethod', function () {
+            $(document).on('change.auspiciousEntry', '#assignmentMethod', function () {
                 const method = $(this).val();
 
                 if (method === 'auto') {
                     $('#manualSelectionControls').hide();
-                    self.autoAssignLight();
+
+                    if (self.selectedFamilyMembers.length > 0) {
+                        $('#autoAssignFamilyContainer').show();
+                        self.checkAutoEnableAutoAssign();
+                    } else {
+                        self.autoAssignLight();
+                    }
                 } else if (method === 'manual') {
                     $('#manualSelectionControls').show();
+                    $('#autoAssignFamilyContainer').hide();
                     $('#selectedLightDisplay').hide();
+                    $('#assignedLightsDisplay').hide();
                     self.loadTowers();
+                    self.updateLightSelectionUI();
                 }
             });
 
+            // Light Option change
+            $(document).on('change.auspiciousEntry', '#lightOption', function () {
+                self.checkAutoEnableAutoAssign();
+            });
+
             // Tower selection
-            $(document).on('change', '#towerSelect', function () {
+            $(document).on('change.auspiciousEntry', '#towerSelect', function () {
                 const towerId = $(this).val();
                 if (towerId) {
                     self.loadBlocks(towerId);
@@ -391,7 +603,7 @@
             });
 
             // Block selection
-            $(document).on('change', '#blockSelect', function () {
+            $(document).on('change.auspiciousEntry', '#blockSelect', function () {
                 const blockId = $(this).val();
                 if (blockId) {
                     self.loadFloors(blockId);
@@ -402,145 +614,662 @@
             });
 
             // Floor selection
-            $(document).on('change', '#floorSelect', function () {
+            $(document).on('change.auspiciousEntry', '#floorSelect', function () {
                 const floor = $(this).val();
                 $('#searchLightsBtn').prop('disabled', !floor);
             });
 
             // Search lights
-            $(document).on('click', '#searchLightsBtn', function () {
+            $(document).on('click.auspiciousEntry', '#searchLightsBtn', function () {
                 self.searchAvailableLights();
             });
 
-            // Clear selected light
-            $(document).on('click', '#clearLightBtn', function () {
+            // Clear selected light (single)
+            $(document).on('click.auspiciousEntry', '#clearLightBtn', function () {
                 self.selectedLight = null;
                 $('#selectedLightDisplay').hide();
             });
 
+            // Clear all selected lights (multiple)
+            $(document).on('click.auspiciousEntry', '#clearAllLightsBtn', function () {
+                self.selectedLights = [];
+                self.updateSelectedLightsDisplay();
+                $('.light-card').removeClass('selected border-success bg-success bg-opacity-10');
+            });
+
+            // Remove individual light from selection
+            $(document).on('click.auspiciousEntry', '.remove-selected-light', function () {
+                const lightId = $(this).data('id');
+                self.removeLightFromSelection(lightId);
+            });
+
             // Reset form
-            $(document).on('click', '#resetFormBtn', function () {
+            $(document).on('click.auspiciousEntry', '#resetFormBtn', function () {
                 self.resetForm();
             });
 
             // Form submission
-            $(document).on('submit', '#registrationForm', function (e) {
+            $(document).on('submit.auspiciousEntry', '#registrationForm', function (e) {
                 e.preventDefault();
                 self.submitRegistration();
             });
 
-            // Trigger auto-assign on page load
-            if ($('#assignmentMethod').val() === 'auto') {
-                self.autoAssignLight();
+            // Merit amount change
+            $(document).on('input.auspiciousEntry', '#meritAmount', function () {
+                self.updateMeritAmountHint();
+            });
+        },
+
+        // Check if should auto-enable Auto-Assign for Family
+        checkAutoEnableAutoAssign: function () {
+            const self = this;
+            const assignmentMethod = $('#assignmentMethod').val();
+            const lightOption = $('#lightOption').val();
+            const hasFamilyMembers = self.selectedFamilyMembers.length > 0;
+
+            if (assignmentMethod === 'auto' && lightOption === 'family_light' && hasFamilyMembers) {
+                $('#autoAssignFamilyContainer').show();
+
+                if (!$('#autoAssignLights').is(':checked')) {
+                    $('#autoAssignLights').prop('checked', true);
+                    $('#autoAssignLabel').text('Enabled');
+                    self.autoAssignLightsForFamily();
+                    TempleUtils.showSuccess('Auto-Assign for Family has been enabled automatically');
+                }
             }
         },
 
-        // Search devotee by NRIC or contact
-        searchDevotee: function (query) {
+        // Auto-fill devotee form
+        autoFillDevoteeForm: function (devotee) {
+            if (!devotee) return;
+
+            $('#nameChinese').val(devotee.name_chinese || '');
+            $('#nameEnglish').val(devotee.name_english || devotee.name || '');
+            $('#nric').val(devotee.nric || '');
+            $('#email').val(devotee.email || '');
+            $('#contactNo').val(devotee.contact_no || '');
+            $('#address').val(devotee.address || '');
+
+            this.selectedDevotee = devotee;
+        },
+
+        // Custom validation
+        validateForm: function () {
             const self = this;
-            const $results = $('#devoteeSearchResults');
+            const errors = [];
+            const isFamilyMode = self.selectedFamilyMembers.length > 0;
 
-            $results.html('<div class="text-center py-2"><div class="spinner-border spinner-border-sm"></div> Searching...</div>');
+            if (isFamilyMode) {
+                if (self.selectedFamilyMembers.length === 0) {
+                    errors.push('Please select at least one family member');
+                }
+            } else {
+                if (!$('#nameEnglish').val().trim()) {
+                    errors.push('Name (English) is required');
+                    $('#nameEnglish').addClass('is-invalid');
+                }
+                if (!$('#nric').val().trim()) {
+                    errors.push('NRIC is required');
+                    $('#nric').addClass('is-invalid');
+                }
+                if (!$('#contactNo').val().trim()) {
+                    errors.push('Contact No. is required');
+                    $('#contactNo').addClass('is-invalid');
+                }
+            }
 
-            PagodaAPI.devotees.search(query)  // Pass query as string directly
+            if (!$('#towerCategory').val()) {
+                errors.push('Tower Category is required');
+                $('#towerCategory').addClass('is-invalid');
+            }
+
+            if (!$('#assignmentMethod').val()) {
+                errors.push('Light Assignment Method is required');
+                $('#assignmentMethod').addClass('is-invalid');
+            }
+
+            if (!$('#lightOption').val()) {
+                errors.push('Light Option is required');
+                $('#lightOption').addClass('is-invalid');
+            }
+
+            if (!$('#offerDate').val()) {
+                errors.push('Offer Date is required');
+                $('#offerDate').addClass('is-invalid');
+            }
+
+            if (!$('#expiryDate').val()) {
+                errors.push('Expiry Date is required');
+                $('#expiryDate').addClass('is-invalid');
+            }
+
+            if (!$('#meritAmount').val() || parseFloat($('#meritAmount').val()) <= 0) {
+                errors.push('Merit Amount is required');
+                $('#meritAmount').addClass('is-invalid');
+            }
+
+            if (!$('#paymentMode').val()) {
+                errors.push('Payment Mode is required');
+                $('#paymentMode').addClass('is-invalid');
+            }
+
+            return errors;
+        },
+
+        clearValidationErrors: function () {
+            $('.is-invalid').removeClass('is-invalid');
+        },
+
+        getMaxAllowedLights: function () {
+            if (this.selectedFamilyMembers.length > 0) {
+                return this.selectedFamilyMembers.length;
+            }
+            return 1;
+        },
+
+        canSelectMoreLights: function () {
+            const maxAllowed = this.getMaxAllowedLights();
+            return this.selectedLights.length < maxAllowed;
+        },
+
+        updateLightSelectionUI: function () {
+            const maxAllowed = this.getMaxAllowedLights();
+            const currentCount = this.selectedLights.length;
+
+            $('#maxLightsAllowed').text(maxAllowed);
+            $('#selectedLightsCount').text(currentCount);
+
+            if (currentCount >= maxAllowed && maxAllowed > 0) {
+                $('#lightSelectionValidation').show();
+                $('#lightValidationMessage').html(
+                    `You can only select <strong>${maxAllowed}</strong> light(s) for <strong>${maxAllowed}</strong> family member(s). ` +
+                    `<br>Deselect a light or add more family members to select more lights.`
+                );
+            } else {
+                $('#lightSelectionValidation').hide();
+            }
+
+            if (maxAllowed > 1) {
+                $('#selectedLightsDisplay').show();
+                $('#selectedLightDisplay').hide();
+            } else {
+                $('#selectedLightsDisplay').hide();
+            }
+        },
+
+        updateSelectedLightsDisplay: function () {
+            const self = this;
+            const $list = $('#selectedLightsList');
+
+            if (self.selectedLights.length === 0) {
+                $list.html('<div class="col-12 text-muted text-center py-3">No lights selected yet</div>');
+            } else {
+                let html = '';
+                self.selectedLights.forEach(function (light) {
+                    html += `
+                        <div class="col-md-3 col-sm-4 col-6">
+                            <div class="card bg-light">
+                                <div class="card-body p-2 text-center">
+                                    <div class="fw-bold text-primary">${light.light_number}</div>
+                                    <small class="text-muted">${light.light_code}</small>
+                                    <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2 remove-selected-light" 
+                                            data-id="${light.id}" title="Remove">
+                                        <i class="bi bi-x-circle"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                $list.html(html);
+            }
+
+            self.updateLightSelectionUI();
+            self.updateMeritAmountHint();
+        },
+
+        removeLightFromSelection: function (lightId) {
+            const self = this;
+
+            self.selectedLights = self.selectedLights.filter(l => l.id !== lightId);
+            $(`.light-card[data-light-id="${lightId}"]`).removeClass('selected border-success bg-success bg-opacity-10');
+            $(`.light-card[data-light-id="${lightId}"]`).find('.bi-check-circle-fill').parent().remove();
+
+            self.updateSelectedLightsDisplay();
+        },
+
+        addLightToSelection: function (light) {
+            const self = this;
+
+            if (self.selectedLights.find(l => l.id === light.id)) {
+                TempleUtils.showWarning('This light is already selected');
+                return false;
+            }
+
+            if (!self.canSelectMoreLights()) {
+                const maxAllowed = self.getMaxAllowedLights();
+                TempleUtils.showWarning(
+                    `Maximum ${maxAllowed} light(s) allowed for ${maxAllowed} family member(s). ` +
+                    `Please deselect a light first or add more family members.`
+                );
+                return false;
+            }
+
+            self.selectedLights.push(light);
+            self.updateSelectedLightsDisplay();
+            return true;
+        },
+
+        updateMeritAmountHint: function () {
+            const count = this.selectedFamilyMembers.length > 0
+                ? this.selectedFamilyMembers.length
+                : (this.selectedLights.length > 0 ? this.selectedLights.length : 1);
+            const baseAmount = parseFloat($('#meritAmount').val()) || 0;
+
+            if (count > 1 && baseAmount > 0) {
+                $('#meritAmountHint').text(`Total: RM ${(baseAmount * count).toFixed(2)} for ${count} light(s)`);
+            } else {
+                $('#meritAmountHint').text('');
+            }
+        },
+
+        // Search Family by NRIC
+        searchFamilyByNric: function (nric) {
+            const self = this;
+
+            TempleUtils.showLoading('Searching for devotee and family members...');
+
+            PagodaAPI.devotees.getFamilyByNric(nric)
                 .done(function (response) {
-                    if (response.success && response.data && response.data.length > 0) {
-                        let html = '<div class="list-group">';
-                        response.data.forEach(function (devotee) {
-                            html += `
-                                <a href="#" class="list-group-item list-group-item-action devotee-item" data-devotee='${JSON.stringify(devotee)}'>
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <strong>${devotee.name_english || ''}</strong> ${devotee.name_chinese ? '/ ' + devotee.name_chinese : ''}
-                                            <br>
-                                            <small class="text-muted">
-                                                NRIC: ${devotee.nric || 'N/A'} | Contact: ${devotee.contact_no || 'N/A'}
-                                            </small>
-                                        </div>
-                                        <span class="badge bg-primary">Select</span>
-                                    </div>
-                                </a>
-                            `;
-                        });
-                        html += '</div>';
-                        $results.html(html);
+                    if (response.success && response.data) {
+                        const data = response.data;
 
-                        
-                        // Handle devotee selection - USE DELEGATED EVENT
-                        $(document).off('click', '.devotee-item').on('click', '.devotee-item', function (e) {
-                            e.preventDefault();
-                            const devotee = $(this).data('devotee');
-                            self.selectDevotee(devotee);
-                        });
-                    } else {
-                        $results.html('<div class="alert alert-info mb-0"><i class="bi bi-info-circle me-2"></i>No existing devotee found. Please enter new devotee details.</div>');
+                        if (!data.found) {
+                            $('#devoteeSearchResults').html(`
+                                <div class="alert alert-info mb-0">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    No existing devotee found with NRIC: <strong>${nric}</strong>. 
+                                    Please enter devotee details manually below.
+                                </div>
+                            `);
+                            $('#familyMembersSection').hide();
+                            $('#devoteeDetailsForm').show();
+                            $('#nric').val(nric);
+                            self.familyData = null;
+                            self.selectedFamilyMembers = [];
+                            self.selectedLights = [];
+                            self.updateLightSelectionUI();
+                            return;
+                        }
+
+                        self.familyData = data;
+
+                        // Auto-fill devotee form
+                        const searchedDevotee = data.devotee || data.family_head;
+                        if (searchedDevotee) {
+                            self.autoFillDevoteeForm(searchedDevotee);
+                            TempleUtils.showSuccess('Devotee details loaded successfully');
+                        }
+
+                        if (data.has_family && (data.family_head || data.family_members.length > 0)) {
+                            self.displayFamilyMembers(data);
+                            $('#devoteeDetailsForm').show();
+                        } else {
+                            $('#familyMembersSection').hide();
+                        }
                     }
                 })
-                .fail(function () {
-                    $results.html('<div class="alert alert-danger mb-0">Search failed. Please try again.</div>');
+                .fail(function (xhr) {
+                    TempleUtils.handleAjaxError(xhr, 'Failed to search for family members');
+                })
+                .always(function () {
+                    TempleUtils.hideLoading();
                 });
         },
 
-        // Select devotee and populate form
+        // Display Family Members
+        displayFamilyMembers: function (data) {
+            const self = this;
+
+            $('#familyMembersSection').show();
+
+            // Display Family Head
+            let headHtml = '';
+            if (data.family_head) {
+                const head = data.family_head;
+                const headJson = JSON.stringify(head).replace(/'/g, "&apos;");
+                headHtml = `
+                    <div class="card bg-light mb-3">
+                        <div class="card-body">
+                            <div class="form-check">
+                                <input class="form-check-input family-member-checkbox" type="checkbox" 
+                                       value="${head.devotee_id}" 
+                                       id="family_head_check"
+                                       data-member='${headJson}'>
+                                <label class="form-check-label w-100" for="family_head_check">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <span class="badge bg-primary me-2">HEAD</span>
+                                            <strong>${head.name_english || head.name || ''}</strong>
+                                            ${head.name_chinese ? '<span class="text-muted ms-2">' + head.name_chinese + '</span>' : ''}
+                                        </div>
+                                        <div class="text-end">
+                                            <small class="text-muted">NRIC: ${head.nric || 'N/A'}</small><br>
+                                            <small class="text-muted">Contact: ${head.contact_no || 'N/A'}</small>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            $('#familyHeadDisplay').html(headHtml);
+
+            // Display Family Members
+            let membersHtml = '';
+            if (data.family_members && data.family_members.length > 0) {
+                membersHtml = '<div class="row g-2">';
+                data.family_members.forEach(function (member, index) {
+                    const memberJson = JSON.stringify(member).replace(/'/g, "&apos;");
+                    membersHtml += `
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body py-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input family-member-checkbox" type="checkbox" 
+                                               value="${member.devotee_id}" 
+                                               id="family_member_${index}"
+                                               data-member='${memberJson}'>
+                                        <label class="form-check-label w-100" for="family_member_${index}">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <strong>${member.name_english || member.name || ''}</strong>
+                                                    ${member.name_chinese ? '<br><small class="text-muted">' + member.name_chinese + '</small>' : ''}
+                                                    ${member.relationship ? '<br><span class="badge bg-info">' + member.relationship + '</span>' : ''}
+                                                </div>
+                                                <div class="text-end">
+                                                    <small class="text-muted">${member.nric || 'N/A'}</small>
+                                                </div>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                membersHtml += '</div>';
+            } else {
+                membersHtml = '<div class="text-muted text-center py-3">No other family members found</div>';
+            }
+            $('#familyMembersList').html(membersHtml);
+
+            self.updateSelectedFamilyMembers();
+
+            const totalCount = data.total_family_count || 0;
+            $('#devoteeSearchResults').html(`
+                <div class="alert alert-success mb-0">
+                    <i class="bi bi-check-circle me-2"></i>
+                    Found <strong>${totalCount}</strong> family member(s). 
+                    ${data.is_head_of_family ? 'The searched NRIC belongs to the <strong>Head of Family</strong>.' : 'The searched NRIC belongs to a <strong>Family Member</strong>.'}
+                    <br><small class="text-muted">Select the family members who should receive lights using the checkboxes above.</small>
+                </div>
+            `);
+        },
+
+        // Update Selected Family Members
+        updateSelectedFamilyMembers: function () {
+            const self = this;
+            self.selectedFamilyMembers = [];
+
+            $('.family-member-checkbox:checked').each(function () {
+                const memberData = $(this).data('member');
+                if (memberData) {
+                    self.selectedFamilyMembers.push(memberData);
+                }
+            });
+
+            const count = self.selectedFamilyMembers.length;
+            $('#selectedMemberCount').text(count);
+            $('#lightsRequiredCount').text(count);
+
+            // Clear excess lights
+            while (self.selectedLights.length > count && count > 0) {
+                const removedLight = self.selectedLights.pop();
+                $(`.light-card[data-light-id="${removedLight.id}"]`).removeClass('selected border-success bg-success bg-opacity-10');
+            }
+
+            self.updateLightSelectionUI();
+            self.updateSelectedLightsDisplay();
+
+            if (count > 0) {
+                $('#registrationSummary').html(`
+                    <span class="badge bg-info fs-6">
+                        ${count} member(s) selected for registration
+                    </span>
+                `);
+
+                if ($('#assignmentMethod').val() === 'auto') {
+                    $('#autoAssignFamilyContainer').show();
+                }
+
+                self.checkAutoEnableAutoAssign();
+            } else {
+                $('#registrationSummary').html('');
+                $('#autoAssignFamilyContainer').hide();
+            }
+
+            self.updateMeritAmountHint();
+
+            if ($('#autoAssignLights').is(':checked')) {
+                self.autoAssignLightsForFamily();
+            }
+        },
+
+        // Auto-assign single light for individual registration
+        autoAssignLight: function () {
+            const self = this;
+            const categoryId = $('#towerCategory').val();
+
+            if (!categoryId) {
+                TempleUtils.showWarning('Please select a tower category first');
+                return;
+            }
+
+            TempleUtils.showLoading('Finding next available light...');
+
+            // Get next available light from the selected category
+            PagodaAPI.lights.getNextAvailable({ category_id: categoryId })
+                .done(function (response) {
+                    console.log('Auto-assign light response:', response);
+
+                    if (response.success && response.data) {
+                        self.selectedLight = response.data;
+                        self.displaySelectedLight();
+                        TempleUtils.showSuccess(`Light ${response.data.light_number} has been auto-assigned`);
+                    } else {
+                        TempleUtils.showError('No available lights found in the selected category');
+                    }
+                })
+                .fail(function (xhr) {
+                    console.error('Failed to auto-assign light:', xhr);
+                    TempleUtils.handleAjaxError(xhr, 'Failed to auto-assign light');
+                })
+                .always(function () {
+                    TempleUtils.hideLoading();
+                });
+        },
+
+        // ★★★ FIXED: Auto-assign lights SEQUENTIALLY using light_number exclusion ★★★
+        autoAssignLightsForFamily: function () {
+            const self = this;
+            const count = self.selectedFamilyMembers.length;
+
+            if (count === 0) {
+                self.clearAssignedLights();
+                return;
+            }
+
+            TempleUtils.showLoading(`Assigning ${count} light(s) for family members...`);
+            self.assignedLights = [];
+
+            // Track assigned light numbers to exclude
+            let assignedLightNumbers = [];
+
+            // ★ SEQUENTIAL ASSIGNMENT - One at a time
+            const assignNextLight = function (index) {
+                if (index >= count) {
+                    // All done
+                    self.displayAssignedLights();
+                    TempleUtils.hideLoading();
+
+                    if (self.assignedLights.length < count) {
+                        TempleUtils.showWarning(`Only ${self.assignedLights.length} of ${count} lights could be assigned. Not enough available lights.`);
+                    } else {
+                        TempleUtils.showSuccess(`Successfully assigned ${self.assignedLights.length} unique light(s) for family members`);
+                    }
+                    return;
+                }
+
+                const member = self.selectedFamilyMembers[index];
+
+                // Build exclude_ids from already assigned lights
+                const excludeIds = self.assignedLights.map(item => item.light.id).filter(id => id);
+
+                console.log(`[DEBUG] Assigning light ${index + 1}/${count} for: ${member.name_english}`);
+                console.log(`[DEBUG] Exclude IDs:`, excludeIds);
+
+                // Call API with exclude_ids
+                const params = excludeIds.length > 0 ? { exclude_ids: excludeIds } : {};
+
+                PagodaAPI.lights.getNextAvailable(params)
+                    .done(function (response) {
+                        console.log(`[DEBUG] API Response for ${member.name_english}:`, response);
+
+                        if (response.success && response.data) {
+                            const light = response.data;
+
+                            // Check if this light was already assigned (fallback check)
+                            const alreadyAssigned = self.assignedLights.find(
+                                item => item.light.light_number === light.light_number
+                            );
+
+                            if (alreadyAssigned) {
+                                console.warn(`[WARNING] Light ${light.light_number} was already assigned! Skipping...`);
+                                // Try next member anyway
+                                assignNextLight(index + 1);
+                                return;
+                            }
+
+                            self.assignedLights.push({
+                                member: member,
+                                light: light
+                            });
+
+                            console.log(`[DEBUG] Assigned light ${light.light_number} (${light.light_code}) to ${member.name_english}`);
+                        } else {
+                            console.error(`[ERROR] No light available for ${member.name_english}`);
+                        }
+
+                        // Continue to next member
+                        assignNextLight(index + 1);
+                    })
+                    .fail(function (xhr) {
+                        console.error(`[ERROR] Failed to get light for ${member.name_english}:`, xhr);
+                        // Continue to next member even on failure
+                        assignNextLight(index + 1);
+                    });
+            };
+
+            // Start sequential assignment from index 0
+            assignNextLight(0);
+        },
+
+        // Display assigned lights
+        displayAssignedLights: function () {
+            const self = this;
+
+            if (self.assignedLights.length === 0) {
+                $('#assignedLightsDisplay').hide();
+                return;
+            }
+
+            let html = '<div class="table-responsive"><table class="table table-sm table-bordered mb-0">';
+            html += '<thead class="table-light"><tr><th>Member</th><th>Light Number</th><th>Light Code</th><th>Location</th></tr></thead>';
+            html += '<tbody>';
+
+            self.assignedLights.forEach(function (item) {
+                const member = item.member;
+                const light = item.light;
+                html += `
+                    <tr>
+                        <td>
+                            ${member.name_english || member.name || ''}
+                            ${member.is_head ? '<span class="badge bg-primary ms-1">HEAD</span>' : ''}
+                        </td>
+                        <td><strong class="text-primary">${light.light_number}</strong></td>
+                        <td><code>${light.light_code}</code></td>
+                        <td>Floor ${light.floor_number}, Position ${light.rag_position}</td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table></div>';
+
+            $('#assignedLightsList').html(html);
+            $('#assignedLightsDisplay').show();
+            $('#selectedLightDisplay').hide();
+            $('#selectedLightsDisplay').hide();
+        },
+
+        clearAssignedLights: function () {
+            this.assignedLights = [];
+            $('#assignedLightsDisplay').hide();
+            $('#assignedLightsList').html('');
+        },
+
         selectDevotee: function (devotee) {
-            this.selectedDevotee = devotee;
+            this.autoFillDevoteeForm(devotee);
 
-            // Populate ALL form fields
-            $('#nameChinese').val(devotee.name_chinese || '');
-            $('#nameEnglish').val(devotee.name_english || '');
-            $('#nric').val(devotee.nric || '').prop('readonly', true);
-            $('#email').val(devotee.email || '');
-            $('#contactNo').val(devotee.contact_no || '');  // ← Make sure this is set
-            $('#address').val(devotee.address || '');
-
-            // Clear search
             $('#devoteeSearch').val('');
             $('#devoteeSearchResults').html(`
-        <div class="alert alert-success mb-0">
-            <i class="bi bi-check-circle me-2"></i>
-            Devotee selected: <strong>${devotee.name_english}</strong>
-            <br>
-            <small class="text-muted">Contact: ${devotee.contact_no || 'N/A'}</small>
-        </div>
-    `);
+                <div class="alert alert-success mb-0">
+                    <i class="bi bi-check-circle me-2"></i>
+                    Devotee selected: <strong>${devotee.name_english || devotee.name}</strong>
+                    <br>
+                    <small class="text-muted">Contact: ${devotee.contact_no || 'N/A'}</small>
+                </div>
+            `);
 
+            $('#devoteeDetailsForm').show();
             TempleUtils.showSuccess('Devotee details loaded');
         },
 
-        // Clear devotee search
         clearDevoteeSearch: function () {
             this.selectedDevotee = null;
+            this.familyData = null;
+            this.selectedFamilyMembers = [];
+            this.assignedLights = [];
+            this.selectedLights = [];
+
             $('#devoteeSearch').val('');
             $('#devoteeSearchResults').empty();
+            $('#familyMembersSection').hide();
+            $('#devoteeDetailsForm').show();
             $('#nric').prop('readonly', false);
             $('#nameChinese, #nameEnglish, #nric, #email, #contactNo, #address').val('');
+            $('#selectedMemberCount').text('0');
+            $('#lightsRequiredCount').text('0');
+            $('#registrationSummary').html('');
+            $('#autoAssignFamilyContainer').hide();
+            $('#assignedLightsDisplay').hide();
+            $('#selectedLightsDisplay').hide();
+            $('#autoAssignLights').prop('checked', false);
+            $('#autoAssignLabel').text('Disabled');
+            this.updateLightSelectionUI();
         },
 
-        // Auto-assign next available light
-        // autoAssignLight: function () {
-        //     const self = this;
-
-        //     TempleUtils.showLoading('Finding available light...');
-
-        //     PagodaAPI.lights.getNextAvailable()
-        //         .done(function (response) {
-        //             if (response.success && response.data) {
-        //                 self.selectedLight = response.data;
-        //                 self.displaySelectedLight();
-        //                 TempleUtils.showSuccess('Light auto-assigned successfully');
-        //             } else {
-        //                 TempleUtils.showError('No available lights found');
-        //             }
-        //         })
-        //         .fail(function (xhr) {
-        //             TempleUtils.handleAjaxError(xhr, 'Failed to find available light');
-        //         })
-        //         .always(function () {
-        //             TempleUtils.hideLoading();
-        //         });
-        // },
-
-        // Auto-assign next available light
         autoAssignLight: function () {
             const self = this;
 
@@ -549,20 +1278,13 @@
             PagodaAPI.lights.getNextAvailable()
                 .done(function (response) {
                     if (response.success && response.data) {
-                        // Store the complete light data
                         self.selectedLight = response.data;
-
-                        // DEBUG
-                        console.log('Auto-assigned Light:', self.selectedLight);
-
                         self.displaySelectedLight();
-                        TempleUtils.showSuccess('Light auto-assigned successfully');
                     } else {
                         TempleUtils.showError('No available lights found');
                     }
                 })
                 .fail(function (xhr) {
-                    console.error('Auto-assign failed:', xhr);
                     TempleUtils.handleAjaxError(xhr, 'Failed to find available light');
                 })
                 .always(function () {
@@ -570,10 +1292,7 @@
                 });
         },
 
-        // Load towers for manual selection
         loadTowers: function () {
-            const self = this;
-
             PagodaAPI.towers.getAll({ status: 'active' })
                 .done(function (response) {
                     if (response.success && response.data) {
@@ -588,10 +1307,7 @@
                 });
         },
 
-        // Load blocks for selected tower
         loadBlocks: function (towerId) {
-            const self = this;
-
             PagodaAPI.blocks.getByTower(towerId)
                 .done(function (response) {
                     if (response.success && response.data) {
@@ -608,10 +1324,7 @@
                 });
         },
 
-        // Load floors for selected block
         loadFloors: function (blockId) {
-            const self = this;
-
             PagodaAPI.blocks.getById(blockId)
                 .done(function (response) {
                     if (response.success && response.data) {
@@ -628,7 +1341,6 @@
                 });
         },
 
-        // Search available lights
         searchAvailableLights: function () {
             const self = this;
             const blockId = $('#blockSelect').val();
@@ -645,7 +1357,7 @@
                 block_id: blockId,
                 floor_number: floor,
                 status: 'available',
-                per_page: 50
+                per_page: 100
             })
                 .done(function (response) {
                     if (response.success && response.data) {
@@ -663,26 +1375,39 @@
                 });
         },
 
-        // Display available lights for selection
         displayAvailableLights: function (lights) {
             const self = this;
             const $container = $('#availableLightsContainer');
+            const maxAllowed = self.getMaxAllowedLights();
 
             if (lights.length === 0) {
                 $container.html('<div class="alert alert-warning">No available lights found</div>');
                 return;
             }
 
-            let html = '<div class="alert alert-info">Click on a light to select it</div>';
+            let html = `
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Click on lights to select them. 
+                    <strong>Maximum ${maxAllowed} light(s)</strong> can be selected for ${maxAllowed} family member(s).
+                </div>
+            `;
             html += '<div class="row g-2">';
 
             lights.forEach(function (light) {
+                const isSelected = self.selectedLights.find(l => l.id === light.id);
+                const selectedClass = isSelected ? 'selected border-success bg-success bg-opacity-10' : '';
+
                 html += `
                     <div class="col-md-2 col-sm-3 col-4">
-                        <div class="card light-card" data-light='${JSON.stringify(light)}' style="cursor: pointer;">
+                        <div class="card light-card ${selectedClass}" 
+                             data-light='${JSON.stringify(light)}' 
+                             data-light-id="${light.id}"
+                             style="cursor: pointer;">
                             <div class="card-body text-center p-2">
                                 <div class="fs-5 fw-bold text-primary">${light.light_number}</div>
                                 <small class="text-muted">${light.light_code}</small>
+                                ${isSelected ? '<div class="mt-1"><i class="bi bi-check-circle-fill text-success"></i></div>' : ''}
                             </div>
                         </div>
                     </div>
@@ -692,155 +1417,250 @@
             html += '</div>';
             $container.html(html);
 
-          
-            // Handle light selection - USE DELEGATED EVENT
-            $(document).off('click', '.light-card').on('click', '.light-card', function () {
+            $(document).off('click.lightCard').on('click.lightCard', '.light-card', function () {
                 const light = $(this).data('light');
-                self.selectedLight = light;
-                self.displaySelectedLight();
-                $container.empty();
+                const isCurrentlySelected = $(this).hasClass('selected');
+
+                if (isCurrentlySelected) {
+                    self.removeLightFromSelection(light.id);
+                    $(this).removeClass('selected border-success bg-success bg-opacity-10');
+                    $(this).find('.bi-check-circle-fill').parent().remove();
+                } else {
+                    if (self.addLightToSelection(light)) {
+                        $(this).addClass('selected border-success bg-success bg-opacity-10');
+                        $(this).find('.card-body').append('<div class="mt-1"><i class="bi bi-check-circle-fill text-success"></i></div>');
+                    }
+                }
             });
         },
 
-        // Display selected light
-        // displaySelectedLight: function () {
-        //     if (!this.selectedLight) return;
-
-        //     const light = this.selectedLight;
-
-        //     $('#displayLightNumber').text(light.light_number);
-        //     $('#displayLightCode').text(light.light_code);
-        //     $('#displayLocation').text(`Floor ${light.floor_number}, Position ${light.rag_position}`);
-        //     $('#selectedLightDisplay').show();
-        // },
-
-
-        // Display selected light
         displaySelectedLight: function () {
             if (!this.selectedLight) return;
 
             const light = this.selectedLight;
 
-            // DEBUG: Log the entire light object
-            console.log('=== SELECTED LIGHT DEBUG ===');
-            console.log('Full Light Object:', light);
-            console.log('Light Code:', light.light_code);
-            console.log('Tower Code:', light.tower_code);
-            console.log('Block Code:', light.block_code);
-            console.log('Block Object:', light.block);
-            console.log('========================');
-
             $('#displayLightNumber').text(light.light_number);
             $('#displayLightCode').text(light.light_code);
             $('#displayLocation').text(`Floor ${light.floor_number}, Position ${light.rag_position}`);
             $('#selectedLightDisplay').show();
+            $('#assignedLightsDisplay').hide();
+            $('#selectedLightsDisplay').hide();
         },
 
-        // Submit registration
-        // submitRegistration: function () {
-        //     const self = this;
-
-        //     // Validate light selection
-        //     if (!self.selectedLight) {
-        //         TempleUtils.showError('Please select a light');
-        //         return;
-        //     }
-
-        //     // Validate form
-        //     const form = document.getElementById('registrationForm');
-        //     if (!form.checkValidity()) {
-        //         form.classList.add('was-validated');
-        //         TempleUtils.showWarning('Please fill all required fields');
-        //         return;
-        //     }
-
-        //     // Prepare registration data
-        //     const registrationData = {
-        //         // Devotee info (create or use existing)
-        //         devotee: self.selectedDevotee ? {
-        //             id: self.selectedDevotee.id
-        //         } : {
-        //             name_chinese: $('#nameChinese').val(),
-        //             name_english: $('#nameEnglish').val(),
-        //             nric: $('#nric').val(),
-        //             email: $('#email').val() || null,
-        //             contact_no: $('#contactNo').val(),
-        //             address: $('#address').val() || null
-        //         },
-
-               
-        //         // Light info
-        //         light_slot_id: self.selectedLight.id,
-        //         light_number: self.selectedLight.light_number,
-        //         light_code: self.selectedLight.light_code,
-        //         tower_code: self.selectedLight.block?.tower?.tower_code || self.selectedLight.tower_code || null,
-        //         block_code: self.selectedLight.block?.block_code || self.selectedLight.block_code || null,
-        //         floor_number: self.selectedLight.floor_number,
-        //         rag_position: self.selectedLight.rag_position,
-
-        //         // Registration details
-        //         light_option: $('#lightOption').val(),
-        //         merit_amount: parseFloat($('#meritAmount').val()),
-        //         offer_date: $('#offerDate').val(),
-        //         expiry_date: $('#expiryDate').val(),
-        //         payment_mode_id: $('#paymentMode').val(),
-        //         payment_reference: $('#paymentReference').val() || null,
-        //         remarks: $('#remarks').val() || null
-        //     };
-
-        //     // Confirm submission
-        //     Swal.fire({
-        //         title: 'Confirm Registration',
-        //         html: `
-        //             <div class="text-start">
-        //                 <p><strong>Devotee:</strong> ${registrationData.devotee.name_english}</p>
-        //                 <p><strong>Light:</strong> ${registrationData.light_number} (${registrationData.light_code})</p>
-        //                 <p><strong>Amount:</strong> RM ${registrationData.merit_amount}</p>
-        //                 <p><strong>Duration:</strong> ${registrationData.offer_date} to ${registrationData.expiry_date}</p>
-        //             </div>
-        //         `,
-        //         icon: 'question',
-        //         showCancelButton: true,
-        //         confirmButtonText: 'Yes, Submit',
-        //         cancelButtonText: 'Cancel'
-        //     }).then((result) => {
-        //         if (result.isConfirmed) {
-        //             self.processRegistration(registrationData);
-        //         }
-        //     });
-        // },
-
-        // Submit registration
         submitRegistration: function () {
             const self = this;
 
-            // Validate light selection
+            self.clearValidationErrors();
+
+            const errors = self.validateForm();
+
+            if (errors.length > 0) {
+                TempleUtils.showError(errors.join('<br>'));
+                return;
+            }
+
+            if (self.selectedFamilyMembers.length > 0) {
+                self.submitFamilyRegistration();
+            } else {
+                self.submitSingleRegistration();
+            }
+        },
+
+        submitFamilyRegistration: function () {
+            const self = this;
+
+            const isAutoAssign = $('#autoAssignLights').is(':checked');
+
+            if (isAutoAssign) {
+                if (self.assignedLights.length === 0) {
+                    TempleUtils.showError('Please enable auto-assign to assign lights for family members');
+                    return;
+                }
+
+                if (self.assignedLights.length !== self.selectedFamilyMembers.length) {
+                    TempleUtils.showError(`Not all family members have lights assigned. Assigned: ${self.assignedLights.length}, Selected: ${self.selectedFamilyMembers.length}`);
+                    return;
+                }
+
+                // ★ Check for duplicate lights before submission
+                const lightNumbers = self.assignedLights.map(item => item.light.light_number);
+                const uniqueLightNumbers = [...new Set(lightNumbers)];
+
+                if (lightNumbers.length !== uniqueLightNumbers.length) {
+                    TempleUtils.showError('Duplicate lights detected! Please re-assign lights.');
+                    console.error('[ERROR] Duplicate lights:', lightNumbers);
+                    return;
+                }
+            } else {
+                if (self.selectedLights.length === 0) {
+                    TempleUtils.showError('Please select lights for family members');
+                    return;
+                }
+
+                if (self.selectedLights.length !== self.selectedFamilyMembers.length) {
+                    TempleUtils.showError(
+                        `Number of lights (${self.selectedLights.length}) must equal number of family members (${self.selectedFamilyMembers.length}). ` +
+                        `Please select exactly ${self.selectedFamilyMembers.length} light(s).`
+                    );
+                    return;
+                }
+            }
+
+            const paymentModeId = $('#paymentMode').val();
+            const paymentModeName = $('#paymentMode option:selected').text();
+            const meritAmount = parseFloat($('#meritAmount').val());
+
+            const lightsToUse = isAutoAssign ? self.assignedLights : self.selectedLights.map((light, index) => ({
+                member: self.selectedFamilyMembers[index],
+                light: light
+            }));
+
+            const totalAmount = meritAmount * lightsToUse.length;
+
+            let confirmHtml = `
+                <div class="text-start">
+                    <p><strong>Total Members:</strong> ${lightsToUse.length}</p>
+                    <p><strong>Amount per Light:</strong> RM ${meritAmount.toFixed(2)}</p>
+                    <p><strong>Total Amount:</strong> RM ${totalAmount.toFixed(2)}</p>
+                    <p><strong>Payment:</strong> ${paymentModeName}</p>
+                    <hr>
+                    <table class="table table-sm">
+                        <thead><tr><th>Member</th><th>Light</th></tr></thead>
+                        <tbody>
+            `;
+
+            lightsToUse.forEach(function (item) {
+                confirmHtml += `<tr><td>${item.member.name_english || item.member.name}</td><td>${item.light.light_number} (${item.light.light_code})</td></tr>`;
+            });
+
+            confirmHtml += '</tbody></table></div>';
+
+            Swal.fire({
+                title: 'Confirm Family Registration',
+                html: confirmHtml,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, Submit All',
+                cancelButtonText: 'Cancel',
+                width: '600px'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    self.processFamilyRegistration(lightsToUse);
+                }
+            });
+        },
+
+        processFamilyRegistration: function (lightsToUse) {
+            const self = this;
+
+            TempleUtils.showLoading('Processing family registrations...');
+            $('#submitBtn').prop('disabled', true);
+
+            const paymentModeId = $('#paymentMode').val();
+            const paymentModeName = $('#paymentMode option:selected').text();
+
+            const registrations = lightsToUse.map(function (item) {
+                const member = item.member;
+                const light = item.light;
+
+                return {
+                    devotee: {
+                        id: member.devotee_id || null,
+                        user_id: member.user_id || null,
+                        name_english: member.name_english || member.name,
+                        name_chinese: member.name_chinese || null,
+                        nric: member.nric || null,
+                        contact_no: member.contact_no || null,
+                        email: member.email || null
+                    },
+                    light_slot_id: light.id,
+                    light_number: light.light_number,
+                    light_code: light.light_code,
+                    tower_code: light.tower_code || light.tower?.code || self.extractTowerCodeFromLightCode(light.light_code),
+                    block_code: light.block_code || light.block?.code || self.extractBlockCodeFromLightCode(light.light_code),
+                    floor_number: light.floor_number,
+                    rag_position: light.rag_position,
+                    category_id: $('#towerCategory').val(),
+                    light_option: $('#lightOption').val(),
+                    merit_amount: parseFloat($('#meritAmount').val()),
+                    offer_date: $('#offerDate').val(),
+                    expiry_date: $('#expiryDate').val(),
+                    payment_mode_id: paymentModeId,
+                    payment_method: paymentModeName,
+                    payment_reference: $('#paymentReference').val() || null,
+                    remarks: $('#remarks').val() || null
+                };
+            });
+
+            let successCount = 0;
+            let failCount = 0;
+
+            const processNext = function (index) {
+                if (index >= registrations.length) {
+                    TempleUtils.hideLoading();
+                    $('#submitBtn').prop('disabled', false);
+
+                    Swal.fire({
+                        title: successCount === registrations.length ? 'Success!' : 'Completed with Errors',
+                        html: `
+                            <div class="text-start">
+                                <p class="${successCount > 0 ? 'text-success' : ''}">
+                                    <i class="bi bi-check-circle me-2"></i>
+                                    Successfully registered: ${successCount}
+                                </p>
+                                ${failCount > 0 ? `<p class="text-danger"><i class="bi bi-x-circle me-2"></i>Failed: ${failCount}</p>` : ''}
+                            </div>
+                        `,
+                        icon: successCount === registrations.length ? 'success' : 'warning',
+                        confirmButtonText: 'New Registration',
+                        showCancelButton: true,
+                        cancelButtonText: 'Close'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            window.location.reload();
+                        }
+                    });
+
+                    return;
+                }
+
+                PagodaAPI.registrations.create(registrations[index])
+                    .done(function (response) {
+                        if (response.success) {
+                            successCount++;
+                        } else {
+                            failCount++;
+                        }
+                    })
+                    .fail(function () {
+                        failCount++;
+                    })
+                    .always(function () {
+                        processNext(index + 1);
+                    });
+            };
+
+            processNext(0);
+        },
+
+        submitSingleRegistration: function () {
+            const self = this;
+
             if (!self.selectedLight) {
                 TempleUtils.showError('Please select a light');
                 return;
             }
 
-            // Validate form
-            const form = document.getElementById('registrationForm');
-            if (!form.checkValidity()) {
-                form.classList.add('was-validated');
-                TempleUtils.showWarning('Please fill all required fields');
-                return;
-            }
-
-            // Get payment mode name for payment_method field
             const paymentModeId = $('#paymentMode').val();
             const paymentModeName = $('#paymentMode option:selected').text();
 
-            // Prepare registration data
             const registrationData = {
-                // Devotee info - ALWAYS send complete data
                 devotee: self.selectedDevotee ? {
                     id: self.selectedDevotee.id,
                     name_english: self.selectedDevotee.name_english || $('#nameEnglish').val(),
                     name_chinese: self.selectedDevotee.name_chinese || $('#nameChinese').val(),
                     nric: self.selectedDevotee.nric || $('#nric').val(),
-                    contact_no: self.selectedDevotee.contact_no || $('#contactNo').val(),  // ← FIXED
+                    contact_no: self.selectedDevotee.contact_no || $('#contactNo').val(),
                     email: self.selectedDevotee.email || $('#email').val() || null,
                     address: self.selectedDevotee.address || $('#address').val() || null
                 } : {
@@ -851,81 +1671,40 @@
                     contact_no: $('#contactNo').val(),
                     address: $('#address').val() || null
                 },
-
-                // Light info
                 light_slot_id: self.selectedLight.id,
                 light_number: self.selectedLight.light_number,
                 light_code: self.selectedLight.light_code,
-
-                // Extract codes safely
-                tower_code: self.selectedLight.tower_code ||
-                    self.selectedLight.block?.tower?.tower_code ||
-                    self.selectedLight.block?.tower_code ||
-                    self.extractTowerCodeFromLightCode(self.selectedLight.light_code),
-
-                block_code: self.selectedLight.block_code ||
-                    self.selectedLight.block?.block_code ||
-                    self.extractBlockCodeFromLightCode(self.selectedLight.light_code),
-
+                tower_code: self.selectedLight.tower_code || self.selectedLight.tower?.code || self.extractTowerCodeFromLightCode(self.selectedLight.light_code),
+                block_code: self.selectedLight.block_code || self.selectedLight.block?.code || self.extractBlockCodeFromLightCode(self.selectedLight.light_code),
                 floor_number: self.selectedLight.floor_number,
                 rag_position: self.selectedLight.rag_position,
-
-                // Registration details
+                category_id: $('#towerCategory').val(),
                 light_option: $('#lightOption').val(),
                 merit_amount: parseFloat($('#meritAmount').val()),
                 offer_date: $('#offerDate').val(),
                 expiry_date: $('#expiryDate').val(),
-
-                // Payment info - FIXED: Send both payment_mode_id and payment_method
                 payment_mode_id: paymentModeId,
-                payment_method: paymentModeName,  // ← ADDED
+                payment_method: paymentModeName,
                 payment_reference: $('#paymentReference').val() || null,
-
                 remarks: $('#remarks').val() || null
             };
 
-            // Debug log
-            console.log('Registration Data:', registrationData);
-
-            // Validate required fields manually
-            if (!registrationData.devotee.contact_no) {
-                TempleUtils.showError('Contact number is required');
-                $('#contactNo').focus();
-                return;
-            }
-
-            if (!registrationData.payment_mode_id) {
-                TempleUtils.showError('Payment mode is required');
-                $('#paymentMode').focus();
-                return;
-            }
-
-            // Confirm submission
-            const devoteeDisplay = registrationData.devotee.name_english ||
-                registrationData.devotee.name_chinese ||
-                'Unknown';
+            const devoteeDisplay = registrationData.devotee.name_english || registrationData.devotee.name_chinese || 'Unknown';
 
             Swal.fire({
                 title: 'Confirm Registration',
                 html: `
-            <div class="text-start">
-                <p><strong>Devotee:</strong> ${devoteeDisplay}</p>
-                <p><strong>Contact:</strong> ${registrationData.devotee.contact_no}</p>
-                <p><strong>Light:</strong> ${registrationData.light_number} (${registrationData.light_code})</p>
-                <p><strong>Location:</strong> Tower ${registrationData.tower_code}, Block ${registrationData.block_code}</p>
-                <p><strong>Amount:</strong> RM ${registrationData.merit_amount}</p>
-                <p><strong>Payment:</strong> ${registrationData.payment_method}</p>
-                <p><strong>Duration:</strong> ${registrationData.offer_date} to ${registrationData.expiry_date}</p>
-            </div>
-        `,
+                    <div class="text-start">
+                        <p><strong>Devotee:</strong> ${devoteeDisplay}</p>
+                        <p><strong>Light:</strong> ${registrationData.light_number} (${registrationData.light_code})</p>
+                        <p><strong>Amount:</strong> RM ${registrationData.merit_amount}</p>
+                        <p><strong>Payment:</strong> ${registrationData.payment_method}</p>
+                    </div>
+                `,
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonText: 'Yes, Submit',
-                cancelButtonText: 'Cancel',
-                customClass: {
-                    confirmButton: 'btn btn-success',
-                    cancelButton: 'btn btn-secondary'
-                }
+                cancelButtonText: 'Cancel'
             }).then((result) => {
                 if (result.isConfirmed) {
                     self.processRegistration(registrationData);
@@ -933,31 +1712,6 @@
             });
         },
 
-
-
-// ADD THIS NEW HELPER FUNCTION
-extractTowerCodeFromLightCode: function(lightCode) {
-    // Light code format: A-B1-01-001
-    // Extract tower code (first part before first dash)
-    if (lightCode && typeof lightCode === 'string') {
-        const parts = lightCode.split('-');
-        return parts.length > 0 ? parts[0] : null;
-    }
-    return null;
-},
-
-// ADD THIS NEW HELPER FUNCTION  
-extractBlockCodeFromLightCode: function(lightCode) {
-    // Light code format: A-B1-01-001
-    // Extract block code (second part)
-    if (lightCode && typeof lightCode === 'string') {
-        const parts = lightCode.split('-');
-        return parts.length > 1 ? parts[1] : null;
-    }
-    return null;
-},
-
-        // Process registration submission
         processRegistration: function (data) {
             const self = this;
 
@@ -975,19 +1729,15 @@ extractBlockCodeFromLightCode: function(lightCode) {
                                     <hr>
                                     <p><strong>Receipt No:</strong> ${response.data.receipt_number}</p>
                                     <p><strong>Light No:</strong> ${response.data.light_number}</p>
-                                    <p><strong>Devotee:</strong> ${response.data.devotee.name_english}</p>
                                 </div>
                             `,
                             icon: 'success',
                             confirmButtonText: 'New Registration',
                             showCancelButton: true,
-                            cancelButtonText: 'View Receipt'
+                            cancelButtonText: 'Close'
                         }).then((result) => {
                             if (result.isConfirmed) {
-                                self.resetForm();
                                 window.location.reload();
-                            } else {
-                                TempleRouter.navigate('auspicious-light/registrations', { id: response.data.id });
                             }
                         });
                     }
@@ -1001,7 +1751,22 @@ extractBlockCodeFromLightCode: function(lightCode) {
                 });
         },
 
-        // Reset form
+        extractTowerCodeFromLightCode: function (lightCode) {
+            if (lightCode && typeof lightCode === 'string') {
+                const parts = lightCode.split('-');
+                return parts.length > 0 ? parts[0] : null;
+            }
+            return null;
+        },
+
+        extractBlockCodeFromLightCode: function (lightCode) {
+            if (lightCode && typeof lightCode === 'string') {
+                const parts = lightCode.split('-');
+                return parts.length > 1 ? parts[1] : null;
+            }
+            return null;
+        },
+
         resetForm: function () {
             const self = this;
 
@@ -1017,35 +1782,40 @@ extractBlockCodeFromLightCode: function(lightCode) {
                     $('#registrationForm')[0].reset();
                     self.selectedDevotee = null;
                     self.selectedLight = null;
-                    $('#selectedLightDisplay').hide();
-                    $('#devoteeSearchResults').empty();
-                    $('#nric').prop('readonly', false);
-                    $('#assignmentMethod').val('auto').trigger('change');
+                    self.selectedLights = [];
+                    self.familyData = null;
+                    self.selectedFamilyMembers = [];
+                    self.assignedLights = [];
 
-                    // Reset dates
+                    self.clearValidationErrors();
+                    $('#selectedLightDisplay').hide();
+                    $('#selectedLightsDisplay').hide();
+                    $('#assignedLightsDisplay').hide();
+                    $('#familyMembersSection').hide();
+                    $('#devoteeSearchResults').empty();
+                    $('#devoteeDetailsForm').show();
+                    $('#nric').prop('readonly', false);
+                    $('#assignmentMethod').val('');
+                    $('#lightOption').val('');
+                    $('#autoAssignFamilyContainer').hide();
+                    $('#autoAssignLights').prop('checked', false);
+                    $('#autoAssignLabel').text('Disabled');
+                    $('#selectedMemberCount').text('0');
+                    $('#lightsRequiredCount').text('0');
+                    $('#registrationSummary').html('');
+                    $('#lightSelectionValidation').hide();
+                    $('#manualSelectionControls').hide();
+
                     $('#offerDate').val(moment().format('YYYY-MM-DD'));
                     $('#expiryDate').val(moment().add(1, 'year').format('YYYY-MM-DD'));
 
                     TempleUtils.showSuccess('Form reset successfully');
                 }
             });
-        },
-
-      
+        }
     };
 
 })(jQuery, window);
-
-
-
-
-
-
-
-
-
-
-
 
 // frontend/js/pages/auspicious-light/entry.js
 // Auspicious Light Entry Form with Dynamic Tailwind CSS Loading
@@ -1143,7 +1913,7 @@ extractBlockCodeFromLightCode: function(lightCode) {
 //                     </div>
 
 //                     <form id="registrationForm" class="max-w-7xl mx-auto space-y-6">
-                        
+
 //                         <!-- Personal Information Section -->
 //                         <div class="bg-white rounded-2xl shadow-xl overflow-hidden transform transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
 //                             <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4">
@@ -1171,11 +1941,11 @@ extractBlockCodeFromLightCode: function(lightCode) {
 //                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
 //                                             </svg>
 //                                         </div>
-//                                         <input type="text" 
-//                                                id="devoteeSearch" 
+//                                         <input type="text"
+//                                                id="devoteeSearch"
 //                                                placeholder="Enter NRIC or Contact Number to search existing devotee..."
 //                                                class="flex-1 pl-12 pr-4 py-4 text-lg border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-300 outline-none bg-gray-50 focus:bg-white">
-//                                         <button type="button" 
+//                                         <button type="button"
 //                                                 id="clearDevoteeBtn"
 //                                                 class="px-6 py-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-all duration-300 flex items-center gap-2">
 //                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1193,9 +1963,9 @@ extractBlockCodeFromLightCode: function(lightCode) {
 //                                         <label class="block text-gray-700 font-semibold mb-2">
 //                                             姓名 Name (Chinese) <span class="text-red-500">*</span>
 //                                         </label>
-//                                         <input type="text" 
-//                                                id="nameChinese" 
-//                                                name="name_chinese" 
+//                                         <input type="text"
+//                                                id="nameChinese"
+//                                                name="name_chinese"
 //                                                required
 //                                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-300 outline-none bg-gray-50 focus:bg-white">
 //                                     </div>
@@ -1205,9 +1975,9 @@ extractBlockCodeFromLightCode: function(lightCode) {
 //                                         <label class="block text-gray-700 font-semibold mb-2">
 //                                             姓名 Name (English) <span class="text-red-500">*</span>
 //                                         </label>
-//                                         <input type="text" 
-//                                                id="nameEnglish" 
-//                                                name="name_english" 
+//                                         <input type="text"
+//                                                id="nameEnglish"
+//                                                name="name_english"
 //                                                required
 //                                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-300 outline-none bg-gray-50 focus:bg-white">
 //                                     </div>
@@ -1217,9 +1987,9 @@ extractBlockCodeFromLightCode: function(lightCode) {
 //                                         <label class="block text-gray-700 font-semibold mb-2">
 //                                             身份证 NRIC No. <span class="text-red-500">*</span>
 //                                         </label>
-//                                         <input type="text" 
-//                                                id="nric" 
-//                                                name="nric" 
+//                                         <input type="text"
+//                                                id="nric"
+//                                                name="nric"
 //                                                required
 //                                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-300 outline-none bg-gray-50 focus:bg-white">
 //                                         <p class="text-red-500 text-sm mt-1 hidden invalid-feedback">NRIC already exists</p>
@@ -1230,8 +2000,8 @@ extractBlockCodeFromLightCode: function(lightCode) {
 //                                         <label class="block text-gray-700 font-semibold mb-2">
 //                                             电邮 Email
 //                                         </label>
-//                                         <input type="email" 
-//                                                id="email" 
+//                                         <input type="email"
+//                                                id="email"
 //                                                name="email"
 //                                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-300 outline-none bg-gray-50 focus:bg-white">
 //                                         <p class="text-red-500 text-sm mt-1 hidden invalid-feedback">Please enter a valid email</p>
@@ -1242,9 +2012,9 @@ extractBlockCodeFromLightCode: function(lightCode) {
 //                                         <label class="block text-gray-700 font-semibold mb-2">
 //                                             手机号码 Contact No. <span class="text-red-500">*</span>
 //                                         </label>
-//                                         <input type="text" 
-//                                                id="contactNo" 
-//                                                name="contact_no" 
+//                                         <input type="text"
+//                                                id="contactNo"
+//                                                name="contact_no"
 //                                                required
 //                                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-300 outline-none bg-gray-50 focus:bg-white">
 //                                     </div>
@@ -1254,8 +2024,8 @@ extractBlockCodeFromLightCode: function(lightCode) {
 //                                         <label class="block text-gray-700 font-semibold mb-2">
 //                                             地址 Address
 //                                         </label>
-//                                         <input type="text" 
-//                                                id="address" 
+//                                         <input type="text"
+//                                                id="address"
 //                                                name="address"
 //                                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-300 outline-none bg-gray-50 focus:bg-white">
 //                                     </div>
@@ -1280,7 +2050,7 @@ extractBlockCodeFromLightCode: function(lightCode) {
 //                                         <label class="block text-gray-700 font-semibold mb-2">
 //                                             Light Assignment Method <span class="text-red-500">*</span>
 //                                         </label>
-//                                         <select id="assignmentMethod" 
+//                                         <select id="assignmentMethod"
 //                                                 required
 //                                                 class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-300 outline-none bg-gray-50 focus:bg-white cursor-pointer">
 //                                             <option value="">-- Select Method --</option>
@@ -1294,8 +2064,8 @@ extractBlockCodeFromLightCode: function(lightCode) {
 //                                         <label class="block text-gray-700 font-semibold mb-2">
 //                                             Light Option / 灯位类型 <span class="text-red-500">*</span>
 //                                         </label>
-//                                         <select id="lightOption" 
-//                                                 name="light_option" 
+//                                         <select id="lightOption"
+//                                                 name="light_option"
 //                                                 required
 //                                                 class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-300 outline-none bg-gray-50 focus:bg-white cursor-pointer">
 //                                             <option value="">-- Select Option --</option>
@@ -1327,8 +2097,8 @@ extractBlockCodeFromLightCode: function(lightCode) {
 //                                             </select>
 //                                         </div>
 //                                     </div>
-//                                     <button type="button" 
-//                                             id="searchLightsBtn" 
+//                                     <button type="button"
+//                                             id="searchLightsBtn"
 //                                             disabled
 //                                             class="px-6 py-3 bg-purple-500 hover:bg-purple-600 text-white rounded-xl font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
 //                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1367,7 +2137,7 @@ extractBlockCodeFromLightCode: function(lightCode) {
 //                                                 <span class="inline-flex px-3 py-1 bg-green-500 text-white text-sm font-semibold rounded-full">Available</span>
 //                                             </div>
 //                                         </div>
-//                                         <button type="button" 
+//                                         <button type="button"
 //                                                 id="clearLightBtn"
 //                                                 class="mt-4 px-4 py-2 bg-white border-2 border-red-300 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-all duration-300 flex items-center gap-2">
 //                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1397,9 +2167,9 @@ extractBlockCodeFromLightCode: function(lightCode) {
 //                                         <label class="block text-gray-700 font-semibold mb-2">
 //                                             Offer Date / 供灯日期 <span class="text-red-500">*</span>
 //                                         </label>
-//                                         <input type="date" 
-//                                                id="offerDate" 
-//                                                name="offer_date" 
+//                                         <input type="date"
+//                                                id="offerDate"
+//                                                name="offer_date"
 //                                                required
 //                                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-300 outline-none bg-gray-50 focus:bg-white">
 //                                     </div>
@@ -1409,9 +2179,9 @@ extractBlockCodeFromLightCode: function(lightCode) {
 //                                         <label class="block text-gray-700 font-semibold mb-2">
 //                                             Expiry Date / 到期日期 <span class="text-red-500">*</span>
 //                                         </label>
-//                                         <input type="date" 
-//                                                id="expiryDate" 
-//                                                name="expiry_date" 
+//                                         <input type="date"
+//                                                id="expiryDate"
+//                                                name="expiry_date"
 //                                                required
 //                                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-300 outline-none bg-gray-50 focus:bg-white">
 //                                     </div>
@@ -1421,8 +2191,8 @@ extractBlockCodeFromLightCode: function(lightCode) {
 //                                         <label class="block text-gray-700 font-semibold mb-2">
 //                                             Duration (Days)
 //                                         </label>
-//                                         <input type="text" 
-//                                                id="durationDisplay" 
+//                                         <input type="text"
+//                                                id="durationDisplay"
 //                                                readonly
 //                                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl bg-gray-100 text-gray-700 font-semibold cursor-not-allowed">
 //                                     </div>
@@ -1432,11 +2202,11 @@ extractBlockCodeFromLightCode: function(lightCode) {
 //                                         <label class="block text-gray-700 font-semibold mb-2">
 //                                             Merit Amount / 功德金 (RM) <span class="text-red-500">*</span>
 //                                         </label>
-//                                         <input type="number" 
-//                                                id="meritAmount" 
-//                                                name="merit_amount" 
-//                                                step="0.01" 
-//                                                min="0.01" 
+//                                         <input type="number"
+//                                                id="meritAmount"
+//                                                name="merit_amount"
+//                                                step="0.01"
+//                                                min="0.01"
 //                                                required
 //                                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-300 outline-none bg-gray-50 focus:bg-white">
 //                                     </div>
@@ -1446,8 +2216,8 @@ extractBlockCodeFromLightCode: function(lightCode) {
 //                                         <label class="block text-gray-700 font-semibold mb-2">
 //                                             Payment Mode <span class="text-red-500">*</span>
 //                                         </label>
-//                                         <select id="paymentMode" 
-//                                                 name="payment_mode_id" 
+//                                         <select id="paymentMode"
+//                                                 name="payment_mode_id"
 //                                                 required
 //                                                 class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-300 outline-none bg-gray-50 focus:bg-white cursor-pointer">
 //                                             <option value="">-- Select Payment Mode --</option>
@@ -1459,8 +2229,8 @@ extractBlockCodeFromLightCode: function(lightCode) {
 //                                         <label class="block text-gray-700 font-semibold mb-2">
 //                                             Payment Reference / 支付参考
 //                                         </label>
-//                                         <input type="text" 
-//                                                id="paymentReference" 
+//                                         <input type="text"
+//                                                id="paymentReference"
 //                                                name="payment_reference"
 //                                                placeholder="e.g., Cheque No., Transaction ID"
 //                                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-300 outline-none bg-gray-50 focus:bg-white">
@@ -1472,9 +2242,9 @@ extractBlockCodeFromLightCode: function(lightCode) {
 //                                             Receipt Number
 //                                         </label>
 //                                         <div class="relative">
-//                                             <input type="text" 
-//                                                    id="receiptNumber" 
-//                                                    name="receipt_number" 
+//                                             <input type="text"
+//                                                    id="receiptNumber"
+//                                                    name="receipt_number"
 //                                                    readonly
 //                                                    class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl bg-gray-100 text-gray-700 font-mono font-semibold cursor-not-allowed">
 //                                             <span class="absolute top-0 right-0 -mt-2 -mr-2 px-3 py-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-bold rounded-full shadow-lg">
@@ -1489,8 +2259,8 @@ extractBlockCodeFromLightCode: function(lightCode) {
 //                                         <label class="block text-gray-700 font-semibold mb-2">
 //                                             Remarks / 备注
 //                                         </label>
-//                                         <textarea id="remarks" 
-//                                                   name="remarks" 
+//                                         <textarea id="remarks"
+//                                                   name="remarks"
 //                                                   rows="3"
 //                                                   placeholder="Any additional notes..."
 //                                                   class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-300 outline-none bg-gray-50 focus:bg-white resize-none"></textarea>
@@ -1502,7 +2272,7 @@ extractBlockCodeFromLightCode: function(lightCode) {
 //                         <!-- Form Actions -->
 //                         <div class="bg-white rounded-2xl shadow-xl p-6">
 //                             <div class="flex flex-col md:flex-row justify-between items-center gap-4">
-//                                 <button type="button" 
+//                                 <button type="button"
 //                                         id="resetFormBtn"
 //                                         class="w-full md:w-auto px-8 py-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 hover:-translate-y-1 hover:shadow-lg">
 //                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1510,7 +2280,7 @@ extractBlockCodeFromLightCode: function(lightCode) {
 //                                     </svg>
 //                                     Reset Form
 //                                 </button>
-//                                 <button type="submit" 
+//                                 <button type="submit"
 //                                         id="submitBtn"
 //                                         class="w-full md:w-auto px-12 py-4 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-xl font-bold text-lg transition-all duration-300 flex items-center justify-center gap-3 hover:-translate-y-1 hover:shadow-2xl">
 //                                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1744,7 +2514,7 @@ extractBlockCodeFromLightCode: function(lightCode) {
 //                         <div class="flex items-center justify-between">
 //                             <div class="flex-1">
 //                                 <div class="font-bold text-gray-800 text-lg">
-//                                     ${devotee.name_english || ''} 
+//                                     ${devotee.name_english || ''}
 //                                     ${devotee.name_chinese ? '<span class="text-purple-600">/ ' + devotee.name_chinese + '</span>' : ''}
 //                                 </div>
 //                                 <div class="text-sm text-gray-500 mt-1 flex items-center gap-3">
@@ -1986,7 +2756,7 @@ extractBlockCodeFromLightCode: function(lightCode) {
 
 //             lights.forEach(function (light) {
 //                 html += `
-//                     <div class="light-card-tailwind group cursor-pointer transform transition-all duration-300 hover:scale-110 hover:-translate-y-2" 
+//                     <div class="light-card-tailwind group cursor-pointer transform transition-all duration-300 hover:scale-110 hover:-translate-y-2"
 //                          data-light='${JSON.stringify(light)}'>
 //                         <div class="bg-white rounded-xl shadow-md hover:shadow-2xl border-2 border-gray-200 group-hover:border-purple-500 p-4 text-center transition-all duration-300">
 //                             <div class="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">

@@ -1,36 +1,36 @@
 // js/pages/login.js
 // Login page module using jQuery
 
-(function($, window) {
+(function ($, window) {
     'use strict';
-    
+
     window.LoginPage = {
         templeConfig: null,
         templeId: null,
         loginAttempts: 0,
         maxAttempts: 5,
-        
+
         // Initialize login page
-        init: function() {
+        init: function () {
             this.extractTempleId();
-            
+
             if (!this.templeId) {
                 this.showError('Invalid URL', 'Please use a valid temple URL to access the login page.');
                 return;
             }
-            
+
             this.render();
             this.validateTemple();
         },
-        
+
         // Extract temple ID from URL
-        extractTempleId: function() {
+        extractTempleId: function () {
             const pathParts = window.location.pathname.split('/').filter(Boolean);
             this.templeId = pathParts[0] || null;
         },
-        
+
         // Render login page HTML
-        render: function() {
+        render: function () {
             const html = `
                 <!DOCTYPE html>
                 <html lang="en">
@@ -141,6 +141,8 @@
                                 <div class="text-center mt-3">
                                     <a href="#" id="forgotPasswordLink" class="text-muted small">Forgot your password?</a>
                                 </div>
+                                 
+
                             </form>
 
                             <div class="footer-text">
@@ -149,50 +151,60 @@
                         </div>
                     </div>
 
-                    <!-- Forgot Password Modal -->
-                    <div class="modal fade" id="forgotPasswordModal" tabindex="-1">
-                        <div class="modal-dialog">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Reset Password</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <p>Enter your email address and we'll send you instructions to reset your password.</p>
-                                    <form id="forgotPasswordForm">
-                                        <div class="mb-3">
-                                            <label for="resetEmail" class="form-label">Email Address</label>
-                                            <input type="email" class="form-control" id="resetEmail" required>
-                                        </div>
-                                    </form>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                    <button type="button" class="btn btn-primary" id="sendResetLink">Send Reset Link</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- Scripts -->
                     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+                    
+                    <!-- Forgot Password Modal with OTP -->
+                    <script src="/js/pages/forgot-password/index.js"></script>
+                    <script>
+                        $(document).ready(function() {
+                            if (typeof ForgotPasswordModal !== 'undefined') {
+                                ForgotPasswordModal.init();
+                                console.log('✓ OTP-based Forgot Password Modal loaded');
+                            } else {
+                                console.error('✗ Failed to load Forgot Password Modal');
+                            }
+                        });
+                    </script>
                 </body>
                 </html>
             `;
-            
+
             // Replace entire document
             document.open();
             document.write(html);
             document.close();
-            
+
             // Re-bind after DOM is ready
             $(document).ready(() => {
                 this.bindEvents();
+
             });
         },
-        
+
+        // ✅ NEW METHOD: Load signup modal component
+        loadSignupModal: function () {
+            const self = this;
+
+            // Create script element
+            const script = document.createElement('script');
+            script.src = '/js/pages/signup/.js';
+            script.onload = function () {
+                console.log('✓ Signup modal loaded successfully');
+                if (window.SignupModal) {
+                    window.SignupModal.init();
+                }
+            };
+            script.onerror = function () {
+                console.error('✗ Failed to load signup modal');
+            };
+
+            // Append to body
+            document.body.appendChild(script);
+        },
+
         // Get login page styles
-        getLoginStyles: function() {
+        getLoginStyles: function () {
             return `
                 :root {
                     --primary-color: #ff00ff;
@@ -494,30 +506,37 @@
                 }
             `;
         },
-        
+        // <div class="text-center mt-2">
+        //     <span class="text-muted small">Don't have an account? </span>
+        //     <span id="signupLink"
+        //           class="fw-bold small"
+        //           style="color: var(--primary-color); cursor: pointer;">
+        //         Sign Up
+        //     </span>
+        // </div>
         // Validate temple with API
-        validateTemple: function() {
+        validateTemple: function () {
             const self = this;
-            
+
             TempleAPI.validateTemple(self.templeId)
-                .done(function(response) {
+                .done(function (response) {
                     if (response.success) {
                         self.templeConfig = response.data;
                         self.applyTheme(response.data.theme);
                         self.updateTempleUI(response.data);
-                        
+
                         $('#loadingCard').hide();
                         $('#loginCard').show();
-                        
+
                         // Check if user is already logged in
                         self.checkExistingSession();
                     } else {
                         self.showError('Temple Not Found', 'The temple you are looking for does not exist.');
                     }
                 })
-                .fail(function(xhr) {
+                .fail(function (xhr) {
                     $('#loadingCard').hide();
-                    
+
                     if (xhr.status === 503) {
                         self.showError('Server Busy', 'The temple server is currently busy. Please try again later.');
                     } else if (xhr.status === 404) {
@@ -527,43 +546,43 @@
                     }
                 });
         },
-        
+
         // Apply theme colors
-        applyTheme: function(theme) {
+        applyTheme: function (theme) {
             if (!theme) return;
-            
+
             document.documentElement.style.setProperty('--primary-color', theme.primary_color || '#ff00ff');
             document.documentElement.style.setProperty('--secondary-color', theme.secondary_color || '#808000');
             document.documentElement.style.setProperty('--background-color', theme.background_color || '#ffffff');
             document.documentElement.style.setProperty('--text-color', theme.text_color || '#000000');
-            
+
             // Convert hex to RGB for gradients
             const primaryRgb = this.hexToRgb(theme.primary_color || '#ff00ff');
             const secondaryRgb = this.hexToRgb(theme.secondary_color || '#808000');
             document.documentElement.style.setProperty('--primary-rgb', `${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}`);
             document.documentElement.style.setProperty('--secondary-rgb', `${secondaryRgb.r}, ${secondaryRgb.g}, ${secondaryRgb.b}`);
         },
-        
+
         // Update UI with temple information
-        updateTempleUI: function(config) {
+        updateTempleUI: function (config) {
             $('#templeName').text(config.temple_name);
             document.title = `${config.temple_name} - Login`;
-            
+
             if (config.temple_logo) {
                 $('#logoContainer').html(`
                     <img src="${config.temple_logo}" alt="${config.temple_name}" class="temple-logo" 
                          onerror="this.style.display='none'; document.querySelector('.logo-placeholder').style.display='inline-flex';">
                 `);
             }
-            
+
             $('#templeId').val(config.temple_id);
         },
-        
+
         // Check existing session
-        checkExistingSession: function() {
+        checkExistingSession: function () {
             const token = localStorage.getItem(APP_CONFIG.STORAGE.ACCESS_TOKEN);
             const temple = localStorage.getItem(APP_CONFIG.STORAGE.TEMPLE);
-            
+
             if (token && temple) {
                 const storedTemple = JSON.parse(temple);
                 if (storedTemple.id === this.templeConfig.temple_id) {
@@ -571,7 +590,7 @@
                     this.redirectToDashboard();
                 }
             }
-            
+
             // Check remember me
             const rememberedUser = localStorage.getItem('remembered_user');
             if (rememberedUser) {
@@ -579,118 +598,131 @@
                 $('#rememberMe').prop('checked', true);
             }
         },
-        
+
         // Bind events
-        bindEvents: function() {
+        bindEvents: function () {
             const self = this;
-            
+
             // Form submission
-            $('#loginForm').on('submit', function(e) {
+            $('#loginForm').on('submit', function (e) {
                 e.preventDefault();
                 self.handleLogin();
             });
-            
+            $(document).on('click', '#signupLink', function (e) {
+                e.preventDefault();
+                console.log('Signup clicked, templeId:', self.templeId);
+
+                if (self.templeId) {
+                    // Redirect to signup page
+                    window.location.href = `/${self.templeId}/signup`;
+                } else {
+                    console.error('Temple ID not found');
+                    alert('Unable to navigate to signup. Please refresh the page.');
+                }
+            });
             // Password toggle
-            $('#passwordToggle').on('click', function() {
+            $('#passwordToggle').on('click', function () {
                 self.togglePassword();
             });
-            
+
             // Clear alerts on input
-            $('#username, #password').on('input', function() {
+            $('#username, #password').on('input', function () {
                 $('#alertContainer').empty();
             });
-            
-            // Forgot password link
-            $('#forgotPasswordLink').on('click', function(e) {
+
+            // Forgot password link - Use OTP-based modal
+            $('#forgotPasswordLink').on('click', function (e) {
                 e.preventDefault();
-                self.showForgotPassword();
+                if (typeof ForgotPasswordModal !== 'undefined') {
+                    ForgotPasswordModal.show();
+                } else {
+                    console.error('ForgotPasswordModal not loaded');
+                    self.showAlert('Password reset feature is temporarily unavailable. Please refresh the page.', 'warning');
+                }
             });
-            
-            // Send reset link
-            $('#sendResetLink').on('click', function() {
-                self.sendPasswordResetLink();
-            });
-            
+
             // Detect login channel
             self.detectLoginChannel();
         },
-        
+
         // Detect login channel based on URL
-        detectLoginChannel: function() {
+        detectLoginChannel: function () {
             const pathname = window.location.pathname;
-            
+
             if (pathname.includes('admin')) {
                 $('#requestThrough').val('ADMIN');
             } else if (pathname.includes('kiosk')) {
                 $('#requestThrough').val('KIOSK');
+            } else if (pathname.includes('staff')) {
+                $('#requestThrough').val('STAFF');
             } else {
                 $('#requestThrough').val('COUNTER');
             }
         },
-        
+
         // Handle login
-        handleLogin: function() {
+        handleLogin: function () {
             const self = this;
             const username = $('#username').val().trim();
             const password = $('#password').val();
             const requestThrough = $('#requestThrough').val();
             const captcha = $('#captchaInput').val();
             const rememberMe = $('#rememberMe').is(':checked');
-            
+
             if (!username || !password) {
                 self.showAlert('Please enter username and password', 'danger');
                 return;
             }
-            
+
             // Check if captcha is required
             if ($('#captchaContainer').is(':visible') && !captcha) {
                 self.showAlert('Please enter the captcha code', 'danger');
                 return;
             }
-            
+
             // Show loading state
             self.setLoadingState(true);
-            
+
             // Make login request
             TempleAPI.login(username, password, requestThrough)
-                .done(function(response) {
+                .done(function (response) {
                     if (response.success) {
                         // Store tokens and user info
                         localStorage.setItem(APP_CONFIG.STORAGE.ACCESS_TOKEN, response.data.access_token);
                         localStorage.setItem(APP_CONFIG.STORAGE.REFRESH_TOKEN, response.data.refresh_token);
                         localStorage.setItem(APP_CONFIG.STORAGE.USER, JSON.stringify(response.data.user));
                         localStorage.setItem(APP_CONFIG.STORAGE.TEMPLE, JSON.stringify(response.data.temple));
-                        
+
                         // Handle remember me
                         if (rememberMe) {
                             localStorage.setItem('remembered_user', username);
                         } else {
                             localStorage.removeItem('remembered_user');
                         }
-                        
+
                         self.showAlert('Login successful! Redirecting...', 'success');
-                        
+
                         // Redirect to dashboard after 1 second
-                        setTimeout(function() {
+                        setTimeout(function () {
                             self.redirectToDashboard();
                         }, 1000);
                     } else {
                         self.handleLoginError(response);
                     }
                 })
-                .fail(function(xhr) {
+                .fail(function (xhr) {
                     self.setLoadingState(false);
                     self.loginAttempts++;
-                    
+
                     const response = xhr.responseJSON;
                     if (response) {
                         self.showAlert(response.message || 'Login failed', 'danger');
-                        
+
                         // Show captcha after 3 failed attempts
                         if (self.loginAttempts >= 3 || response.require_captcha) {
                             self.showCaptcha();
                         }
-                        
+
                         // Lock after max attempts
                         if (self.loginAttempts >= self.maxAttempts) {
                             self.lockLogin();
@@ -700,19 +732,19 @@
                     }
                 });
         },
-        
+
         // Handle login error
-        handleLoginError: function(response) {
+        handleLoginError: function (response) {
             this.setLoadingState(false);
             this.showAlert(response.message || 'Login failed', 'danger');
-            
+
             if (response.require_captcha) {
                 this.showCaptcha();
             }
         },
-        
+
         // Set loading state
-        setLoadingState: function(loading) {
+        setLoadingState: function (loading) {
             if (loading) {
                 $('#loginButton').prop('disabled', true);
                 $('#loginButtonText').hide();
@@ -725,9 +757,9 @@
                 $('#loadingOverlay').removeClass('active');
             }
         },
-        
+
         // Show alert message
-        showAlert: function(message, type) {
+        showAlert: function (message, type) {
             const alertHtml = `
                 <div class="alert alert-${type} alert-dismissible fade show" role="alert">
                     ${message}
@@ -736,20 +768,20 @@
             `;
             $('#alertContainer').html(alertHtml);
         },
-        
+
         // Show error card
-        showError: function(title, message) {
+        showError: function (title, message) {
             $('#errorTitle').text(title);
             $('#errorMessage').text(message);
             $('#loadingCard').hide();
             $('#errorCard').show();
         },
-        
+
         // Toggle password visibility
-        togglePassword: function() {
+        togglePassword: function () {
             const $passwordInput = $('#password');
             const $icon = $('#passwordToggle');
-            
+
             if ($passwordInput.attr('type') === 'password') {
                 $passwordInput.attr('type', 'text');
                 $icon.removeClass('bi-eye-slash').addClass('bi-eye');
@@ -758,15 +790,15 @@
                 $icon.removeClass('bi-eye').addClass('bi-eye-slash');
             }
         },
-        
+
         // Show captcha
-        showCaptcha: function() {
+        showCaptcha: function () {
             $('#captchaContainer').slideDown();
             this.generateSimpleCaptcha();
         },
-        
+
         // Generate simple captcha
-        generateSimpleCaptcha: function() {
+        generateSimpleCaptcha: function () {
             const captchaCode = Math.random().toString(36).substring(2, 8).toUpperCase();
             $('#captchaElement').html(`
                 <div style="background: #f0f0f0; padding: 10px; border-radius: 5px; font-size: 24px; letter-spacing: 5px; user-select: none;">
@@ -775,12 +807,12 @@
             `);
             $('#captchaElement').data('code', captchaCode);
         },
-        
+
         // Lock login after max attempts
-        lockLogin: function() {
+        lockLogin: function () {
             $('#loginButton').prop('disabled', true);
             this.showAlert('Too many failed attempts. Please try again after 15 minutes.', 'danger');
-            
+
             // Unlock after 15 minutes
             setTimeout(() => {
                 $('#loginButton').prop('disabled', false);
@@ -788,54 +820,15 @@
                 $('#alertContainer').empty();
             }, 900000);
         },
-        
-        // Show forgot password modal
-        showForgotPassword: function() {
-            const modal = new bootstrap.Modal(document.getElementById('forgotPasswordModal'));
-            modal.show();
-        },
-        
-        // Send password reset link
-        sendPasswordResetLink: function() {
-            const self = this;
-            const email = $('#resetEmail').val();
-            
-            if (!email) {
-                alert('Please enter your email address');
-                return;
-            }
-            
-            // Disable button
-            $('#sendResetLink').prop('disabled', true).text('Sending...');
-            
-            TempleAPI.post('/auth/forgot-password', {
-                email: email,
-                temple_id: self.templeId
-            })
-            .done(function(response) {
-                if (response.success) {
-                    bootstrap.Modal.getInstance(document.getElementById('forgotPasswordModal')).hide();
-                    self.showAlert('Password reset link has been sent to your email.', 'success');
-                    $('#forgotPasswordForm')[0].reset();
-                } else {
-                    alert(response.message || 'Failed to send reset link');
-                }
-            })
-            .fail(function() {
-                alert('An error occurred. Please try again.');
-            })
-            .always(function() {
-                $('#sendResetLink').prop('disabled', false).text('Send Reset Link');
-            });
-        },
-        
+
+
         // Redirect to dashboard
-        redirectToDashboard: function() {
+        redirectToDashboard: function () {
             window.location.href = `/${this.templeId}/dashboard`;
         },
-        
+
         // Convert hex to RGB
-        hexToRgb: function(hex) {
+        hexToRgb: function (hex) {
             const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
             return result ? {
                 r: parseInt(result[1], 16),
@@ -844,5 +837,5 @@
             } : { r: 255, g: 0, b: 255 };
         }
     };
-    
+
 })(jQuery, window);

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Support\Facades\DB;
 
 class VolunteerDepartment extends Model
 {
@@ -44,6 +45,7 @@ class VolunteerDepartment extends Model
      */
     protected $fillable = [
         'department_name',
+        'department_name_en', 
         'department_code',
         'description',
         'status',
@@ -89,7 +91,6 @@ class VolunteerDepartment extends Model
     // ========================================
     // RELATIONSHIPS
     // ========================================
-
     
     /**
      * Get the coordinator user
@@ -133,40 +134,6 @@ class VolunteerDepartment extends Model
             ->whereNull('deleted_at');
     }
     
-    /**
-     * Get volunteers who prefer this department
-     */
-    public function volunteers()
-    {
-        return $this->hasMany(Volunteer::class, 'preferred_department_id');
-    }
-    
-    /**
-     * Get active volunteers who prefer this department
-     */
-    public function activeVolunteers()
-    {
-        return $this->hasMany(Volunteer::class, 'preferred_department_id')
-            ->where('status', 'active')
-            ->whereNull('deleted_at');
-    }
-    
-    /**
-     * Get all task assignments for this department
-     */
-    public function taskAssignments()
-    {
-        return $this->hasMany(VolunteerTaskAssignment::class, 'department_id');
-    }
-    
-    /**
-     * Get all attendance records for this department
-     */
-    public function attendanceRecords()
-    {
-        return $this->hasMany(VolunteerAttendance::class, 'department_id');
-    }
-    
     // ========================================
     // SCOPES
     // ========================================
@@ -195,7 +162,6 @@ class VolunteerDepartment extends Model
         return $query->whereNull('deleted_at');
     }
     
-
     /**
      * Scope a query to search by name or code
      */
@@ -238,17 +204,23 @@ class VolunteerDepartment extends Model
     
     /**
      * Check if department can be deleted
+     * Department can only be deleted if it has no tasks and no volunteers assigned
      */
     public function getCanBeDeletedAttribute()
     {
-        // Department can only be deleted if:
-        // 1. It has no tasks
-        // 2. It has no volunteers assigned
-        // 3. It has no task assignments
-        
+        // Check if has tasks
         $hasTasks = $this->tasks()->whereNull('deleted_at')->exists();
-        $hasVolunteers = $this->volunteers()->whereNull('deleted_at')->exists();
-        $hasAssignments = $this->taskAssignments()->exists();
+        
+        // Check if has volunteers (using raw query since Volunteer model doesn't exist yet)
+        $hasVolunteers = DB::table('volunteers')
+            ->where('preferred_department_id', $this->id)
+            ->whereNull('deleted_at')
+            ->exists();
+        
+        // Check if has assignments (using raw query)
+        $hasAssignments = DB::table('volunteer_task_assignments')
+            ->where('department_id', $this->id)
+            ->exists();
         
         return !$hasTasks && !$hasVolunteers && !$hasAssignments;
     }
@@ -290,19 +262,26 @@ class VolunteerDepartment extends Model
     }
     
     /**
-     * Get volunteers count
+     * Get volunteers count (using raw query)
      */
     public function getVolunteersCount()
     {
-        return $this->volunteers()->whereNull('deleted_at')->count();
+        return DB::table('volunteers')
+            ->where('preferred_department_id', $this->id)
+            ->whereNull('deleted_at')
+            ->count();
     }
     
     /**
-     * Get active volunteers count
+     * Get active volunteers count (using raw query)
      */
     public function getActiveVolunteersCount()
     {
-        return $this->activeVolunteers()->count();
+        return DB::table('volunteers')
+            ->where('preferred_department_id', $this->id)
+            ->where('status', 'active')
+            ->whereNull('deleted_at')
+            ->count();
     }
     
     /**
@@ -383,7 +362,7 @@ class VolunteerDepartment extends Model
     /**
      * Get department with full details
      */
-    public static function getWithDetails($id, $templeId)
+    public static function getWithDetails($id)
     {
         return self::where('id', $id)
             ->whereNull('deleted_at')
@@ -392,16 +371,15 @@ class VolunteerDepartment extends Model
                 'tasks' => function($query) {
                     $query->whereNull('deleted_at')
                           ->orderBy('task_name');
-                },
-                'activeVolunteers:id,volunteer_id,full_name,mobile_primary,status'
+                }
             ])
             ->first();
     }
     
     /**
-     * Get all active departments for a temple
+     * Get all active departments
      */
-    public static function getActiveForTemple($templeId)
+    public static function getActive()
     {
         return self::where('status', 'active')
             ->whereNull('deleted_at')
@@ -412,7 +390,7 @@ class VolunteerDepartment extends Model
     /**
      * Search departments
      */
-    public static function searchDepartments($templeId, $search = null, $status = null)
+    public static function searchDepartments($search = null, $status = null)
     {
         $query = self::whereNull('deleted_at');
         
@@ -462,8 +440,8 @@ class VolunteerDepartment extends Model
     public static function createRules()
     {
         return [
-            'department_name' => 'required|string|max:100',
-            'department_code' => 'required|string|max:20',
+            'department_name' => 'required|string|max:100|unique:volunteer_departments,department_name,NULL,id,deleted_at,NULL',
+            'department_code' => 'required|string|max:20|unique:volunteer_departments,department_code,NULL,id,deleted_at,NULL',
             'description' => 'nullable|string',
             'coordinator_user_id' => 'nullable|uuid|exists:users,id',
             'capacity_target' => 'nullable|integer|min:0',
@@ -474,11 +452,11 @@ class VolunteerDepartment extends Model
     /**
      * Get validation rules for updating department
      */
-    public static function updateRules()
+    public static function updateRules($id)
     {
         return [
-            'department_name' => 'required|string|max:100',
-            'department_code' => 'required|string|max:20',
+            'department_name' => 'required|string|max:100|unique:volunteer_departments,department_name,' . $id . ',id,deleted_at,NULL',
+            'department_code' => 'required|string|max:20|unique:volunteer_departments,department_code,' . $id . ',id,deleted_at,NULL',
             'description' => 'nullable|string',
             'coordinator_user_id' => 'nullable|uuid|exists:users,id',
             'capacity_target' => 'nullable|integer|min:0',
@@ -493,8 +471,10 @@ class VolunteerDepartment extends Model
     {
         return [
             'department_name.required' => 'Department name is required',
+            'department_name.unique' => 'A department with this name already exists',
             'department_name.max' => 'Department name cannot exceed 100 characters',
             'department_code.required' => 'Department code is required',
+            'department_code.unique' => 'A department with this code already exists',
             'department_code.max' => 'Department code cannot exceed 20 characters',
             'coordinator_user_id.uuid' => 'Invalid coordinator ID format',
             'coordinator_user_id.exists' => 'Selected coordinator does not exist',
@@ -504,4 +484,13 @@ class VolunteerDepartment extends Model
             'status.in' => 'Status must be either active or inactive'
         ];
     }
+
+    public function getDisplayNameAttribute()
+{
+    // Return Chinese name, with English in parentheses if available
+    if ($this->department_name_en) {
+        return "{$this->department_name} ({$this->department_name_en})";
+    }
+    return $this->department_name;
+}
 }

@@ -17,6 +17,7 @@ class PagodaLightRegistration extends Model
         'light_slot_id',
         'light_number',
         'light_code',
+          'category_id',
         'tower_code',
         'block_code',
         'floor_number',
@@ -118,5 +119,9 @@ class PagodaLightRegistration extends Model
     public function daysUntilExpiry()
     {
         return Carbon::now()->diffInDays(Carbon::parse($this->expiry_date), false);
+    }
+        public function category()
+    {
+        return $this->belongsTo(TowerCategory::class, 'category_id');
     }
 }

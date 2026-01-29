@@ -1,9 +1,9 @@
 // js/pages/sale-items/create.js
 // Sale Item Create Page with BOM Products and Commission Management
 
-(function($, window) {
+(function ($, window) {
     'use strict';
-    
+
     // Shared Module Management
     if (!window.SalesSharedModule) {
         window.SalesSharedModule = {
@@ -12,8 +12,8 @@
             cssId: 'sales-css',
             cssPath: '/css/sales.css',
             activePages: new Set(),
-            
-            loadCSS: function() {
+
+            loadCSS: function () {
                 if (!document.getElementById(this.cssId)) {
                     const link = document.createElement('link');
                     link.id = this.cssId;
@@ -23,29 +23,29 @@
                     console.log('Sales CSS loaded');
                 }
             },
-            
-            registerPage: function(pageId) {
+
+            registerPage: function (pageId) {
                 this.activePages.add(pageId);
                 this.loadCSS();
                 console.log(`Sales page registered: ${pageId}`);
             },
-            
-            unregisterPage: function(pageId) {
+
+            unregisterPage: function (pageId) {
                 this.activePages.delete(pageId);
                 console.log(`Sales page unregistered: ${pageId}`);
                 if (this.activePages.size === 0) {
                     this.cleanup();
                 }
             },
-            
-            cleanup: function() {
+
+            cleanup: function () {
                 const cssLink = document.getElementById(this.cssId);
                 if (cssLink) cssLink.remove();
-                
+
                 if (typeof gsap !== 'undefined') {
                     gsap.killTweensOf("*");
                 }
-                
+
                 $(document).off('.' + this.eventNamespace);
                 $(window).off('.' + this.eventNamespace);
                 this.activePages.clear();
@@ -53,11 +53,11 @@
             }
         };
     }
-    
+
     window.SaleItemsCreatePage = {
         pageId: 'sale-item-create',
         eventNamespace: window.SalesSharedModule.eventNamespace,
-        
+
         // Master Data
         categories: [],
         sessions: [],
@@ -65,14 +65,14 @@
         ledgers: [],
         staff: [],
         products: [],
-        
+
         // Selected Data
         selectedCategories: [],
         selectedSessions: [],
         selectedDeities: [],
         bomProducts: [],
         commissions: [],
-        
+
         // Image Data - Now storing base64
         imageFile: null,
         grayscaleImageFile: null,
@@ -80,18 +80,19 @@
         grayscaleImageBase64: null,
         imageUrl: null,
         grayscaleImageUrl: null,
-        
+
         // Page initialization
-        init: function(params) {
+        init: function (params) {
             window.SalesSharedModule.registerPage(this.pageId);
             this.render();
             this.initAnimations();
             this.loadMasterData();
             this.attachEventHandlers();
+            this.generateShortCode();
         },
-        
+
         // Render the page HTML
-        render: function() {
+        render: function () {
             const html = `
                 <div class="sales-container">
                     <div class="sales-card">
@@ -116,14 +117,20 @@
                         </div>
                         
                         <div class="sales-row">
-                            <div class="sales-col sales-col-3">
-                                <div class="sales-form-group">
-                                    <label class="sales-form-label">
-                                        Short Code <span class="required"></span>
-                                    </label>
-                                    <input type="text" id="short_code" class="sales-form-input" placeholder="e.g., GHL">
-                                </div>
+                              <div class="sales-col sales-col-3">
+                        <div class="sales-form-group">
+                            <label class="sales-form-label">
+                                Short Code <span class="required"></span>
+                            </label>
+                            <div class="input-group">
+                                <input type="text" id="short_code" class="sales-form-input" 
+                                       placeholder="Auto-generated" readonly 
+                                       style="background-color: #f8f9fa;">
+                               
                             </div>
+                            <span class="sales-help-text">Auto-generated unique code</span>
+                        </div>
+                    </div>
                             <div class="sales-col sales-col-3">
                                 <div class="sales-form-group">
                                     <label class="sales-form-label">
@@ -162,15 +169,15 @@
                             <div class="sales-col sales-col-2">
                                 <div class="sales-form-group">
                                     <label class="sales-form-label">
-                                        Name (English) <span class="required"></span>
+                                        Name (Primary) <span class="required"></span>
                                     </label>
-                                    <input type="text" id="name_primary" class="sales-form-input" placeholder="Enter English name">
+                                    <input type="text" id="name_primary" class="sales-form-input" placeholder="Enter Primary name">
                                 </div>
                             </div>
                             <div class="sales-col sales-col-2">
                                 <div class="sales-form-group">
-                                    <label class="sales-form-label">Name (Tamil)</label>
-                                    <input type="text" id="name_secondary" class="sales-form-input" placeholder="Enter Tamil name">
+                                    <label class="sales-form-label">Name (Secondary)</label>
+                                    <input type="text" id="name_secondary" class="sales-form-input" placeholder="Enter Secondary name">
                                 </div>
                             </div>
                         </div>
@@ -184,7 +191,7 @@
                         <div class="sales-row">
                             <div class="sales-col sales-col-3">
                                 <div class="sales-form-group">
-                                    <label class="sales-form-label">Group</label>
+                                    <label class="sales-form-label">Category</label>
                                     <div class="sales-multiselect" id="categories-multiselect">
                                         <div class="sales-multiselect-input" tabindex="0">
                                             <span id="categories-placeholder">Select...</span>
@@ -402,48 +409,48 @@
                     </div>
                 </div>
             `;
-            
+
             $('#page-container').html(html);
         },
-        
+
         // Load all master data
-        loadMasterData: function() {
+        loadMasterData: function () {
             const self = this;
             TempleCore.showLoading(true);
-            
+
             $.when(
                 TempleAPI.get('/sales/categories/active'),
                 TempleAPI.get('/sales/sessions/active'),
                 TempleAPI.get('/deities/active'),
                 TempleAPI.get('/accounts/ledgers/type/income'),
                 TempleAPI.get('/staff/active')
-            ).done(function(categoriesRes, sessionsRes, deitiesRes, ledgersRes, staffRes) {
+            ).done(function (categoriesRes, sessionsRes, deitiesRes, ledgersRes, staffRes) {
                 // Store master data
                 self.categories = categoriesRes[0]?.data || categoriesRes.data || [];
                 self.sessions = sessionsRes[0]?.data || sessionsRes.data || [];
                 self.deities = deitiesRes[0]?.data || deitiesRes.data || [];
                 self.ledgers = ledgersRes[0]?.data?.ledgers || ledgersRes.data?.ledgers || [];
                 self.staff = staffRes[0]?.data || staffRes.data || [];
-                
+
                 // Populate dropdowns and multiselects
                 self.populateCategories();
                 self.populateSessions();
                 self.populateDeities();
                 self.populateLedgers();
-                
+
                 TempleCore.showLoading(false);
-            }).fail(function(xhr, status, error) {
+            }).fail(function (xhr, status, error) {
                 console.error('Failed to load master data:', error);
                 TempleCore.showToast('Failed to load master data', 'error');
                 TempleCore.showLoading(false);
             });
         },
-        
+
         // Populate categories multiselect
-        populateCategories: function() {
+        populateCategories: function () {
             const dropdown = $('#categories-dropdown');
             dropdown.empty();
-            
+
             this.categories.forEach(cat => {
                 const option = $(`
                     <div class="sales-multiselect-option" data-value="${cat.id}">
@@ -454,28 +461,28 @@
                 dropdown.append(option);
             });
         },
-        
+
         // Populate sessions multiselect
-        populateSessions: function() {
+        populateSessions: function () {
             const dropdown = $('#sessions-dropdown');
             dropdown.empty();
-            
+
             this.sessions.forEach(session => {
                 const option = $(`
                     <div class="sales-multiselect-option" data-value="${session.id}">
                         <input type="checkbox" class="sales-checkbox">
-                        <span>${session.name_primary}${session.name_secondary ? ' (' + session.name_secondary + ')' : ''}</span>
+                        <span>${session.name}</span>
                     </div>
                 `);
                 dropdown.append(option);
             });
         },
-        
+
         // Populate deities multiselect
-        populateDeities: function() {
+        populateDeities: function () {
             const dropdown = $('#deities-dropdown');
             dropdown.empty();
-            
+
             this.deities.forEach(deity => {
                 const option = $(`
                     <div class="sales-multiselect-option" data-value="${deity.id}">
@@ -486,27 +493,58 @@
                 dropdown.append(option);
             });
         },
-        
+
         // Populate ledgers dropdown
-        populateLedgers: function() {
+        populateLedgers: function () {
             let ledgerOptions = '<option value="">Select Ledger</option>';
             this.ledgers.forEach(ledger => {
                 ledgerOptions += `<option value="${ledger.id}">${ledger.name}</option>`;
             });
             $('#ledger_id').html(ledgerOptions);
         },
-        
+
         // Attach event handlers
-        attachEventHandlers: function() {
+        attachEventHandlers: function () {
             const self = this;
-            
+            $('#regenerate-code').on('click', function () {
+                self.generateShortCode();
+            });
+            $('#edit-code').on('click', function () {
+                const $input = $('#short_code');
+                const $btn = $(this);
+
+                if ($input.prop('readonly')) {
+                    // Enable editing
+                    $input.prop('readonly', false)
+                        .css('background-color', '#ffffff')
+                        .focus();
+                    $btn.html('<i class="bi bi-lock"></i>')
+                        .attr('title', 'Lock Code')
+                        .removeClass('btn-outline-primary')
+                        .addClass('btn-outline-success');
+                } else {
+                    // Lock editing
+                    const code = $input.val().trim();
+                    if (!code) {
+                        TempleCore.showToast('Please enter a short code', 'error');
+                        return;
+                    }
+
+                    $input.prop('readonly', true)
+                        .css('background-color', '#f8f9fa');
+                    $btn.html('<i class="bi bi-pencil"></i>')
+                        .attr('title', 'Edit Manually')
+                        .removeClass('btn-outline-success')
+                        .addClass('btn-outline-primary');
+                }
+            });
             // Multiselect handlers
             this.initMultiselect('categories', this.selectedCategories);
             this.initMultiselect('sessions', this.selectedSessions);
             this.initMultiselect('deities', this.selectedDeities);
-            
+
             // Track inventory checkbox
-            $('#is_inventory').on('change', function() {
+            $('#is_inventory').on('change', function () {
                 if ($(this).is(':checked')) {
                     $('#bom-section').fadeIn();
                 } else {
@@ -515,9 +553,9 @@
                     self.renderBomProducts();
                 }
             });
-            
+
             // Enable commission checkbox
-            $('#is_commission').on('change', function() {
+            $('#is_commission').on('change', function () {
                 if ($(this).is(':checked')) {
                     $('#commission-section').fadeIn();
                 } else {
@@ -526,85 +564,85 @@
                     self.renderCommissions();
                 }
             });
-            
+
             // Add BOM product
-            $('#add-bom-product').on('click', function() {
+            $('#add-bom-product').on('click', function () {
                 self.showProductSelectionModal();
             });
-            
+
             // Add staff commission
-            $('#add-staff-commission').on('click', function() {
+            $('#add-staff-commission').on('click', function () {
                 self.addCommissionRow();
             });
-            
+
             // Image upload
-            $('#image_file').on('change', function(e) {
+            $('#image_file').on('change', function (e) {
                 self.handleImageUpload(e, 'image');
             });
-            
-            $('#grayscale_image_file').on('change', function(e) {
+
+            $('#grayscale_image_file').on('change', function (e) {
                 self.handleImageUpload(e, 'grayscale');
             });
-            
+
             // Click on upload area
-            $('#image-upload').on('click', function(e) {
+            $('#image-upload').on('click', function (e) {
                 if (e.target.tagName !== 'INPUT' && !$(e.target).hasClass('sales-image-remove-btn') && !$(e.target).closest('.sales-image-remove-btn').length) {
                     $('#image_file').click();
                 }
             });
-            
-            $('#grayscale-image-upload').on('click', function(e) {
+
+            $('#grayscale-image-upload').on('click', function (e) {
                 if (e.target.tagName !== 'INPUT' && !$(e.target).hasClass('sales-image-remove-btn') && !$(e.target).closest('.sales-image-remove-btn').length) {
                     $('#grayscale_image_file').click();
                 }
             });
-            
+
             // Remove image buttons
-            $('#remove-image').on('click', function(e) {
+            $('#remove-image').on('click', function (e) {
                 e.stopPropagation();
                 self.removeImage('image');
             });
-            
-            $('#remove-grayscale-image').on('click', function(e) {
+
+            $('#remove-grayscale-image').on('click', function (e) {
                 e.stopPropagation();
                 self.removeImage('grayscale');
             });
-            
+
             // Save button
-            $('#save-sale-item').on('click', function() {
+            $('#save-sale-item').on('click', function () {
                 self.saveSaleItem();
             });
-            
+
             // Cancel button
-            $('#cancel-btn').on('click', function() {
+            $('#cancel-btn').on('click', function () {
                 if (confirm('Are you sure you want to cancel? All unsaved changes will be lost.')) {
                     self.cleanup();
                     TempleRouter.navigate('sale-items');
                 }
             });
         },
-        
+
         // Initialize multiselect
-        initMultiselect: function(name, selectedArray) {
+        initMultiselect: function (name, selectedArray) {
             const self = this;
             const $multiselect = $(`#${name}-multiselect`);
             const $input = $multiselect.find('.sales-multiselect-input');
             const $dropdown = $(`#${name}-dropdown`);
-            
+
             // Toggle dropdown
-            $input.on('click', function(e) {
+            $input.on('click', function (e) {
                 e.stopPropagation();
                 // Close other dropdowns
                 $('.sales-multiselect-dropdown').not($dropdown).removeClass('active');
                 $dropdown.toggleClass('active');
             });
-            
+
             // Select option
-            $dropdown.on('click', '.sales-multiselect-option', function(e) {
+            $dropdown.on('click', '.sales-multiselect-option', function (e) {
                 e.stopPropagation();
                 const value = $(this).data('value');
                 const checkbox = $(this).find('input[type="checkbox"]');
-                
+
                 const index = selectedArray.indexOf(value);
                 if (index > -1) {
                     selectedArray.splice(index, 1);
@@ -615,29 +653,29 @@
                     $(this).addClass('selected');
                     checkbox.prop('checked', true);
                 }
-                
+
                 self.updateMultiselectTags(name, selectedArray);
             });
-            
+
             // Close dropdown when clicking outside
-            $(document).on('click.' + this.eventNamespace, function(e) {
+            $(document).on('click.' + this.eventNamespace, function (e) {
                 if (!$(e.target).closest('.sales-multiselect').length) {
                     $('.sales-multiselect-dropdown').removeClass('active');
                 }
             });
         },
-        
+
         // Update multiselect tags
-        updateMultiselectTags: function(name, selectedArray) {
+        updateMultiselectTags: function (name, selectedArray) {
             const self = this;
             const $tags = $(`#${name}-tags`);
             $tags.empty();
-            
+
             let dataSource;
             if (name === 'categories') dataSource = this.categories;
             else if (name === 'sessions') dataSource = this.sessions;
             else if (name === 'deities') dataSource = this.deities;
-            
+
             selectedArray.forEach(id => {
                 const item = dataSource.find(i => i.id == id);
                 if (item) {
@@ -648,8 +686,8 @@
                             <span class="sales-multiselect-tag-remove" data-value="${id}">&times;</span>
                         </div>
                     `);
-                    
-                    tag.find('.sales-multiselect-tag-remove').on('click', function(e) {
+
+                    tag.find('.sales-multiselect-tag-remove').on('click', function (e) {
                         e.stopPropagation();
                         const val = $(this).data('value');
                         const idx = selectedArray.indexOf(val);
@@ -662,24 +700,24 @@
                                 .prop('checked', false);
                         }
                     });
-                    
+
                     $tags.append(tag);
                 }
             });
         },
-        
+
         // Show product selection modal
-        showProductSelectionModal: function() {
+        showProductSelectionModal: function () {
             const self = this;
-            
+
             // Load products if not loaded
             if (this.products.length === 0) {
                 TempleCore.showLoading(true);
-                TempleAPI.get('/sales/items/available-products').done(function(response) {
+                TempleAPI.get('/sales/items/available-products').done(function (response) {
                     self.products = response.data || [];
                     self.displayProductModal();
                     TempleCore.showLoading(false);
-                }).fail(function(xhr, status, error) {
+                }).fail(function (xhr, status, error) {
                     console.error('Failed to load products:', error);
                     TempleCore.showToast('Failed to load products', 'error');
                     TempleCore.showLoading(false);
@@ -688,12 +726,26 @@
                 this.displayProductModal();
             }
         },
-        
+        generateShortCode: function () {
+            const self = this;
+
+            TempleAPI.get('/sales/items/generate-short-code')
+                .done(function (response) {
+                    if (response.success && response.data) {
+                        $('#short_code').val(response.data.short_code);
+                        console.log('Generated short code:', response.data.short_code);
+                    }
+                })
+                .fail(function (xhr) {
+                    console.error('Failed to generate short code:', xhr);
+                    TempleCore.showToast('Failed to generate short code', 'error');
+                });
+        },
         // Display product selection modal
-        displayProductModal: function() {
+        displayProductModal: function () {
             const self = this;
             const selectedProductIds = this.bomProducts.map(bp => bp.product_id);
-            
+
             let modalHtml = `
                 <div class="modal fade" id="product-modal" tabindex="-1">
                     <div class="modal-dialog modal-lg">
@@ -708,13 +760,13 @@
                                 </div>
                                 <div class="list-group" id="product-list">
             `;
-            
+
             this.products.forEach(product => {
                 const isDisabled = selectedProductIds.includes(product.id);
                 const disabledClass = isDisabled ? 'disabled' : '';
                 const uom = product.uom_short || product.uom_name || '';
                 const productDataStr = btoa(JSON.stringify(product));
-                
+
                 modalHtml += `
                     <a href="#" class="list-group-item list-group-item-action ${disabledClass}" 
                        data-product-encoded="${productDataStr}" ${isDisabled ? 'disabled' : ''}>
@@ -726,7 +778,7 @@
                     </a>
                 `;
             });
-            
+
             modalHtml += `
                                 </div>
                             </div>
@@ -734,40 +786,40 @@
                     </div>
                 </div>
             `;
-            
+
             // Remove existing modal if any
             $('#product-modal').remove();
             $('body').append(modalHtml);
-            
+
             const $modal = new bootstrap.Modal(document.getElementById('product-modal'));
             $modal.show();
-            
+
             // Product selection
-            $('#product-list').on('click', 'a:not(.disabled)', function(e) {
+            $('#product-list').on('click', 'a:not(.disabled)', function (e) {
                 e.preventDefault();
                 const productDataStr = $(this).attr('data-product-encoded');
                 const product = JSON.parse(atob(productDataStr));
                 self.addBomProduct(product);
                 $modal.hide();
             });
-            
+
             // Search products
-            $('#product-search').on('keyup', function() {
+            $('#product-search').on('keyup', function () {
                 const search = $(this).val().toLowerCase();
-                $('#product-list a').each(function() {
+                $('#product-list a').each(function () {
                     const text = $(this).text().toLowerCase();
                     $(this).toggle(text.includes(search));
                 });
             });
-            
+
             // Cleanup on close
-            $('#product-modal').on('hidden.bs.modal', function() {
+            $('#product-modal').on('hidden.bs.modal', function () {
                 $(this).remove();
             });
         },
-        
+
         // Add BOM product
-        addBomProduct: function(product) {
+        addBomProduct: function (product) {
             this.bomProducts.push({
                 product_id: product.id,
                 product_name: product.name,
@@ -777,20 +829,20 @@
             });
             this.renderBomProducts();
         },
-        
+
         // Render BOM products table
-        renderBomProducts: function() {
+        renderBomProducts: function () {
             const self = this;
             const $tbody = $('#bom-products-tbody');
             $tbody.empty();
-            
+
             if (this.bomProducts.length === 0) {
                 $('#bom-table-wrapper').hide();
                 return;
             }
-            
+
             $('#bom-table-wrapper').show();
-            
+
             this.bomProducts.forEach((bp, index) => {
                 const row = $(`
                     <tr data-index="${index}">
@@ -810,23 +862,23 @@
                 `);
                 $tbody.append(row);
             });
-            
+
             // Quantity change handler
-            $tbody.find('.bom-quantity').on('change', function() {
+            $tbody.find('.bom-quantity').on('change', function () {
                 const index = $(this).data('index');
                 self.bomProducts[index].quantity = parseFloat($(this).val()) || 1;
             });
-            
+
             // Remove handler
-            $tbody.find('.remove-bom').on('click', function() {
+            $tbody.find('.remove-bom').on('click', function () {
                 const index = $(this).data('index');
                 self.bomProducts.splice(index, 1);
                 self.renderBomProducts();
             });
         },
-        
+
         // Add commission row
-        addCommissionRow: function() {
+        addCommissionRow: function () {
             this.commissions.push({
                 staff_id: null,
                 staff_name: '',
@@ -834,28 +886,28 @@
             });
             this.renderCommissions();
         },
-        
+
         // Render commissions table
-        renderCommissions: function() {
+        renderCommissions: function () {
             const self = this;
             const $tbody = $('#commissions-tbody');
             $tbody.empty();
-            
+
             if (this.commissions.length === 0) {
                 $('#commission-table-wrapper').hide();
                 this.updateCommissionTotal();
                 return;
             }
-            
+
             $('#commission-table-wrapper').show();
-            
+
             this.commissions.forEach((comm, index) => {
                 let staffOptions = '<option value="">Select Staff</option>';
                 this.staff.forEach(s => {
                     const selected = s.id == comm.staff_id ? 'selected' : '';
                     staffOptions += `<option value="${s.id}" ${selected}>${s.name}</option>`;
                 });
-                
+
                 const row = $(`
                     <tr data-index="${index}">
                         <td>
@@ -879,76 +931,76 @@
                 `);
                 $tbody.append(row);
             });
-            
+
             // Staff change handler
-            $tbody.find('.commission-staff').on('change', function() {
+            $tbody.find('.commission-staff').on('change', function () {
                 const index = $(this).data('index');
                 self.commissions[index].staff_id = $(this).val();
                 const staffMember = self.staff.find(s => s.id == $(this).val());
                 self.commissions[index].staff_name = staffMember ? staffMember.name : '';
             });
-            
+
             // Commission percent change handler
-            $tbody.find('.commission-percent').on('change', function() {
+            $tbody.find('.commission-percent').on('change', function () {
                 const index = $(this).data('index');
                 self.commissions[index].commission_percent = parseFloat($(this).val()) || 0;
                 self.updateCommissionTotal();
             });
-            
+
             // Remove handler
-            $tbody.find('.remove-commission').on('click', function() {
+            $tbody.find('.remove-commission').on('click', function () {
                 const index = $(this).data('index');
                 self.commissions.splice(index, 1);
                 self.renderCommissions();
             });
-            
+
             this.updateCommissionTotal();
         },
-        
+
         // Update commission total
-        updateCommissionTotal: function() {
+        updateCommissionTotal: function () {
             const total = this.commissions.reduce((sum, c) => sum + (parseFloat(c.commission_percent) || 0), 0);
             const remaining = 100 - total;
-            
+
             $('#total-commission').text(total.toFixed(2) + '%');
             $('#remaining-commission').text(remaining.toFixed(2));
-            
+
             if (total < 100 && this.commissions.length > 0) {
                 $('#commission-warning').fadeIn();
             } else {
                 $('#commission-warning').fadeOut();
             }
-            
+
             if (total > 100) {
                 $('#total-commission').css('color', '#dc3545');
             } else {
                 $('#total-commission').css('color', 'var(--primary-color, #0066cc)');
             }
         },
-        
+
         // Handle image upload - UPDATED to convert to base64
-        handleImageUpload: function(e, type) {
+        handleImageUpload: function (e, type) {
             const self = this;
             const file = e.target.files[0];
             if (!file) return;
-            
+
             // Validate file type
             if (!file.type.match('image.*')) {
                 TempleCore.showToast('Please select an image file', 'error');
                 return;
             }
-            
+
             // Validate file size (max 5MB)
             if (file.size > 5 * 1024 * 1024) {
                 TempleCore.showToast('Image size must be less than 5MB', 'error');
                 return;
             }
-            
+
             // Read file and convert to base64
             const reader = new FileReader();
-            reader.onload = function(evt) {
+            reader.onload = function (evt) {
                 const base64Data = evt.target.result; // This includes the data:image/xxx;base64, prefix
-                
+
                 if (type === 'image') {
                     $('#image-preview').attr('src', base64Data).show();
                     $('#image-help-text').text(file.name);
@@ -967,9 +1019,9 @@
             };
             reader.readAsDataURL(file);
         },
-        
+
         // Remove image
-        removeImage: function(type) {
+        removeImage: function (type) {
             if (type === 'image') {
                 this.imageFile = null;
                 this.imageBase64 = null;
@@ -990,18 +1042,18 @@
                 $('#grayscale-image-upload').find('.sales-image-upload-icon, .sales-image-upload-text').show();
             }
         },
-        
+
         // Save sale item - UPDATED to include base64 images
-        saveSaleItem: async function() {
+        saveSaleItem: async function () {
             const self = this;
-            
+
             // Validate form
             if (!this.validateForm()) {
                 return;
             }
-            
+
             TempleCore.showLoading(true);
-            
+
             try {
                 // Prepare JSON data
                 const data = {
@@ -1018,22 +1070,22 @@
                     order_no: parseInt($('#order_no').val()) || 0,
                     enable_rasi: $('#enable_rasi').is(':checked')
                 };
-                
+
                 // Add categories if selected
                 if (this.selectedCategories.length > 0) {
                     data.categories = this.selectedCategories;
                 }
-                
+
                 // Add sessions if selected
                 if (this.selectedSessions.length > 0) {
                     data.sessions = this.selectedSessions;
                 }
-                
+
                 // Add deities if selected
                 if (this.selectedDeities.length > 0) {
                     data.deities = this.selectedDeities;
                 }
-                
+
                 // Add BOM Products if inventory tracking is enabled
                 if (data.is_inventory && this.bomProducts.length > 0) {
                     data.bom_products = this.bomProducts.map(bp => ({
@@ -1041,7 +1093,7 @@
                         quantity: parseFloat(bp.quantity) || 1
                     }));
                 }
-                
+
                 // Add Commissions if commission is enabled
                 if (data.is_commission && this.commissions.length > 0) {
                     data.commissions = this.commissions
@@ -1051,7 +1103,7 @@
                             commission_percent: parseFloat(c.commission_percent) || 0
                         }));
                 }
-                
+
                 // Add base64 images if present
                 if (this.imageBase64) {
                     data.image_base64 = this.imageBase64;
@@ -1059,12 +1111,12 @@
                 if (this.grayscaleImageBase64) {
                     data.grayscale_image_base64 = this.grayscaleImageBase64;
                 }
-                
+
                 console.log('Saving sale item with data:', data);
-                
+
                 // Save via API - send as JSON
                 TempleAPI.post('/sales/items', data)
-                    .done(function(response) {
+                    .done(function (response) {
                         TempleCore.showLoading(false);
                         if (response.success) {
                             TempleCore.showToast('Sale item created successfully', 'success');
@@ -1074,10 +1126,10 @@
                             TempleCore.showToast(response.message || 'Failed to create sale item', 'error');
                         }
                     })
-                    .fail(function(xhr, status, error) {
+                    .fail(function (xhr, status, error) {
                         TempleCore.showLoading(false);
                         console.error('Save error:', xhr.responseJSON);
-                        
+
                         // Handle validation errors
                         if (xhr.status === 422 && xhr.responseJSON?.errors) {
                             const errors = xhr.responseJSON.errors;
@@ -1089,16 +1141,16 @@
                             TempleCore.showToast(message, 'error');
                         }
                     });
-                    
+
             } catch (error) {
                 TempleCore.showLoading(false);
                 console.error('Save error:', error);
                 TempleCore.showToast('An error occurred while saving', 'error');
             }
         },
-        
+
         // Initialize animations
-        initAnimations: function() {
+        initAnimations: function () {
             if (typeof AOS !== 'undefined') {
                 AOS.init({
                     duration: 800,
@@ -1107,7 +1159,7 @@
                     offset: 50
                 });
             }
-            
+
             if (typeof gsap !== 'undefined') {
                 gsap.fromTo('.sales-card',
                     { y: 20, opacity: 0 },
@@ -1121,38 +1173,38 @@
                 );
             }
         },
-        
+
         // Validate form
-        validateForm: function() {
+        validateForm: function () {
             const name = $('#name_primary').val().trim();
             const shortCode = $('#short_code').val().trim();
             const saleType = $('#sale_type').val();
             const price = parseFloat($('#price').val());
-            
+
             if (!name) {
                 TempleCore.showToast('Please enter name (English)', 'error');
                 $('#name_primary').focus();
                 return false;
             }
-            
+
             if (!shortCode) {
                 TempleCore.showToast('Please enter Short code', 'error');
                 $('#short_code').focus();
                 return false;
             }
-            
+
             if (!saleType) {
                 TempleCore.showToast('Please select sale type', 'error');
                 $('#sale_type').focus();
                 return false;
             }
-            
+
             if (isNaN(price) || price < 0) {
                 TempleCore.showToast('Please enter a valid price', 'error');
                 $('#price').focus();
                 return false;
             }
-            
+
             // Validate commission total
             if ($('#is_commission').is(':checked') && this.commissions.length > 0) {
                 const total = this.commissions.reduce((sum, c) => sum + (parseFloat(c.commission_percent) || 0), 0);
@@ -1160,7 +1212,7 @@
                     TempleCore.showToast('Total commission cannot exceed 100%', 'error');
                     return false;
                 }
-                
+
                 // Check if all staff are selected for rows with commission
                 for (let i = 0; i < this.commissions.length; i++) {
                     if (!this.commissions[i].staff_id && this.commissions[i].commission_percent > 0) {
@@ -1169,16 +1221,16 @@
                     }
                 }
             }
-            
+
             return true;
         },
-        
+
         // Cleanup
-        cleanup: function() {
+        cleanup: function () {
             window.SalesSharedModule.unregisterPage(this.pageId);
             $(document).off('.' + this.eventNamespace);
             $(window).off('.' + this.eventNamespace);
-            
+
             // Clear data
             this.selectedCategories = [];
             this.selectedSessions = [];
@@ -1191,10 +1243,10 @@
             this.grayscaleImageBase64 = null;
             this.imageUrl = null;
             this.grayscaleImageUrl = null;
-            
+
             // Remove any open modals
             $('#product-modal').remove();
         }
     };
-    
+
 })(jQuery, window);

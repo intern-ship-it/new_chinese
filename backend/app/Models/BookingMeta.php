@@ -77,4 +77,57 @@ class BookingMeta extends Model
             default => $this->meta_value,
         };
     }
+
+
+
+
+
+    /**
+     * Set value with automatic type casting
+     */
+    public function setTypedValue($value, $type = null)
+    {
+        if ($type) {
+            $this->meta_type = $type;
+        }
+
+        switch ($this->meta_type) {
+            case 'json':
+            case 'array':
+                $this->meta_value = is_string($value) ? $value : json_encode($value);
+                break;
+            case 'boolean':
+                $this->meta_value = $value ? '1' : '0';
+                break;
+            case 'datetime':
+                $this->meta_value = $value instanceof \Carbon\Carbon 
+                    ? $value->toDateTimeString() 
+                    : $value;
+                break;
+            default:
+                $this->meta_value = (string) $value;
+        }
+
+        return $this;
+    }
+
+    // ========================================
+    // SCOPES
+    // ========================================
+
+    /**
+     * Scope to filter by meta key
+     */
+    public function scopeWhereKey($query, $key)
+    {
+        return $query->where('meta_key', $key);
+    }
+
+    /**
+     * Scope to filter by meta type
+     */
+    public function scopeWhereType($query, $type)
+    {
+        return $query->where('meta_type', $type);
+    }
 }

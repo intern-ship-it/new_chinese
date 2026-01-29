@@ -223,26 +223,66 @@ class S3ConfigManager
     /**
      * Get public URL for a file
      */
-    public function getPublicUrl($path)
-    {
-        $config = $this->getConfig();
+    // public function getPublicUrl($path)
+    // {
+    //     $config = $this->getConfig();
         
-        // Use CDN if enabled
-        if ($config['use_cdn'] && !empty($config['cdn_url'])) {
-            return rtrim($config['cdn_url'], '/') . '/' . ltrim($path, '/');
+    //     // Use CDN if enabled
+    //     if ($config['use_cdn'] && !empty($config['cdn_url'])) {
+    //         return rtrim($config['cdn_url'], '/') . '/' . ltrim($path, '/');
+    //     }
+        
+    //     // Use bucket URL
+    //     if (!empty($config['url'])) {
+    //         return rtrim($config['url'], '/') . '/' . ltrim($path, '/');
+    //     }
+        
+    //     // Generate standard S3 URL
+    //     $bucket = $config['bucket'];
+    //     $region = $config['region'];
+    //     return "https://{$bucket}.s3.{$region}.amazonaws.com/" . ltrim($path, '/');
+    // }
+    /**
+ * Get public URL for a file
+ */
+public function getPublicUrl($path)
+{
+ 
+    if (!is_string($path)) {
+        Log::error('getPublicUrl received non-string path', [
+            'path' => $path,
+            'type' => gettype($path)
+        ]);
+        
+        // Try to extract string if it's an array
+        if (is_array($path)) {
+            $path = $path['url'] ?? $path['path'] ?? '';
+        } else {
+            $path = '';
         }
         
-        // Use bucket URL
-        if (!empty($config['url'])) {
-            return rtrim($config['url'], '/') . '/' . ltrim($path, '/');
+        if (empty($path)) {
+            return '';
         }
-        
-        // Generate standard S3 URL
-        $bucket = $config['bucket'];
-        $region = $config['region'];
-        return "https://{$bucket}.s3.{$region}.amazonaws.com/" . ltrim($path, '/');
     }
     
+    $config = $this->getConfig();
+    
+    // Use CDN if enabled
+    if ($config['use_cdn'] && !empty($config['cdn_url'])) {
+        return rtrim($config['cdn_url'], '/') . '/' . ltrim($path, '/');
+    }
+    
+    // Use bucket URL
+    if (!empty($config['url'])) {
+        return rtrim($config['url'], '/') . '/' . ltrim($path, '/');
+    }
+    
+    // Generate standard S3 URL
+    $bucket = $config['bucket'];
+    $region = $config['region'];
+    return "https://{$bucket}.s3.{$region}.amazonaws.com/" . ltrim($path, '/');
+}
     /**
      * Validate S3 configuration
      */

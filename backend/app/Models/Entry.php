@@ -32,7 +32,8 @@ class Entry extends Model
         'created_by',
         'approval_status',
         'has_closed',
-'fund_budget_id'
+'fund_budget_id',
+ 'user_id'
        
     ];
 

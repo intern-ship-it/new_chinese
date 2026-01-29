@@ -25,7 +25,8 @@ class OccasionOptionController extends Controller
             $query = OccasionOption::with([
                 'ledger:id,name',
                 'activeTimeSlots',
-                'activeEventDates'
+                'activeEventDates',
+                'services'
             ])
                 ->where('occasion_id', $occasionId)
                 ->orderBy('sort_order')

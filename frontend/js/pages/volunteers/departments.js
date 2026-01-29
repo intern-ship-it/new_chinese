@@ -1,5 +1,5 @@
 // js/pages/volunteers/departments.js
-// Volunteer Departments Management Page - Enhanced Version
+// Volunteer Departments Management Page - Enhanced Version with Fixed Error Handling
 // Master Setup - Foundation for Volunteer System
 
 (function($, window) {
@@ -264,15 +264,27 @@
                                             </div>
                                         </div>
 
-                                        <!-- Department Name -->
-                                        <div class="col-md-6">
-                                            <label class="form-label">
-                                                Department Name <span class="text-danger">*</span>
-                                            </label>
-                                            <input type="text" class="form-control" id="departmentName" 
-                                                   placeholder="e.g., Event Management" required>
-                                            <div class="invalid-feedback">Please enter department name</div>
-                                        </div>
+                                  <!-- Department Name (Chinese) -->
+<div class="col-md-6">
+    <label class="form-label">
+        Department Name (Chinese) <span class="text-danger">*</span>
+        
+    </label>
+    <input type="text" class="form-control" id="departmentName" 
+           placeholder="e.g., 活动管理" required>
+    <div class="invalid-feedback">Please enter Chinese department name</div>
+</div>
+
+<!-- Department Name (English) - Optional -->
+<div class="col-md-6">
+    <label class="form-label">
+        Department Name (English) 
+ 
+    </label>
+    <input type="text" class="form-control" id="departmentNameEn" 
+           placeholder="e.g., Event Management">
+    <small class="text-muted">Optional: English translation of department name</small>
+</div>
 
                                         <!-- Department Code -->
                                         <div class="col-md-6">
@@ -427,7 +439,7 @@
                 // Table row entrance animation
                 const animateTableRows = () => {
                     gsap.from('#departmentsTable tbody tr', {
-                        opacity: 0,
+                        // opacity: 0,
                         y: 20,
                         duration: 0.4,
                         stagger: 0.05,
@@ -540,166 +552,228 @@
             console.log('✅ Events bound successfully');
         },
         
-        loadDepartments: async function() {
-            console.log('📡 Loading departments from API');
-            
-            const filters = {
-                search: $('#searchInput').val(),
-                status: $('#statusFilter').val()
-            };
-            
-            console.log('🔍 Filters:', filters);
-            
-            try {
-                const response = await TempleAPI.get('/volunteers/departments', filters);
-                
-                if (response.success) {
-                    console.log(`✅ Loaded ${response.data.length} departments`);
-                    this.renderTable(response.data || []);
-                } else {
-                    throw new Error(response.message || 'Failed to load departments');
-                }
-            } catch (error) {
-                console.error('❌ Error loading departments:', error);
-                TempleCore.showToast('Failed to load departments: ' + error.message, 'error');
-                this.renderTable([]);
-            }
-        },
+loadDepartments: async function() {
+    console.log('📡 Loading departments from API');
+    
+    const filters = {
+        search: $('#searchInput').val(),
+        status: $('#statusFilter').val()
+    };
+    
+    console.log('🔍 Filters:', filters);
+    
+    try {
+        const response = await TempleAPI.get('/volunteers/departments', filters);
         
-        renderTable: function(departments) {
-            const self = this;
-            console.log('📊 Rendering table with', departments.length, 'departments');
-            
-            // Destroy existing DataTable
-            if (this.dataTable) {
-                console.log('Destroying existing DataTable');
-                this.dataTable.destroy();
-                this.dataTable = null;
+        console.log('📦 Raw response:', response);
+        
+        if (response.success) {
+            console.log(`✅ Loaded ${response.data.length} departments`);
+            this.renderTable(response.data || []);
+        } else {
+            throw new Error(response.message || 'Failed to load departments');
+        }
+    } catch (error) {
+        console.error('❌ Error loading departments:', error);
+        
+        // Extract error message properly
+        let errorMessage = 'Failed to load departments';
+        
+        // Check different error response formats
+        if (error.responseJSON) {
+            errorMessage = error.responseJSON.message || error.responseJSON.error || errorMessage;
+            if (error.responseJSON.details) {
+                console.error('Error details:', error.responseJSON.details);
             }
-            
-            const tableBody = $('#departmentsTable tbody');
-            tableBody.empty();
-            
-            // Handle empty state
-            if (departments.length === 0) {
-                console.log('No departments found - showing empty state');
-                tableBody.html(`
-                    <tr>
-                        <td colspan="7" class="text-center py-5">
-                            <div class="empty-state">
-                                <i class="bi bi-inbox fs-1 text-muted mb-3"></i>
-                                <h5 class="text-muted">No Departments Found</h5>
-                                <p class="text-muted mb-3">Get started by creating your first department</p>
-                                <button class="btn btn-primary" id="btnCreateDepartment">
-                                    <i class="bi bi-plus-circle me-2"></i>Create First Department
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                `);
-                return;
-            }
-            
-            // Render table rows
-            departments.forEach(function(dept, index) {
-                const statusBadge = dept.status === 'active' 
-                    ? '<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Active</span>'
-                    : '<span class="badge bg-secondary"><i class="bi bi-x-circle me-1"></i>Inactive</span>';
-                
-                const coordinator = dept.coordinator_user 
-                    ? `<div class="d-flex align-items-center">
-                            <i class="bi bi-person-circle me-2 text-primary"></i>
-                            <span>${dept.coordinator_user.name}</span>
-                       </div>`
-                    : '<span class="text-muted"><i class="bi bi-person-dash me-2"></i>Not Assigned</span>';
-                
-                const createdDate = TempleCore.formatDate ? TempleCore.formatDate(dept.created_at) : dept.created_at;
-                
-                const capacityDisplay = dept.capacity_target > 0 
-                    ? `<div class="text-center">
-                            <span class="badge bg-info">${dept.capacity_target}</span>
-                       </div>`
-                    : `<div class="text-center">
-                            <span class="text-muted">-</span>
-                       </div>`;
-                
-                const row = `
-                    <tr data-aos="fade-up" data-aos-delay="${index * 50}">
-                        <td>
-                            <span class="badge bg-primary">${dept.department_code}</span>
-                        </td>
-                        <td>
-                            <div class="fw-semibold">${dept.department_name}</div>
-                            ${dept.description ? '<small class="text-muted">' + dept.description + '</small>' : ''}
-                        </td>
-                        <td>${coordinator}</td>
-                        <td>${capacityDisplay}</td>
-                        <td class="text-center">${statusBadge}</td>
-                        <td>
-                            <small class="text-muted">
-                                <i class="bi bi-calendar3 me-1"></i>${createdDate}
-                            </small>
-                        </td>
-                        <td>
-                            <div class="btn-group btn-group-sm" role="group">
-                                <button class="btn btn-outline-primary btn-edit" 
-                                        data-id="${dept.id}" 
-                                        title="Edit Department">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                                <button class="btn btn-outline-${dept.status === 'active' ? 'warning' : 'success'} btn-toggle-status" 
-                                        data-id="${dept.id}" 
-                                        title="${dept.status === 'active' ? 'Deactivate' : 'Activate'}">
-                                    <i class="bi bi-toggle-${dept.status === 'active' ? 'on' : 'off'}"></i>
-                                </button>
-                                <button class="btn btn-outline-danger btn-delete" 
-                                        data-id="${dept.id}" 
-                                        title="Delete Department">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-                
-                tableBody.append(row);
-            });
-            
-            console.log('✅ Table rows appended');
-            
-            // Initialize DataTable
-            try {
-                this.dataTable = $('#departmentsTable').DataTable({
-                    order: [[0, 'asc']],
-                    pageLength: 25,
-                    responsive: true,
-                    language: {
-                        search: "_INPUT_",
-                        searchPlaceholder: "Search in table...",
-                        lengthMenu: "Show _MENU_ entries",
-                        info: "Showing _START_ to _END_ of _TOTAL_ departments",
-                        paginate: {
-                            first: '<i class="bi bi-chevron-double-left"></i>',
-                            previous: '<i class="bi bi-chevron-left"></i>',
-                            next: '<i class="bi bi-chevron-right"></i>',
-                            last: '<i class="bi bi-chevron-double-right"></i>'
+        } else if (error.response && error.response.data) {
+            errorMessage = error.response.data.message || error.response.data.error || errorMessage;
+        } else if (error.message) {
+            errorMessage = error.message;
+        }
+        
+        TempleCore.showToast(errorMessage, 'error');
+        this.renderTable([]);
+    }
+},
+renderTable: function(departments) {
+    const self = this;
+    console.log('📊 Rendering table with', departments.length, 'departments');
+    
+    // Destroy existing DataTable
+    if (this.dataTable) {
+        console.log('Destroying existing DataTable');
+        this.dataTable.destroy();
+        this.dataTable = null;
+    }
+    
+    const tableBody = $('#departmentsTable tbody');
+    tableBody.empty();
+    
+    // Handle empty state
+    if (departments.length === 0) {
+        console.log('No departments found - showing empty state');
+        tableBody.html(`
+            <tr>
+                <td colspan="7" class="text-center py-5">
+                    <div class="empty-state">
+                        <i class="bi bi-inbox fs-1 text-muted mb-3"></i>
+                        <h5 class="text-muted">No Departments Found</h5>
+                        <p class="text-muted mb-3">Get started by creating your first department</p>
+                        <button class="btn btn-primary" id="btnCreateDepartment">
+                            <i class="bi bi-plus-circle me-2"></i>Create First Department
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `);
+        return;
+    }
+    
+    // Initialize DataTable FIRST (before adding rows)
+    try {
+        this.dataTable = $('#departmentsTable').DataTable({
+            data: departments,
+            order: [[0, 'asc']],
+            pageLength: 25,
+            responsive: true,
+            columns: [
+                {
+                    // Code
+                    data: 'department_code',
+                    render: function(data, type, row) {
+                        return `<span class="badge bg-primary">${data}</span>`;
+                    }
+                },
+       {
+    // Department Name
+    data: null,
+    render: function(data, type, row) {
+        let html = '<div class="fw-semibold">';
+        
+        // Show Chinese name (primary)
+        html += row.department_name;
+        
+        // Show English name if available (secondary)
+        if (row.department_name_en) {
+            html += '<br><small class="text-muted">' + row.department_name_en + '</small>';
+        }
+        
+        html += '</div>';
+        
+        if (row.description) {
+            html += '<small class="text-muted d-block mt-1">' + row.description + '</small>';
+        }
+        return html;
+    }
+},
+                {
+                    // Coordinator
+                    data: null,
+                    render: function(data, type, row) {
+                        if (row.coordinator_user) {
+                            return `<div class="d-flex align-items-center">
+                                        <i class="bi bi-person-circle me-2 text-primary"></i>
+                                        <span>${row.coordinator_user.name}</span>
+                                   </div>`;
+                        } else {
+                            return '<span class="text-muted"><i class="bi bi-person-dash me-2"></i>Not Assigned</span>';
                         }
-                    },
-                    dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
-                         '<"row"<"col-sm-12"tr>>' +
-                         '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>'
-                });
-                
-                console.log('✅ DataTable initialized');
-                
-                // Trigger entrance animation
-                if (this.animateTableRows && typeof gsap !== 'undefined') {
-                    this.animateTableRows();
+                    }
+                },
+                {
+                    // Capacity
+                    data: 'capacity_target',
+                    className: 'text-center',
+                    render: function(data, type, row) {
+                        if (data > 0) {
+                            return `<span class="badge bg-info">${data}</span>`;
+                        } else {
+                            return '<span class="text-muted">-</span>';
+                        }
+                    }
+                },
+                {
+                    // Status
+                    data: 'status',
+                    className: 'text-center',
+                    render: function(data, type, row) {
+                        if (data === 'active') {
+                            return '<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Active</span>';
+                        } else {
+                            return '<span class="badge bg-secondary"><i class="bi bi-x-circle me-1"></i>Inactive</span>';
+                        }
+                    }
+                },
+                {
+                    // Created
+                    data: 'created_at',
+                    render: function(data, type, row) {
+                        const createdDate = TempleCore.formatDate ? TempleCore.formatDate(data) : data;
+                        return `<small class="text-muted">
+                                    <i class="bi bi-calendar3 me-1"></i>${createdDate}
+                                </small>`;
+                    }
+                },
+                {
+                    // Actions
+                    data: null,
+                    className: 'text-center',
+                    orderable: false,
+                    render: function(data, type, row) {
+                        const toggleClass = row.status === 'active' ? 'warning' : 'success';
+                        const toggleIcon = row.status === 'active' ? 'on' : 'off';
+                        const toggleTitle = row.status === 'active' ? 'Deactivate' : 'Activate';
+                        
+                        return `<div class="btn-group btn-group-sm" role="group">
+                                    <button class="btn btn-outline-primary btn-edit" 
+                                            data-id="${row.id}" 
+                                            title="Edit Department">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-outline-${toggleClass} btn-toggle-status" 
+                                            data-id="${row.id}" 
+                                            title="${toggleTitle}">
+                                        <i class="bi bi-toggle-${toggleIcon}"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-delete" 
+                                            data-id="${row.id}" 
+                                            title="Delete Department">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>`;
+                    }
                 }
-            } catch (error) {
-                console.error('❌ DataTable initialization error:', error);
-            }
-        },
+            ],
+            language: {
+                search: "_INPUT_",
+                searchPlaceholder: "Search in table...",
+                lengthMenu: "Show _MENU_ entries",
+                info: "Showing _START_ to _END_ of _TOTAL_ departments",
+                paginate: {
+                    first: '<i class="bi bi-chevron-double-left"></i>',
+                    previous: '<i class="bi bi-chevron-left"></i>',
+                    next: '<i class="bi bi-chevron-right"></i>',
+                    last: '<i class="bi bi-chevron-double-right"></i>'
+                }
+            },
+            dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
+                 '<"row"<"col-sm-12"tr>>' +
+                 '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>'
+        });
+        
+        console.log('✅ DataTable initialized with', departments.length, 'rows');
+        
+        // Trigger entrance animation
+        if (this.animateTableRows && typeof gsap !== 'undefined') {
+            setTimeout(() => {
+                this.animateTableRows();
+            }, 100);
+        }
+    } catch (error) {
+        console.error('❌ DataTable initialization error:', error);
+        console.error('Error details:', error.message, error.stack);
+    }
+},
         
         showDepartmentModal: function(departmentData = null) {
             const self = this;
@@ -715,6 +789,7 @@
                 $('#modalTitle').text('Edit Department');
                 $('#departmentId').val(departmentData.id);
                 $('#departmentName').val(departmentData.department_name);
+                      $('#departmentNameEn').val(departmentData.department_name_en || ''); 
                 $('#departmentCode').val(departmentData.department_code);
                 $('#description').val(departmentData.description);
                 $('#coordinatorUserId').val(departmentData.coordinator_user_id);
@@ -798,6 +873,7 @@
             const departmentId = $('#departmentId').val();
             const formData = {
                 department_name: $('#departmentName').val().trim(),
+                     department_name_en: $('#departmentNameEn').val().trim() || null,
                 department_code: $('#departmentCode').val().trim().toUpperCase(),
                 description: $('#description').val().trim(),
                 coordinator_user_id: $('#coordinatorUserId').val() || null,
@@ -856,7 +932,60 @@
                 }
             } catch (error) {
                 console.error('❌ Save error:', error);
-                TempleCore.showToast(error.message || 'Failed to save department', 'error');
+                
+                // ========================================
+                // IMPROVED ERROR HANDLING
+                // Extract meaningful error messages from API responses
+                // ========================================
+                let errorMessage = 'Failed to save department';
+                
+                // Check if error has responseJSON (jQuery AJAX error format)
+                if (error.responseJSON) {
+                    console.log('📋 Error response JSON:', error.responseJSON);
+                    
+                    // Laravel validation error response
+                    if (error.responseJSON.message) {
+                        errorMessage = error.responseJSON.message;
+                    }
+                    
+                    // Display validation errors if available
+                    if (error.responseJSON.errors) {
+                        const errors = error.responseJSON.errors;
+                        const errorList = Object.values(errors).flat();
+                        if (errorList.length > 0) {
+                            errorMessage = errorList.join('<br>');
+                        }
+                        console.log('📋 Validation errors:', errorList);
+                    }
+                } 
+                // Check if error has message property
+                else if (error.message) {
+                    errorMessage = error.message;
+                } 
+                // If error is a string
+                else if (typeof error === 'string') {
+                    errorMessage = error;
+                }
+                // If error has responseText
+                else if (error.responseText) {
+                    try {
+                        const parsedError = JSON.parse(error.responseText);
+                        if (parsedError.message) {
+                            errorMessage = parsedError.message;
+                        }
+                        if (parsedError.errors) {
+                            const errorList = Object.values(parsedError.errors).flat();
+                            if (errorList.length > 0) {
+                                errorMessage = errorList.join('<br>');
+                            }
+                        }
+                    } catch (parseError) {
+                        console.error('Failed to parse error response:', parseError);
+                    }
+                }
+                
+                console.error('🔍 Extracted error message:', errorMessage);
+                TempleCore.showToast(errorMessage, 'error');
                 $saveBtn.prop('disabled', false).html(originalText);
             }
         },
@@ -916,31 +1045,47 @@
                 }
             } catch (error) {
                 console.error('❌ Delete error:', error);
-                TempleCore.showToast(error.message || 'Failed to delete department', 'error');
+                
+                // Extract error message
+                let errorMessage = 'Failed to delete department';
+                if (error.responseJSON && error.responseJSON.message) {
+                    errorMessage = error.responseJSON.message;
+                } else if (error.message) {
+                    errorMessage = error.message;
+                }
+                
+                TempleCore.showToast(errorMessage, 'error');
                 $deleteBtn.prop('disabled', false).html(originalText);
             }
         },
         
-        toggleStatus: async function(id) {
-            console.log('🔄 Toggling status for:', id);
-            
-            try {
-                const response = await TempleAPI.patch(`/volunteers/departments/${id}/toggle-status`);
-                
-                if (response.success) {
-                    console.log('✅ Status toggled:', response);
-                    TempleCore.showToast('Status updated successfully!', 'success');
-                    
-                    // Reload departments
-                    this.loadDepartments();
-                } else {
-                    throw new Error(response.message || 'Failed to update status');
-                }
-            } catch (error) {
-                console.error('❌ Toggle error:', error);
-                TempleCore.showToast(error.message || 'Failed to update status', 'error');
-            }
+toggleStatus: async function(id) {
+    console.log('🔄 Toggling status for:', id);
+    
+    try {
+        // Changed from PUT to PATCH to match the route definition
+        const response = await TempleAPI.patch(`/volunteers/departments/${id}/toggle-status`, {});
+        
+        if (response.success) {
+            console.log('✅ Status toggled:', response);
+            TempleCore.showToast('Status updated successfully!', 'success');
+            this.loadDepartments();
+        } else {
+            throw new Error(response.message || 'Failed to update status');
         }
+    } catch (error) {
+        console.error('❌ Toggle error:', error);
+        
+        let errorMessage = 'Failed to update status';
+        if (error.responseJSON && error.responseJSON.message) {
+            errorMessage = error.responseJSON.message;
+        } else if (error.message) {
+            errorMessage = error.message;
+        }
+        
+        TempleCore.showToast(errorMessage, 'error');
+    }
+}
     };
     
     console.log('✅ VolunteersDepartmentsPage module loaded');

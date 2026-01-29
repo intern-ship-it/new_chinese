@@ -74,8 +74,40 @@ use App\Http\Controllers\BuddhaLampController;
 use App\Http\Controllers\SaleCategoryController;
 use App\Http\Controllers\SaleSessionController;
 use App\Http\Controllers\SaleItemController;
+use App\Http\Controllers\SalesController;
 use App\Http\Controllers\DeityController;
 use App\Http\Controllers\VolunteerDepartmentController;
+use App\Http\Controllers\VolunteerTaskController;
+use App\Http\Controllers\VolunteerRegistrationController;
+use App\Http\Controllers\VolunteerApprovalController;
+use App\Http\Controllers\VolunteerTaskAssignmentController;
+use App\Http\Controllers\OccasionServiceMasterController;
+use App\Http\Controllers\VolunteerAttendanceController;
+use App\Http\Controllers\VolunteerReportController;
+use App\Http\Controllers\BuddhaLampMasterController;
+use App\Http\Controllers\DonationGroupController;
+use App\Http\Controllers\DailyClosingController;
+use App\Http\Controllers\RomVenueMasterController;
+use App\Http\Controllers\RomSessionMasterController;
+use App\Http\Controllers\RomBookingController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\OccasionTableAssignmentController;
+use App\Http\Controllers\BookingHistoryController;
+use App\Http\Controllers\SpecialOccasionBookingController;
+use App\Http\Controllers\RelocationReportController;
+use App\Http\Controllers\QRCodeController;
+use App\Http\Controllers\FloorController;
+use App\Http\Controllers\LightDeityController;
+use App\Http\Controllers\LightConfigController;
+use App\Http\Controllers\LightBookingController;
+use App\Http\Controllers\TowerCategoryController;
+use App\Http\Controllers\SalesPackageController;
+use App\Http\Controllers\DevoteeController;
+use App\Http\Controllers\SalesOrderController;
+use App\Http\Controllers\SalesInvoiceController;
+use App\Http\Controllers\FiuuPaymentController;
+use App\Http\Controllers\SalesDeliveryOrderController;
+use App\Http\Controllers\HallBookingController;
 
 
 
@@ -83,14 +115,86 @@ Route::prefix('v1')->group(function () {
 	// Temple validation (no middleware needed - this should be accessible without temple context)
 	Route::post('/temple/validate', [TempleController::class, 'validateTemple']);
 
+	// ========================================
+	// PUBLIC SIGNED URL ROUTE (with temple middleware for DB access)
+	// ========================================
+	// PDF Download with Signed URL (accessible without Bearer token)
+	// Temple ID is included in the signed URL parameters and handled by temple middleware
+	Route::get('/booking-history/{id}/pdf/download', [BookingHistoryController::class, 'downloadPdf'])
+		->name('booking.pdf.download')
+		->middleware('temple');
+
+	Route::middleware(['temple.public'])->group(function () {
+		Route::prefix('fiuu/payment')->group(function () {
+			// Callback URL - User returns after payment
+			Route::any('callback', [SalesController::class, 'handlePaymentCallback'])->name('fiuu.payment.callback');
+
+			// Webhook URL - Fiuu server notification
+			Route::any('webhook', [SalesController::class, 'handlePaymentWebhook'])->name('fiuu.payment.webhook');
+
+			// Cancel URL - User cancels payment
+			Route::get('cancel', function () {
+				return response()->json([
+					'success' => false,
+					'message' => 'Payment was cancelled by user'
+				]);
+			})->name('fiuu.payment.cancel');
+		});
+		Route::get('pos-sales/payment-process', [SalesController::class, 'payment_process'])->name('pos-sales.payment_process');
+		Route::prefix('donations')->group(function () {
+			Route::any('/payment/callback', [DonationController::class, 'handlePaymentCallback'])->name('donations.payment.callback');
+			Route::any('/payment/webhook', [DonationController::class, 'handlePaymentWebhook'])->name('donations.payment.webhook');
+			Route::any('/payment/cancel', [DonationController::class, 'handlePaymentCancel'])->name('donations.payment.cancel');
+			Route::get('/payment-process', [DonationController::class, 'payment_process'])->name('donations.payment_process');
+		});
+		// Sales Invoice Payment Routes (Public - No Authentication Required)
+		Route::prefix('sales/invoices')->group(function () {
+			Route::any('/payment/callback', [SalesInvoiceController::class, 'handlePaymentCallback'])
+				->name('sales.invoices.payment.callback');
+			Route::any('/payment/webhook', [SalesInvoiceController::class, 'handlePaymentWebhook'])
+				->name('sales.invoices.payment.webhook');
+			Route::any('/payment/cancel', [SalesInvoiceController::class, 'handlePaymentCancel'])
+				->name('sales.invoices.payment.cancel');
+			Route::get('/payment-process', [SalesInvoiceController::class, 'payment_process'])
+				->name('sales.invoices.payment_process');
+		});
+		Route::prefix('pagoda/registrations')->group(function () {
+			Route::get('/payment-process', [PagodaRegistrationController::class, 'payment_process'])
+				->name('pagoda.registrations.payment_process');
+			Route::any('/payment/callback', [PagodaRegistrationController::class, 'handlePaymentCallback'])
+				->name('pagoda.registrations.payment.callback');
+			Route::any('/payment/webhook', [PagodaRegistrationController::class, 'handlePaymentWebhook'])
+				->name('pagoda.registrations.payment.webhook');
+			Route::any('/payment/cancel', [PagodaRegistrationController::class, 'handlePaymentCancel'])
+				->name('pagoda.registrations.payment.cancel');
+		});
+	});
+
 	// Routes that require temple context
 	Route::middleware(['temple'])->group(function () {
 		// Auth routes (no auth middleware needed for login)
 		Route::post('/auth/login', [AuthController::class, 'login']);
 		Route::post('/auth/refresh', [AuthController::class, 'refresh']);
+		Route::post('/auth/signup', [AuthController::class, 'signup']);
+		Route::post('/auth/check-username', [AuthController::class, 'checkUsername']);
+		Route::post('/auth/check-email', [AuthController::class, 'checkEmail']);
+		Route::prefix('auth')->group(function () {
+			// Step 1: Send OTP to email
+			Route::post('/forgot-password', [AuthController::class, 'sendPasswordResetOTP']);
+
+			// Step 2: Verify the OTP
+			Route::post('/verify-otp', [AuthController::class, 'verifyPasswordResetOTP']);
+
+			// Step 3: Reset password with verified OTP
+			Route::post('/reset-password', [AuthController::class, 'resetPasswordWithOTP']);
+
+			// Resend OTP if needed
+			Route::post('/resend-otp', [AuthController::class, 'resendPasswordResetOTP']);
+		});
 
 		// Protected routes - Require authentication and active user check
-		Route::middleware(['auth:api', 'validate.temple.access', 'check.active'])->group(function () {
+		// Route::middleware(['validate.temple.access', 'check.active', 'auth:api'])->group(function () {
+		Route::middleware(['validate.temple.access', 'check.active', 'jwt.auth'])->group(function () {
 
 			// SINGLE ENDPOINT for getting all SYSTEM settings
 			Route::get('/temple/settings', [TempleController::class, 'getSystemSettings']);
@@ -101,6 +205,7 @@ Route::prefix('v1')->group(function () {
 				// GET /api/v1/settings?type=AWS
 				// GET /api/v1/settings (returns all settings)
 				Route::get('/', [SettingsController::class, 'getSettings']);
+				Route::get('/temple-details-setting', [SettingsController::class, 'getTempleDetailSettingsValues']);
 
 				// Update settings for a specific type
 				// POST /api/v1/settings/update
@@ -125,7 +230,7 @@ Route::prefix('v1')->group(function () {
 				Route::get('/logo/current', [SettingsController::class, 'getCurrentLogo']);
 				// Import settings
 				// POST /api/v1/settings/import
-				// Body: { "settings": {...}, "override_existing": true }
+
 				Route::post('/import', [SettingsController::class, 'importSettings'])
 					->middleware(['role:super_admin']);
 				Route::get('/ac-years', [SettingsController::class, 'getAccountingYears'])
@@ -136,8 +241,73 @@ Route::prefix('v1')->group(function () {
 			});
 			Route::get('/settings/default-values', [SupplierController::class, 'getDefaultValues']);
 
+			Route::prefix('pos-sales')->group(function () {
+				Route::get('/orders', [SalesController::class, 'index']);           // List all sales orders
+				Route::post('/orders', [SalesController::class, 'store']);          // Create new sales order
+				Route::get('/orders/{id}', [SalesController::class, 'show']);       // Get single order by ID or booking_number
+				Route::post('/orders/{id}/cancel', [SalesController::class, 'cancel']); // Cancel order
+				Route::get('/orders/{id}/payment-status', [SalesController::class, 'getPaymentStatus']);
+			});
 			Route::prefix('sales')->group(function () {
 
+				Route::prefix('orders')->group(function () {
+
+					Route::get('/statistics', [SalesOrderController::class, 'getStatistics']);
+					Route::get('/', [SalesOrderController::class, 'index']);
+					Route::post('/', [SalesOrderController::class, 'store']);
+					Route::get('/{id}', [SalesOrderController::class, 'show']);
+					Route::put('/{id}', [SalesOrderController::class, 'update']);
+					Route::delete('/{id}', [SalesOrderController::class, 'destroy']);
+					Route::post('/{id}/approve', [SalesOrderController::class, 'approve']);
+					Route::post('/{id}/reject', [SalesOrderController::class, 'reject']);
+					Route::post('/{id}/convert-to-invoice', [SalesInvoiceController::class, 'convertFromSalesOrder']);
+				});
+
+				Route::prefix('delivery-orders')->group(function () {
+					Route::get('statistics/overview', [SalesDeliveryOrderController::class, 'overview']);
+
+					Route::get('/warehouses/active', [SalesDeliveryOrderController::class, 'getActiveWarehouses']);
+					Route::get('/devotees/active', [SalesDeliveryOrderController::class, 'getActiveDevotees']);
+
+					Route::get('/sales-order/{salesOrderId}/details', [SalesDeliveryOrderController::class, 'getSalesOrderForDO']);
+					Route::post('/from-sales-order', [SalesDeliveryOrderController::class, 'createFromSalesOrder']);
+
+					Route::post('/check-stock', [SalesDeliveryOrderController::class, 'checkStock']);
+
+
+					Route::get('/', [SalesDeliveryOrderController::class, 'index']);
+					Route::post('/', [SalesDeliveryOrderController::class, 'store']);
+					Route::get('/{id}', [SalesDeliveryOrderController::class, 'show']);
+					Route::put('/{id}', [SalesDeliveryOrderController::class, 'update']);
+					Route::delete('/{id}', [SalesDeliveryOrderController::class, 'destroy']);
+
+					Route::post('/{id}/quality-check', [SalesDeliveryOrderController::class, 'performQualityCheck']);
+					Route::post('/{id}/complete', [SalesDeliveryOrderController::class, 'complete']);
+					Route::post('/{id}/cancel', [SalesDeliveryOrderController::class, 'cancel']);
+				});
+
+				// Sales Invoices
+				// Sales Invoices
+				Route::prefix('invoices')->group(function () {
+					// SPECIFIC ROUTES FIRST (before generic {id} routes)
+					Route::get('/user/{userId}/permissions', [SalesInvoiceController::class, 'getUserPermissions']);
+					Route::get('/payments/{paymentId}/status', [SalesInvoiceController::class, 'getPaymentStatus']);
+
+					// List and Create
+					Route::get('/', [SalesInvoiceController::class, 'index']);
+					Route::post('/', [SalesInvoiceController::class, 'store']);
+
+					// PAYMENT ROUTES - BEFORE {id} routes
+					Route::post('/{id}/payment', [SalesInvoiceController::class, 'processPayment']);
+					Route::get('/{id}/payments', [SalesInvoiceController::class, 'getPaymentHistory']);
+					Route::post('/{id}/post', [SalesInvoiceController::class, 'postInvoice']);
+					Route::post('/{id}/cancel', [SalesInvoiceController::class, 'cancel']);
+
+					// GENERIC {id} ROUTES LAST
+					Route::get('/{id}', [SalesInvoiceController::class, 'show']);
+					Route::put('/{id}', [SalesInvoiceController::class, 'update']);
+					Route::delete('/{id}', [SalesInvoiceController::class, 'destroy']);
+				});
 				// Sale Categories Routes
 				Route::prefix('categories')->group(function () {
 					Route::get('/', [SaleCategoryController::class, 'index']);
@@ -160,6 +330,7 @@ Route::prefix('v1')->group(function () {
 
 				// Sale Items Routes
 				Route::prefix('items')->group(function () {
+					Route::get('/generate-short-code', [SaleItemController::class, 'generateShortCode']);
 					Route::get('/', [SaleItemController::class, 'index']);
 					Route::get('/active', [SaleItemController::class, 'active']);
 					Route::get('/available-products', [SaleItemController::class, 'getAvailableProducts']);
@@ -167,6 +338,33 @@ Route::prefix('v1')->group(function () {
 					Route::get('/{id}', [SaleItemController::class, 'show']);
 					Route::put('/{id}', [SaleItemController::class, 'update']);
 					Route::delete('/{id}', [SaleItemController::class, 'destroy']);
+				});
+				// Sales Package Routes
+				Route::prefix('packages')->group(function () {
+					Route::get('/', [\App\Http\Controllers\SalesPackageController::class, 'index']);
+					Route::post('/', [\App\Http\Controllers\SalesPackageController::class, 'store']);
+					Route::get('/generate-number', [\App\Http\Controllers\SalesPackageController::class, 'generatePackageNumber']);
+					Route::get('/products', [\App\Http\Controllers\SalesPackageController::class, 'getProducts']);
+					Route::get('/sales-items', [\App\Http\Controllers\SalesPackageController::class, 'getSalesItems']);
+					Route::get('/taxes', [\App\Http\Controllers\SalesPackageController::class, 'getTaxes']);
+					Route::get('/{id}', [\App\Http\Controllers\SalesPackageController::class, 'show']);
+					Route::put('/{id}', [\App\Http\Controllers\SalesPackageController::class, 'update']);
+					Route::delete('/{id}', [\App\Http\Controllers\SalesPackageController::class, 'destroy']);
+				});
+
+				// Devotees Routes
+				Route::prefix('devotees')->group(function () {
+					Route::get('/', [DevoteeController::class, 'index']);
+					Route::post('/', [DevoteeController::class, 'store']);
+					Route::get('/active', [DevoteeController::class, 'getActiveDevotees']);
+					Route::get('/customer-types', [DevoteeController::class, 'getCustomerTypes']);
+					Route::get('/export', [DevoteeController::class, 'export']);
+					Route::get('/type/{type}', [DevoteeController::class, 'getByCustomerType']);
+					Route::get('/{id}', [DevoteeController::class, 'show']);
+					Route::put('/{id}', [DevoteeController::class, 'update']);
+					Route::delete('/{id}', [DevoteeController::class, 'destroy']);
+					Route::patch('/{id}/toggle-status', [DevoteeController::class, 'toggleStatus']);
+					Route::patch('/{id}/toggle-verified', [DevoteeController::class, 'toggleVerified']);
 				});
 			});
 			Route::prefix('deities')->group(function () {
@@ -184,6 +382,9 @@ Route::prefix('v1')->group(function () {
 				Route::post('/change-password', [AuthController::class, 'changePassword']);
 				Route::get('/devices', [AuthController::class, 'getUserDevices']);
 				Route::delete('/devices/{deviceId}', [AuthController::class, 'removeDevice']);
+				Route::get('/profile', [AuthController::class, 'getProfile']);
+				Route::put('/profile', [AuthController::class, 'updateProfile']);
+				Route::post('/profile/avatar', [AuthController::class, 'uploadAvatar']);
 			});
 
 			// Dashboard
@@ -507,11 +708,11 @@ Route::prefix('v1')->group(function () {
 					Route::get('/inventory/{ledgerId}/balance', [EntriesController::class, 'getInventoryBalance']);
 					Route::post('/generate-code', [EntriesController::class, 'generateCode']);
 
-						/* Route::get('/pending-approvals', [EntriesController::class, 'getPendingApprovals']);
+					/* Route::get('/pending-approvals', [EntriesController::class, 'getPendingApprovals']);
 Route::get('/pending-approvals/{id}', [EntriesController::class, 'getPendingApprovalDetail']);
 Route::post('/{id}/approve', [EntriesController::class, 'processApproval']);
 Route::get('/approval-history', [EntriesController::class, 'getApprovalHistory']);
-Route::get('/approval-history/{id}', [EntriesController::class, 'getApprovalHistoryDetail']) */;
+Route::get('/approval-history/{id}', [EntriesController::class, 'getApprovalHistoryDetail']) ;*/
 					Route::prefix('approval')->group(function () {
 						// View approvals
 						Route::get('/list', [EntriesApprovalController::class, 'getPendingApprovals']);
@@ -1229,6 +1430,8 @@ Route::get('/approval-history/{id}', [EntriesController::class, 'getApprovalHist
 			Route::prefix('bookings')->group(function () {
 
 				Route::prefix('buddha-lamp')->group(function () {
+					Route::get('/masters/active', [BuddhaLampController::class, 'getActiveMasters']);
+
 					Route::get('/', [BuddhaLampController::class, 'index']);
 					Route::post('/', [BuddhaLampController::class, 'store']);
 					Route::get('/statistics', [BuddhaLampController::class, 'statistics']);
@@ -1237,6 +1440,32 @@ Route::get('/approval-history/{id}', [EntriesController::class, 'getApprovalHist
 					Route::post('/{id}/cancel', [BuddhaLampController::class, 'cancel']);
 					Route::delete('/{id}', [BuddhaLampController::class, 'destroy']);
 				});
+			});
+
+			Route::prefix('buddha-lamp/masters')->group(function () {
+				// Get active Buddha Lamp types (for dropdowns/selects)
+				Route::get('/active', [BuddhaLampMasterController::class, 'getActiveTypes']);
+
+				// Get available ledgers for selection
+				Route::get('/ledgers', [BuddhaLampMasterController::class, 'getLedgers']);
+
+				// List all Buddha Lamp Masters with pagination
+				Route::get('/', [BuddhaLampMasterController::class, 'index']);
+
+				// Get single Buddha Lamp Master by ID
+				Route::get('/{id}', [BuddhaLampMasterController::class, 'show']);
+
+				// Create new Buddha Lamp Master (Admin/Super Admin only)
+				Route::post('/', [BuddhaLampMasterController::class, 'store']);
+
+				// Update Buddha Lamp Master (Admin/Super Admin only)
+				Route::put('/{id}', [BuddhaLampMasterController::class, 'update']);
+
+				// Delete Buddha Lamp Master (Super Admin only)
+				Route::delete('/{id}', [BuddhaLampMasterController::class, 'destroy']);
+
+				// Get user permissions
+				Route::get('/user/{userId}/permissions', [BuddhaLampMasterController::class, 'getUserPermissions']);
 			});
 			Route::prefix('fund-budgets')->group(function () {
 				Route::get('/groups', [FundBudgetController::class, 'getGroups']);
@@ -1276,32 +1505,45 @@ Route::get('/approval-history/{id}', [EntriesController::class, 'getApprovalHist
 				Route::post('/{id}/deactivate', [FundBudgetTemplateController::class, 'deactivate']);
 			});
 			// Special Occasions Routes
-			Route::prefix('special-occasions')->middleware(['auth:api', 'validate.temple.access'])->group(function () {
+			// ==========================================
+			// SPECIAL OCCASIONS - BOOKINGS FIRST!
+			// ==========================================
+			// Relocate a booking to new seat/table/number (STEP 1.3)
+			Route::post('/special-occasion-bookings/{bookingId}/relocate', [SpecialOccasionBookingController::class, 'relocateBooking']);
+
+			// Swap seats/numbers between two bookings (STEP 1.3)
+			Route::post('/special-occasion-bookings/swap', [SpecialOccasionBookingController::class, 'swapBookings']);
+
+			// Get relocation log report (STEP 3.2)
+			Route::get('/special-occasion-bookings/relocation-log', [SpecialOccasionBookingController::class, 'getRelocationLog']);
+
+			// 1ï¸âƒ£ BOOKINGS ROUTES FIRST (more specific prefix)
+			Route::prefix('special-occasions/bookings')->middleware(['auth:api', 'validate.temple.access'])->group(function () {
+				// Specific routes first
+				Route::get('/dates/{optionId}', [App\Http\Controllers\SpecialOccasionBookingController::class, 'getAvailableDates']);
+				Route::get('/slots', [App\Http\Controllers\SpecialOccasionBookingController::class, 'getAvailableSlots']);
+				Route::get('/settings', [App\Http\Controllers\SpecialOccasionBookingController::class, 'getBookingSettings']);
+				// Bulk operations
+				Route::put('/bulk-status', [App\Http\Controllers\SpecialOccasionBookingController::class, 'bulkUpdateStatus']);
+				Route::match(['post', 'delete'], '/bulk-delete', [App\Http\Controllers\SpecialOccasionBookingController::class, 'bulkDelete']);
+
+
+				// CRUD routes
+				Route::get('/', [App\Http\Controllers\SpecialOccasionBookingController::class, 'index']);
+				Route::post('/', [App\Http\Controllers\SpecialOccasionBookingController::class, 'store']);
+				Route::get('/{id}', [App\Http\Controllers\SpecialOccasionBookingController::class, 'show']);
+				Route::patch('/{id}/status', [App\Http\Controllers\SpecialOccasionBookingController::class, 'updateStatus']);
+				Route::delete('/{id}', [App\Http\Controllers\SpecialOccasionBookingController::class, 'destroy']);
+			});
+
+			Route::prefix('special-occasions')->group(function () {
 				Route::get('/', [App\Http\Controllers\SpecialOccasionController::class, 'index']);
 				Route::post('/', [App\Http\Controllers\SpecialOccasionController::class, 'store']);
 				Route::get('/{id}', [App\Http\Controllers\SpecialOccasionController::class, 'show']);
 				Route::put('/{id}', [App\Http\Controllers\SpecialOccasionController::class, 'update']);
 				Route::delete('/{id}', [App\Http\Controllers\SpecialOccasionController::class, 'destroy']);
 				Route::patch('/{id}/status', [App\Http\Controllers\SpecialOccasionController::class, 'updateStatus']);
-				// Route::post('/bookings', [App\Http\Controllers\SpecialOccasionController::class, 'storeBooking']);
-				// Route::get('/bookings/history', [App\Http\Controllers\SpecialOccasionController::class, 'getBookingHistory']);
 			});
-
-
-			// ✅ CORRECT ORDER:
-			Route::prefix('special-occasions/bookings')->group(function () {
-				// SPECIFIC ROUTES FIRST
-				Route::get('/dates/{optionId}', [SpecialOccasionBookingController::class, 'getAvailableDates']);
-				Route::get('/slots', [SpecialOccasionBookingController::class, 'getAvailableSlots']);
-
-				// WILDCARD ROUTES LAST
-				Route::get('/', [SpecialOccasionBookingController::class, 'index']);
-				Route::post('/', [SpecialOccasionBookingController::class, 'store']);
-				Route::get('/{id}', [SpecialOccasionBookingController::class, 'show']);
-				Route::patch('/{id}/status', [SpecialOccasionBookingController::class, 'updateStatus']);
-				Route::delete('/{id}', [SpecialOccasionBookingController::class, 'destroy']);
-			});
-
 
 			// Occasion Options (Temple Event Packages) Routes
 			Route::prefix('occasion-options')->middleware(['auth:api', 'validate.temple.access'])->group(function () {
@@ -1339,8 +1581,111 @@ Route::get('/approval-history/{id}', [EntriesController::class, 'getApprovalHist
 				Route::delete('/{id}', [OccasionServiceController::class, 'destroy']);
 			});
 
-			Route::prefix('pagoda')->group(function () {
 
+			// Occasion Services Master Routes (NEW)
+			Route::prefix('occasion-services-master')->group(function () {
+				Route::get('/', [OccasionServiceMasterController::class, 'index']);
+				Route::get('/active-no-addons', [OccasionServiceMasterController::class, 'getActive']);
+				Route::get('/active-addons', [OccasionServiceMasterController::class, 'getActiveAddons']); // NEW
+
+				Route::get('/lookups', [OccasionServiceMasterController::class, 'getLookups']); // Get service types & ledgers
+				Route::get('/{id}', [OccasionServiceMasterController::class, 'show']);
+
+				Route::post('/', [OccasionServiceMasterController::class, 'store']);
+				Route::put('/{id}', [OccasionServiceMasterController::class, 'update']);
+				Route::patch('/{id}/status', [OccasionServiceMasterController::class, 'updateStatus']);
+				Route::delete('/{id}', [OccasionServiceMasterController::class, 'destroy']);
+			});
+
+			// Occasion Table Assignment Routes
+			Route::prefix('occasion-tables')->group(function () {
+				// Get all tables and assignments for a package option
+				Route::get('/option/{optionId}', [App\Http\Controllers\OccasionTableAssignmentController::class, 'getTables']);
+
+				// Create table configurations (with auto-generated assignments)
+				Route::post('/option/{optionId}/tables', [App\Http\Controllers\OccasionTableAssignmentController::class, 'createTables']);
+
+				// Update table configuration
+				Route::put('/{tableId}', [App\Http\Controllers\OccasionTableAssignmentController::class, 'updateTable']);
+
+				// Delete table
+				Route::delete('/{tableId}', [App\Http\Controllers\OccasionTableAssignmentController::class, 'deleteTable']);
+			});
+
+
+			// Occasion Table Assignment Management
+			Route::prefix('occasion-table-assignments')->group(function () {
+				// Get assignment history
+				Route::get('/option/{optionId}/history', [OccasionTableAssignmentController::class, 'getAssignmentHistory']);
+
+				// Generate relocation report
+				Route::get('/option/{optionId}/relocation-report', [OccasionTableAssignmentController::class, 'generateRelocationReport']);
+
+				// NEW: Check seat availability
+				Route::get('/check-availability', [OccasionTableAssignmentController::class, 'checkSeatAvailability']);
+
+				// Get single assignment details
+				Route::get('/{assignmentId}', [OccasionTableAssignmentController::class, 'getAssignment']);
+
+				// Relocate assignment
+				Route::put('/{assignmentId}/relocate', [OccasionTableAssignmentController::class, 'relocateAssignment']);
+
+				// NEW: Mark seats as empty
+				Route::post('/mark-empty', [OccasionTableAssignmentController::class, 'markSeatsAsEmpty']);
+
+				// NEW: Restore empty seats
+				Route::post('/restore-seats', [OccasionTableAssignmentController::class, 'restoreSeats']);
+
+				// NEW: Bulk mark seats as empty
+				Route::post('/bulk-mark-empty', [OccasionTableAssignmentController::class, 'bulkMarkSeatsAsEmpty']);
+			});
+			Route::prefix('reports')->group(function () {
+				// Relocation Report
+				Route::get('/relocation-report', [RelocationReportController::class, 'generateRelocationReport']);
+				Route::get('/relocation-stats', [RelocationReportController::class, 'getRelocationStats']);
+				Route::get('/booking-relocation-history/{bookingId}', [RelocationReportController::class, 'getBookingRelocationHistory']);
+			});
+			// QR Code Routes
+			Route::prefix('qr')->group(function () {
+				// Generate QR code for a booking
+				// GET /api/v1/qr/booking/{bookingId}?format=svg&size=300
+				// Formats: svg (default), png, base64
+				Route::get('/booking/{bookingId}', [QRCodeController::class, 'generateQRCode']);
+
+				// Verify/Scan QR code and get LIVE booking data
+				// POST /api/v1/qr/verify
+				// Body: { "qr_data": "encrypted_qr_string" }
+				Route::post('/verify', [QRCodeController::class, 'verifyQRCode']);
+			});
+
+			// Booking QR Code (alternative route)
+			Route::get('/bookings/{bookingId}/qr-code', [QRCodeController::class, 'generateQRCode']);
+			Route::prefix('pagoda')->group(function () {
+				// ========================================
+				// TOWER CATEGORIES MANAGEMENT
+				// ========================================
+				Route::prefix('tower-categories')->group(function () {
+					// List all categories
+					Route::get('/', [App\Http\Controllers\TowerCategoryController::class, 'index']);
+
+					// Get active categories for dropdown
+					Route::get('/active', [App\Http\Controllers\TowerCategoryController::class, 'getActiveCategories']);
+
+					// Get single category details
+					Route::get('/{id}', [App\Http\Controllers\TowerCategoryController::class, 'show']);
+
+					// Admin only routes
+					Route::middleware(['role:super_admin|admin'])->group(function () {
+						// Create new category
+						Route::post('/', [App\Http\Controllers\TowerCategoryController::class, 'store']);
+
+						// Update category
+						Route::put('/{id}', [App\Http\Controllers\TowerCategoryController::class, 'update']);
+
+						// Delete category
+						Route::delete('/{id}', [App\Http\Controllers\TowerCategoryController::class, 'destroy']);
+					});
+				});
 				// ========================================
 				// PAGODA TOWERS MANAGEMENT
 				// ========================================
@@ -1417,6 +1762,10 @@ Route::get('/approval-history/{id}', [EntriesController::class, 'getApprovalHist
 
 					// Get light statistics
 					Route::get('/statistics/overview', [PagodaLightController::class, 'statistics']);
+
+					// Block/Unblock lights (Admin only)
+					Route::post('/{id}/block', [PagodaLightController::class, 'blockLight']);
+					Route::post('/{id}/unblock', [PagodaLightController::class, 'unblockLight']);
 				});
 
 				// ========================================
@@ -1428,7 +1777,8 @@ Route::get('/approval-history/{id}', [EntriesController::class, 'getApprovalHist
 
 					// Get single registration details
 					Route::get('/{id}', [PagodaRegistrationController::class, 'show']);
-
+				 Route::get('/{id}/payment-status', [PagodaRegistrationController::class, 'getPaymentStatus'])
+            ->name('pagoda.registrations.payment_status');
 					// Search registration by receipt number
 					Route::get('/search/receipt/{receiptNumber}', [PagodaRegistrationController::class, 'searchByReceipt']);
 
@@ -1471,7 +1821,7 @@ Route::get('/approval-history/{id}', [EntriesController::class, 'getApprovalHist
 
 					// Search devotee by NRIC or contact (BEFORE /{id})
 					Route::get('/search-by-nric-or-contact', [PagodaDevoteeController::class, 'searchByNricOrContact']);
-
+					Route::get('/family', [PagodaDevoteeController::class, 'getFamilyByNric']);
 					// Get single devotee details (LAST - catches everything else)
 					Route::get('/{id}', [PagodaDevoteeController::class, 'show']);
 
@@ -1545,6 +1895,60 @@ Route::get('/approval-history/{id}', [EntriesController::class, 'getApprovalHist
 				|--------------------------------------------------------------------------
 				*/
 			});
+			// ==================== FLOOR MANAGEMENT ====================
+			Route::prefix('floors')->group(function () {
+				Route::get('/', [FloorController::class, 'index']);                    // GET /api/v1/floors
+				Route::get('/all', [FloorController::class, 'all']);                   // GET /api/v1/floors/all
+				Route::get('/{id}', [FloorController::class, 'show']);                 // GET /api/v1/floors/{id}
+				Route::post('/', [FloorController::class, 'store']);                   // POST /api/v1/floors
+				Route::put('/{id}', [FloorController::class, 'update']);               // PUT /api/v1/floors/{id}
+				Route::delete('/{id}', [FloorController::class, 'destroy']);           // DELETE /api/v1/floors/{id}
+				Route::post('/{id}/toggle-status', [FloorController::class, 'toggleStatus']); // POST /api/v1/floors/{id}/toggle-status
+			});
+			// ==================== DEITY MANAGEMENT ====================
+			Route::prefix('light-deities')->group(function () {
+				Route::get('/', [LightDeityController::class, 'index']);               // GET /api/v1/light-deities
+				Route::get('/all', [LightDeityController::class, 'all']);              // GET /api/v1/light-deities/all
+				Route::get('/{id}', [LightDeityController::class, 'show']);            // GET /api/v1/light-deities/{id}
+				Route::post('/', [LightDeityController::class, 'store']);              // POST /api/v1/light-deities
+				Route::put('/{id}', [LightDeityController::class, 'update']);          // PUT /api/v1/light-deities/{id}
+				Route::delete('/{id}', [LightDeityController::class, 'destroy']);      // DELETE /api/v1/light-deities/{id}
+				Route::post('/{id}/toggle-status', [LightDeityController::class, 'toggleStatus']); // POST /api/v1/light-deities/{id}/toggle-status
+			});
+			// ==================== LIGHT CONFIGURATION ====================
+			Route::prefix('light-configs')->group(function () {
+				Route::get('/', [LightConfigController::class, 'index']);              // GET /api/v1/light-configs
+				Route::get('/{id}', [LightConfigController::class, 'show']);           // GET /api/v1/light-configs/{id}
+				Route::post('/', [LightConfigController::class, 'store']);             // POST /api/v1/light-configs
+				Route::put('/{id}', [LightConfigController::class, 'update']);         // PUT /api/v1/light-configs/{id}
+				Route::delete('/{id}', [LightConfigController::class, 'destroy']);     // DELETE /api/v1/light-configs/{id}
+
+				// Row Management
+				Route::get('/{id}/rows', [LightConfigController::class, 'getRows']);   // GET /api/v1/light-configs/{id}/rows
+				Route::post('/{id}/rows', [LightConfigController::class, 'saveRows']); // POST /api/v1/light-configs/{id}/rows
+
+				// Pagoda Template
+				Route::post('/{id}/generate-pagoda-template', [LightConfigController::class, 'generatePagodaTemplate']); // POST /api/v1/light-configs/{id}/generate-pagoda-template
+
+				// Unit Generation
+				Route::post('/{id}/generate-units', [LightConfigController::class, 'generateUnits']); // POST /api/v1/light-configs/{id}/generate-units
+				Route::delete('/{id}/units', [LightConfigController::class, 'deleteUnits']); // DELETE /api/v1/light-configs/{id}/units
+			});
+			// ==================== LIGHT BOOKING ====================
+			Route::prefix('light-bookings')->group(function () {
+				// Public/Devotee Routes
+				Route::get('/seat-map/{configId}', [LightBookingController::class, 'getSeatMap']); // GET /api/v1/light-bookings/seat-map/{configId}
+				Route::post('/reserve', [LightBookingController::class, 'reserve']);    // POST /api/v1/light-bookings/reserve
+				Route::post('/{id}/confirm', [LightBookingController::class, 'confirm']); // POST /api/v1/light-bookings/{id}/confirm
+				Route::get('/my-bookings', [LightBookingController::class, 'myBookings']); // GET /api/v1/light-bookings/my-bookings
+
+				// Admin Routes
+				Route::get('/', [LightBookingController::class, 'index']);              // GET /api/v1/light-bookings
+				Route::post('/{id}/cancel', [LightBookingController::class, 'cancel']); // POST /api/v1/light-bookings/{id}/cancel
+
+				// Cron Job
+				Route::post('/release-expired', [LightBookingController::class, 'releaseExpired']); // POST /api/v1/light-bookings/release-expired
+			});
 			Route::prefix('member-applications')->group(function () {
 				// Public route - Changed from POST to GET
 				Route::get('/validate-referral', [MemberApplicationController::class, 'validateReferral']);
@@ -1612,8 +2016,50 @@ Route::get('/approval-history/{id}', [EntriesController::class, 'getApprovalHist
 				Route::get('/user/{userId}/permissions', [DonationMasterController::class, 'getUserPermissions']);
 				Route::get('/types', [DonationMasterController::class, 'getTypes']);
 			});
-			// Add to backend/routes/api.php inside the authenticated group
+			Route::prefix('donation-groups')->group(function () {
+				// List all donation groups with pagination
+				Route::get('/', [DonationGroupController::class, 'index']);
 
+
+				// Get active groups for dropdown
+				Route::get('/active', [DonationGroupController::class, 'getActiveGroups']);
+
+				// Get single donation group
+				Route::get('/{id}', [DonationGroupController::class, 'show']);
+
+				// Create new donation group
+				Route::post('/', [DonationGroupController::class, 'store'])
+					->middleware(['role:super_admin|admin']);
+
+				// Update donation group
+				Route::put('/{id}', [DonationGroupController::class, 'update'])
+					->middleware(['role:super_admin|admin']);
+
+				// Delete donation group
+				Route::delete('/{id}', [DonationGroupController::class, 'destroy'])
+					->middleware(['role:super_admin']);
+
+				// Get user permissions
+				Route::get('/user/{userId}/permissions', [DonationGroupController::class, 'getUserPermissions']);
+			});
+			Route::prefix('hall-booking')->group(function () {
+    
+				// Master Data Endpoints
+				Route::get('/masters', [HallBookingController::class, 'getMasterData']);          // Get all master data in one request
+				Route::get('/venues', [HallBookingController::class, 'getVenues']);               // Get active venues
+				Route::get('/sessions', [HallBookingController::class, 'getSessions']);           // Get active sessions
+				Route::get('/packages', [HallBookingController::class, 'getPackages']);           // Get active packages
+				Route::get('/addon-groups', [HallBookingController::class, 'getAddonGroups']);    // Get addon groups with services
+				
+				// Availability Check
+				Route::post('/check-availability', [HallBookingController::class, 'checkAvailability']);
+				
+				// Booking CRUD
+				Route::get('/bookings', [HallBookingController::class, 'index']);                 // List all hall bookings
+				Route::post('/bookings', [HallBookingController::class, 'store']);                // Create new hall booking
+				Route::get('/bookings/{id}', [HallBookingController::class, 'show']);             // Get single booking
+				Route::post('/bookings/{id}/cancel', [HallBookingController::class, 'cancel']);   // Cancel booking
+			});
 			// Hall Booking - Venue Master
 			Route::prefix('hall-booking/venue-master')->group(function () {
 				Route::get('/', [VenueMasterController::class, 'index']);
@@ -1727,8 +2173,12 @@ Route::get('/approval-history/{id}', [EntriesController::class, 'getApprovalHist
 				Route::get('/receipt/{id}', [EventBookingController::class, 'getBookingReceipt']);
 			});
 			Route::prefix('donations')->group(function () {
+				Route::get('/by-group', [DonationController::class, 'getDonationsByGroup']);
+
 				Route::get('/types/active', [DonationController::class, 'getActiveDonations']);
 				Route::get('/statistics', [DonationController::class, 'getStatistics']);
+				Route::get('/report', [DonationController::class, 'getReport']);
+				Route::get('/ledgers/active', [DonationController::class, 'getActiveLedgers']);
 				Route::get('/', [DonationController::class, 'index']);
 				Route::get('/{id}', [DonationController::class, 'show']);
 				Route::post('/', [DonationController::class, 'store']);
@@ -1737,8 +2187,94 @@ Route::get('/approval-history/{id}', [EntriesController::class, 'getApprovalHist
 				Route::delete('/{id}', [DonationController::class, 'destroy']);
 				Route::post('/{id}/partial-payment', [DonationController::class, 'partialPayment']);
 				Route::get('/{id}/payments', [DonationController::class, 'getPayments']);
-				Route::get('/report', [DonationController::class, 'getReport']);
-				Route::get('/ledgers/active', [DonationController::class, 'getActiveLedgers']);
+				Route::get('/{id}/payment-status', [DonationController::class, 'getPaymentStatus'])->name('donations.payment_status');
+			});
+
+			Route::prefix('daily-closing')->group(function () {
+
+				// ========================================
+				// SALES MODULE Daily Closing
+				// ========================================
+				Route::prefix('sales')->group(function () {
+					// Get sales closing data
+					Route::get('/', [App\Http\Controllers\DailyClosingController::class, 'getSalesClosing']);
+
+					// Get filter options
+					Route::get('/payment-modes', [App\Http\Controllers\DailyClosingController::class, 'getPaymentModes']);
+					Route::get('/staff', [App\Http\Controllers\DailyClosingController::class, 'getStaffList']);
+
+					// Export options
+					Route::get('/export/pdf', [App\Http\Controllers\DailyClosingController::class, 'exportPdf']);
+					Route::get('/export/excel', [App\Http\Controllers\DailyClosingController::class, 'exportExcel']);
+
+					// Print data
+					Route::get('/print', [App\Http\Controllers\DailyClosingController::class, 'printReport']);
+				});
+
+				// ========================================
+				// DONATION MODULE Daily Closing (NEW)
+				// ========================================
+				Route::prefix('donation')->group(function () {
+					// Get Donation closing data
+					Route::get('/', [App\Http\Controllers\DailyClosingController::class, 'getDonationClosing']);
+				});
+
+				// ========================================
+				// BUDDHA LAMP MODULE Daily Closing
+				// ========================================
+				Route::prefix('buddha-lamp')->group(function () {
+					// Get Buddha Lamp closing data
+					Route::get('/', [App\Http\Controllers\DailyClosingController::class, 'getBuddhaLampClosing']);
+				});
+
+				// ========================================
+				// TEMPLE EVENTS / SPECIAL OCCASIONS Daily Closing
+				// ========================================
+				Route::prefix('temple-events')->group(function () {
+					// Get Temple Events closing data
+					Route::get('/', [App\Http\Controllers\DailyClosingController::class, 'getTempleEventsClosing']);
+				});
+
+				// ========================================
+				// UNIFIED EXPORT (All Modules)
+				// ========================================
+				Route::get('/export/pdf', [App\Http\Controllers\DailyClosingController::class, 'exportPdf']);
+				Route::get('/print', [App\Http\Controllers\DailyClosingController::class, 'printReport']);
+			});
+
+			Route::prefix('rom-booking')->group(function () {
+				// List and statistics
+				Route::get('/', [RomBookingController::class, 'index']);
+				Route::get('/statistics', [RomBookingController::class, 'statistics']);
+
+				// CRUD operations
+				Route::post('/', [RomBookingController::class, 'store']);
+				Route::get('/{id}', [RomBookingController::class, 'show']);
+				Route::put('/{id}', [RomBookingController::class, 'update']);
+				Route::delete('/{id}', [RomBookingController::class, 'destroy']);
+
+				// Status update
+				Route::post('/{id}/status', [RomBookingController::class, 'updateStatus']);
+				Route::prefix('venue-master')->group(function () {
+					Route::get('/', [App\Http\Controllers\RomVenueMasterController::class, 'index']);
+
+					Route::get('/active', [App\Http\Controllers\RomVenueMasterController::class, 'getActiveVenues']);
+
+					Route::get('/{id}', [App\Http\Controllers\RomVenueMasterController::class, 'show']);
+					Route::post('/', [App\Http\Controllers\RomVenueMasterController::class, 'store']);
+					Route::put('/{id}', [App\Http\Controllers\RomVenueMasterController::class, 'update']);
+					Route::delete('/{id}', [App\Http\Controllers\RomVenueMasterController::class, 'destroy']);
+					Route::get('/user/{userId}/permissions', [App\Http\Controllers\RomVenueMasterController::class, 'getUserPermissions']);
+				});
+				Route::prefix('session-master')->group(function () {
+					Route::get('/active', [App\Http\Controllers\RomSessionMasterController::class, 'getActiveSessions']);
+					Route::get('/', [App\Http\Controllers\RomSessionMasterController::class, 'index']);
+					Route::post('/', [App\Http\Controllers\RomSessionMasterController::class, 'store']);
+					Route::get('/{id}', [App\Http\Controllers\RomSessionMasterController::class, 'show']);
+					Route::put('/{id}', [App\Http\Controllers\RomSessionMasterController::class, 'update']);
+					Route::delete('/{id}', [App\Http\Controllers\RomSessionMasterController::class, 'destroy']);
+					Route::get('/user/{userId}/permissions', [App\Http\Controllers\RomSessionMasterController::class, 'getUserPermissions']);
+				});
 			});
 
 			Route::prefix('volunteers')->group(function () {
@@ -1764,7 +2300,188 @@ Route::get('/approval-history/{id}', [EntriesController::class, 'getApprovalHist
 						Route::patch('/{id}/toggle-status', [VolunteerDepartmentController::class, 'toggleStatus']);
 					});
 				});
+
+
+
+				Route::prefix('tasks')->group(function () {
+					// List all tasks (with filters)
+					Route::get('/', [VolunteerTaskController::class, 'index']);
+
+					// Get active tasks only (for dropdowns)
+					Route::get('/active', [VolunteerTaskController::class, 'active']);
+
+					// Get tasks by department
+					Route::get('/by-department/{departmentId}', [VolunteerTaskController::class, 'byDepartment']);
+
+					// Get single task
+					Route::get('/{id}', [VolunteerTaskController::class, 'show']);
+
+					// Check if task can be deleted
+					Route::get('/{id}/can-delete', [VolunteerTaskController::class, 'canDelete']);
+
+					// Admin only routes
+					Route::middleware(['role:super_admin|admin'])->group(function () {
+						// Create task
+						Route::post('/', [VolunteerTaskController::class, 'store']);
+
+						// Update task
+						Route::put('/{id}', [VolunteerTaskController::class, 'update']);
+
+						// Soft delete task (only if not assigned)
+						Route::delete('/{id}', [VolunteerTaskController::class, 'destroy']);
+
+						// Toggle status (active/inactive)
+						Route::patch('/{id}/toggle-status', [VolunteerTaskController::class, 'toggleStatus']);
+					});
+				});
+
+				Route::prefix('registration')->group(function () {
+					// List all volunteer registrations (with filters)
+					Route::get('/', [VolunteerRegistrationController::class, 'index']);
+					// Get pending approvals (admin only)
+					Route::get('/pending-approvals', [VolunteerRegistrationController::class, 'pendingApprovals']);
+					// Get volunteer statistics
+					Route::get('/statistics/overview', [VolunteerRegistrationController::class, 'statistics']);
+					Route::post('/check-duplicate', [VolunteerRegistrationController::class, 'checkDuplicate']);
+
+					Route::get('/active', [VolunteerRegistrationController::class, 'getActiveVolunteers']);
+
+					Route::post('/', [VolunteerRegistrationController::class, 'store']);
+					Route::get('/{id}', [VolunteerRegistrationController::class, 'show']);
+					Route::put('/{id}', [VolunteerRegistrationController::class, 'update']);
+					Route::delete('/{id}', [VolunteerRegistrationController::class, 'destroy']);
+					Route::post('/{id}/upload-document', [VolunteerRegistrationController::class, 'uploadDocument']);
+					Route::delete('/{id}/documents/{documentId}', [VolunteerRegistrationController::class, 'deleteDocument']);
+				});
+				Route::prefix('approval')->group(function () {
+					// Get approval queue
+					Route::get('/queue', [VolunteerApprovalController::class, 'getApprovalQueue']);
+
+					// Get volunteer for review
+					Route::get('/{volunteerId}', [VolunteerApprovalController::class, 'getVolunteerForApproval']);
+
+					// Approval actions
+					Route::post('/{volunteerId}/approve', [VolunteerApprovalController::class, 'approve']);
+					Route::post('/{volunteerId}/reject', [VolunteerApprovalController::class, 'reject']);
+					Route::post('/{volunteerId}/request-resubmission', [VolunteerApprovalController::class, 'requestResubmission']);
+					Route::post('/{volunteerId}/suspend', [VolunteerApprovalController::class, 'suspend']);
+					Route::post('/{volunteerId}/reactivate', [VolunteerApprovalController::class, 'reactivate']);
+
+					// Batch operations
+					Route::post('/batch-approve', [VolunteerApprovalController::class, 'batchApprove']);
+
+					// Approval history
+					Route::get('/{volunteerId}/history', [VolunteerApprovalController::class, 'getApprovalHistory']);
+
+					// Pending count (for badge)
+					Route::get('/pending/count', [VolunteerApprovalController::class, 'getPendingCount']);
+				});
+
+				Route::prefix('/assignments')->group(function () {
+					// Specific routes FIRST (to avoid conflicts with /{id})
+					Route::get('/statistics/overview', [VolunteerTaskAssignmentController::class, 'statistics']);
+					Route::get('/calendar/view', [VolunteerTaskAssignmentController::class, 'calendar']);
+
+					// List and CRUD
+					Route::get('/', [VolunteerTaskAssignmentController::class, 'index']);
+					Route::get('/{id}', [VolunteerTaskAssignmentController::class, 'show']);
+					Route::post('/', [VolunteerTaskAssignmentController::class, 'store']);
+					Route::put('/{id}', [VolunteerTaskAssignmentController::class, 'update']);
+					Route::delete('/{id}', [VolunteerTaskAssignmentController::class, 'destroy']);
+
+
+					Route::patch('/{id}/status', [VolunteerTaskAssignmentController::class, 'updateStatus']);
+
+					// Other status routes
+					Route::post('/{id}/complete', [VolunteerTaskAssignmentController::class, 'markComplete']);
+					Route::post('/{id}/no-show', [VolunteerTaskAssignmentController::class, 'markNoShow']);
+					Route::post('/{id}/cancel', [VolunteerTaskAssignmentController::class, 'cancel']);
+				});
+				Route::prefix('attendance')->group(function () {
+					Route::get('/reports/daily', [VolunteerAttendanceController::class, 'getDailyReport']);
+					// List all attendance records with filters
+					Route::get('/', [VolunteerAttendanceController::class, 'index']);
+
+					// Get single attendance record
+					Route::get('/{id}', [VolunteerAttendanceController::class, 'show']);
+
+					// Create attendance (clock in)
+					Route::post('/', [VolunteerAttendanceController::class, 'store']);
+
+					// Update attendance (clock out or edit)
+					Route::put('/{id}', [VolunteerAttendanceController::class, 'update']);
+
+					// Delete attendance record
+					Route::delete('/{id}', [VolunteerAttendanceController::class, 'destroy']);
+
+					// Get today's attendance
+					Route::get('/today/records', [VolunteerAttendanceController::class, 'getTodayAttendance']);
+
+					// Get currently clocked in volunteers
+					Route::get('/clocked-in/list', [VolunteerAttendanceController::class, 'getClockedIn']);
+
+					// Check if volunteer is clocked in
+					Route::get('/check/{volunteerId}', [VolunteerAttendanceController::class, 'checkClockInStatus']);
+
+					// Clock out
+					Route::post('/{id}/clock-out', [VolunteerAttendanceController::class, 'clockOut']);
+
+					// Get attendance statistics
+					Route::get('/statistics/overview', [VolunteerAttendanceController::class, 'getStatistics']);
+				});
+
+				// ========================================
+				// ATTENDANCE REPORTS
+				// ========================================
+				Route::prefix('reports')->group(function () {
+					// Calendar view report
+					Route::get('/calendar', [VolunteerReportController::class, 'calendar']);
+
+					// Daily report
+					Route::get('/daily', [VolunteerReportController::class, 'daily']);
+
+					// Weekly report
+					Route::get('/weekly', [VolunteerReportController::class, 'weekly']);
+
+					// Monthly report
+					Route::get('/monthly', [VolunteerReportController::class, 'monthly']);
+
+					// Summary statistics
+					Route::get('/summary', [VolunteerReportController::class, 'summary']);
+
+					// Department summary
+					Route::get('/department-summary', [VolunteerReportController::class, 'departmentSummary']);
+
+					// Volunteer activity report
+					Route::get('/volunteer-activity', [VolunteerReportController::class, 'volunteerActivity']);
+
+					// Export reports
+					Route::get('/export/excel', [VolunteerReportController::class, 'exportExcel']);
+
+					Route::get('/export/pdf', [VolunteerReportController::class, 'exportPdf']);
+				});
+			});
+
+
+
+			Route::prefix('booking-history')->group(function () {
+				// Specific routes FIRST
+				Route::get('/types/list', [BookingHistoryController::class, 'getBookingTypes']);
+
+				// PDF Report (multiple bookings) - MUST be before /{id}
+				Route::get('/report/pdf', [BookingHistoryController::class, 'downloadReportPdf']);
+
+				// Generic routes
+				Route::get('/', [BookingHistoryController::class, 'index']);
+				Route::get('/{id}', [BookingHistoryController::class, 'show']);
 			});
 		});
+	});
+	Route::prefix('payment')->group(function () {
+		Route::get('/', [FiuuPaymentController::class, 'showPaymentForm'])->name('payment.form');
+		Route::post('/create', [FiuuPaymentController::class, 'createPayment'])->name('payment.create');
+		Route::post('/response', [FiuuPaymentController::class, 'handleResponse'])->name('payment.response');
+		Route::post('/webhook', [FiuuPaymentController::class, 'handleWebhook'])->name('payment.webhook');
+		Route::get('/cancel', [FiuuPaymentController::class, 'handleCancel'])->name('payment.cancel');
 	});
 });

@@ -53,12 +53,12 @@
           },
         ],
       },
-      {
-        id: "bookings",
-        icon: "calendar-check",
-        text: "Bookings",
-        permission: "view_bookings",
-      },
+      // {
+      //   id: "bookings",
+      //   icon: "calendar-check",
+      //   text: "Bookings",
+      //   permission: "view_bookings",
+      // },
       {
         id: "sales",
         icon: "shop",  // or "cart4", "bag-check", "cash-stack"
@@ -85,18 +85,85 @@
             permission: "view_masters",
           },
           {
-            id: "deities",
-            icon: "brightness-high",  // or "sun", "star", "moon-stars" for spiritual context
-            text: "Deity",
+            id: "sales/packages",
+            icon: "box-seam-fill",  // or "package", "gift-fill", "boxes"
+            text: "Packages",
             permission: "view_masters",
+          },
+
+        ],
+      },
+
+      {
+        id: "sales",
+        icon: "receipt",
+        text: "Sales",
+        permission: "view_bookings",
+        hasSubmenu: true,
+        submenu: [
+    
+          {
+            id: "sales/orders",
+            icon: "cart-check",
+            text: "Orders",
+            permission: "view_bookings",
+          },
+          {
+            id: "sales/invoices",
+            icon: "receipt",
+            text: "Invoices",
+            permission: "view_bookings",
+          },
+          {
+            id: "sales/delivery-orders",
+            icon: "truck",
+            text: "Delivery Orders",
+            permission: "view_bookings",
           },
         ],
       },
+      {
+        id: "pos-sales",
+        icon: "cart4",
+        text: "POS Order",
+        permission: "view_bookings",
+        hasSubmenu: true,
+        submenu: [
+          {
+            id: "pos-sales/create",
+            icon: "plus-circle",
+            text: "Create",
+            permission: "view_bookings",
+          },
+          {
+            id: "pos-sales",
+            icon: "clipboard-data",
+            text: "Report",
+            permission: "view_bookings",
+          }
+        ],
+      },
+
       {
         id: "buddha-lamp",
         icon: "lightbulb",
         text: "Buddha Lamp",
         permission: "view_bookings",
+        hasSubmenu: true,
+        submenu: [
+          {
+            id: "buddha-lamp",
+            icon: "list-ul",
+            text: "Bookings",
+            permission: "view_bookings",
+          },
+          {
+            id: "buddha-lamp/masters",
+            icon: "gear",
+            text: "Offering Settings",
+            permission: "view_bookings",
+          },
+        ],
       },
       // {
       //   id: "donations/list",
@@ -114,10 +181,22 @@
         hasSubmenu: true,
         submenu: [
           {
+            id: "donations/create-donation",  // NEW ITEM
+            icon: "plus-circle",
+            text: "New Donation",
+            permission: "donations.view",
+          },
+          {
             id: "donations/list",
             icon: "list-ul",
             text: "Donation List",
             permission: "donations.view",
+          },
+          {
+            id: "donation/groups",
+            icon: "collection",
+            text: "Donation Groups",
+            permission: "donation_groups.view",
           },
           {
             id: "donation/masters",
@@ -131,10 +210,16 @@
       {
         id: "special-occasions",
         icon: "calendar-event",
-        text: "Special Occasions",
+        text: "Temple Events",
         permission: "view_bookings",
         hasSubmenu: true,
         submenu: [
+          {
+            id: "temple-events/create",
+            icon: "plus-circle",
+            text: "New Temple Events",
+            permission: "view_bookings",
+          },
           {
             id: "special-occasions",
             icon: "calendar-check",
@@ -148,100 +233,139 @@
             permission: "view_bookings",
           },
           {
-            id: "special-occasions/services",    // ⬅️ ADD THIS
+            id: "special-occasions/services",
             icon: "wrench",
             text: "Services",
             permission: "view_bookings",
           },
+          {
+            id: "special-occasions/relocation-report",
+            icon: "file-earmark-bar-graph",
+            text: "Relocation Report",
+            permission: "view_bookings",
+          },
+          {
+            id: "special-occasions/qr-scanner",
+            icon: "qr-code-scan",
+            text: "QR Scanner",
+            permission: "view_bookings",
+          },
         ],
       },
       {
-        id: "auspicious-light",
-        icon: "brightness-high",
-        text: "Auspicious Light",
-        permission: "view_bookings",
-        hasSubmenu: true,
-        submenu: [
+        "id": "auspicious-light",
+        "icon": "brightness-high",
+        "text": "Auspicious Light",
+        "permission": "view_bookings",
+        "hasSubmenu": true,
+        "submenu": [
           {
-            id: "auspicious-light/entry",
-            icon: "plus-circle",
-            text: "New Registration",
-            permission: "manage_pagoda",
+            "id": "auspicious-light/entry",
+            "icon": "plus-circle",
+            "text": "New Registration",
+            "permission": "manage_pagoda"
           },
           {
-            id: "pagoda/dashboard",
-            icon: "speedometer2",
-            text: "Dashboard",
-            permission: "view_bookings",
+            "id": "pagoda/dashboard",
+            "icon": "speedometer2",
+            "text": "Dashboard",
+            "permission": "view_bookings"
           },
           {
-            id: "pagoda/lights",
-            icon: "lightbulb",
-            text: "Lights Management",
-            permission: "manage_pagoda",
+            "id": "pagoda/lights",
+            "icon": "lightbulb",
+            "text": "Lights Management",
+            "permission": "manage_pagoda"
           },
           {
-            id: "pagoda/registrations",
-            icon: "list-check",
-            text: "Registrations",
-            permission: "view_bookings",
+            "id": "pagoda/registrations",
+            "icon": "list-check",
+            "text": "Registrations",
+            "permission": "view_bookings"
           },
           {
-            id: "pagoda/devotees",
-            icon: "people",
-            text: "Devotees",
-            permission: "view_bookings",
+            "id": "pagoda/devotees",
+            "icon": "people",
+            "text": "Devotees",
+            "permission": "view_bookings"
           },
           {
-            id: "auspicious-light/index",
-            icon: "graph-up",
-            text: "Reports",
-            permission: "view_reports",
+            "id": "auspicious-light/index",
+            "icon": "graph-up",
+            "text": "Reports",
+            "permission": "view_reports"
           },
           {
-            id: "pagoda/towers",
-            icon: "building",
-            text: "Tower Management",
-            permission: "manage_pagoda",
+            "id": "pagoda/towers",
+            "icon": "building",
+            "text": "Tower Management",
+            "permission": "manage_pagoda"
           },
-        ],
+          {
+            "id": "pagoda/tower-categories",
+            "icon": "tags",
+            "text": "Tower Category",
+            "permission": "manage_pagoda",
+          },
+        ]
       },
       //dharma-assembly
-      {
-        id: "dharma-assembly",
-        icon: "people",
-        text: "Dharma Assembly",
-        permission: "view_bookings",
-      },
+      // {
+      //   id: "dharma-assembly",
+      //   icon: "people",
+      //   text: "Dharma Assembly",
+      //   permission: "view_bookings",
+      // },
 
-      {
-        id: "dharma-assembly",
-        icon: "calendar-heart",
-        text: "Dharma Assembly",
-        permission: "view_bookings",
-        hasSubmenu: true,
-        submenu: [
-          {
-            id: "dharma-assembly",
-            icon: "calendar-check",
-            text: "Bookings",
-            permission: "view_bookings",
-          },
-          {
-            id: "dharma-assembly/master",
-            icon: "gear",
-            text: "Master Settings",
-            permission: "view_bookings",
-          },
-        ],
-      },
+      // {
+      //   id: "dharma-assembly",
+      //   icon: "calendar-heart",
+      //   text: "Dharma Assembly",
+      //   permission: "view_bookings",
+      //   hasSubmenu: true,
+      //   submenu: [
+      //     {
+      //       id: "dharma-assembly",
+      //       icon: "calendar-check",
+      //       text: "Bookings",
+      //       permission: "view_bookings",
+      //     },
+      //     {
+      //       id: "dharma-assembly/master",
+      //       icon: "gear",
+      //       text: "Master Settings",
+      //       permission: "view_bookings",
+      //     },
+      //   ],
+      // },
+      // {
+      //   id: "rom-booking",
+      //   icon: "heart-fill",
+      //   text: "Rom Booking",
+      //   permission: "view_bookings",
+      //   hasSubmenu: true,
+      //   submenu: [
+      //     {
+      //       id: "rom-booking",
+      //       icon: "list-ul",
+      //       text: "Booking List",
+      //       permission: "view_bookings",
+      //     },
+      //       {
+      //       id: "rom-booking/session-master",
+      //       icon: "clock-history",
+      //       text: "Session Master",
+      //       permission: "view_bookings",
+      //     },
+      //     {
+      //       id: "rom-booking/venue-master",
+      //       icon: "building",
+      //       text: "Venue Master",
+      //       permission: "view_bookings",
+      //     },
 
-      {
-        id: "rom-booking",
-        icon: "heart-fill",
-        text: "Rom Booking",
-        permission: "view_bookings",
-      },
+      //   ],
+      // },
 
       {
         id: "hall-booking/listing",
@@ -294,12 +418,7 @@
         // permission: "view_volunteers",
         hasSubmenu: true,
         submenu: [
-          {
-            id: "volunteers/dashboard",
-            icon: "speedometer2",
-            text: "Dashboard",
-            // permission: "view_volunteers",
-          },
+
           {
             id: "volunteers/departments",
             icon: "diagram-3",
@@ -315,14 +434,8 @@
           {
             id: "volunteers/registration/list",
             icon: "person-lines-fill",
-            text: "All Volunteers",
+            text: "Register Volunteers",
             // permission: "view_volunteers",
-          },
-          {
-            id: "volunteers/registration/create",
-            icon: "person-plus-fill",
-            text: "Register Volunteer",
-            // permission: "manage_volunteers",
           },
           {
             id: "volunteers/approval-queue",
@@ -407,6 +520,18 @@
             icon: "percent",
             text: "Tax",
             permission: "masters.tax",
+          },
+          {
+            id: "deities",
+            icon: "brightness-high",  // or "sun", "star", "moon-stars" for spiritual context
+            text: "Deity",
+            permission: "view_masters",
+          },
+      {
+            id: "sales/devotees",
+            icon: "people",
+            text: "Devotees",
+            permission: "devotees.view",
           },
         ],
       },
@@ -697,6 +822,12 @@
         icon: "graph-up",
         text: "Reports",
         permission: "view_reports",
+      },
+      {
+        id: "daily-closing",
+        icon: "journal-check",
+        text: "Daily Closing",
+        permission: "manufacturing.reports.view",
       },
       {
         id: "booking-settings",

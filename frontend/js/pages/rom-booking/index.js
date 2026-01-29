@@ -1,125 +1,108 @@
 // js/pages/rom-booking/index.js
-// ROM Booking List Page with DataTables and animations
+// Dynamic ROM Booking List Page with DataTables and Print Report
 
-(function($, window) {
+(function ($, window) {
     'use strict';
+
     if (!window.RomSharedModule) {
         window.RomSharedModule = {
             moduleId: 'rom',
-			eventNamespace: 'rom',
+            eventNamespace: 'rom',
             cssId: 'rom-css',
             cssPath: '/css/rom-booking.css',
             activePages: new Set(),
-            
-            // Load shared CSS (only once per module)
-            loadCSS: function() {
+
+            loadCSS: function () {
                 if (!document.getElementById(this.cssId)) {
                     const link = document.createElement('link');
                     link.id = this.cssId;
                     link.rel = 'stylesheet';
                     link.href = this.cssPath;
                     document.head.appendChild(link);
-                    console.log('Roms CSS loaded');
+                    console.log('ROM CSS loaded');
                 }
             },
-            
-            // Register a page as active
-            registerPage: function(pageId) {
+
+            registerPage: function (pageId) {
                 this.activePages.add(pageId);
-                this.loadCSS(); // Ensure CSS is loaded
-                console.log(`Rom page registered: ${pageId} (Total: ${this.activePages.size})`);
+                this.loadCSS();
+                console.log(`ROM page registered: ${pageId} (Total: ${this.activePages.size})`);
             },
-            
-            // Unregister a page
-            unregisterPage: function(pageId) {
+
+            unregisterPage: function (pageId) {
                 this.activePages.delete(pageId);
-                console.log(`Rom page unregistered: ${pageId} (Remaining: ${this.activePages.size})`);
-                
-                // If no more pages active, cleanup CSS
+                console.log(`ROM page unregistered: ${pageId} (Remaining: ${this.activePages.size})`);
+
                 if (this.activePages.size === 0) {
                     this.cleanup();
                 }
             },
-            
-            // Check if any pages are active
-            hasActivePages: function() {
+
+            hasActivePages: function () {
                 return this.activePages.size > 0;
             },
-            
-            // Get active pages
-            getActivePages: function() {
+
+            getActivePages: function () {
                 return Array.from(this.activePages);
             },
-            
-            // Cleanup module resources
-            cleanup: function() {
-                // Remove CSS
+
+            cleanup: function () {
                 const cssLink = document.getElementById(this.cssId);
                 if (cssLink) {
                     cssLink.remove();
-                    console.log('Rom CSS removed');
+                    console.log('ROM CSS removed');
                 }
-                
-                // Cleanup GSAP animations
+
                 if (typeof gsap !== 'undefined') {
                     gsap.killTweensOf("*");
                 }
-                
-                // Remove all rom-related event listeners
+
                 $(document).off('.' + this.eventNamespace);
                 $(window).off('.' + this.eventNamespace);
-                
+
                 this.activePages.clear();
-                console.log('Rom module cleaned up');
+                console.log('ROM module cleaned up');
             }
         };
     }
+
     window.RomBookingPage = {
         dataTable: null,
         pageId: 'rom-list',
         eventNamespace: window.RomSharedModule.eventNamespace,
-        // Page initialization
-        init: function(params) {
+        currentBookingId: null,
+
+        init: function (params) {
             window.RomSharedModule.registerPage(this.pageId);
             this.render();
             this.initAnimations();
             this.bindEvents();
             this.initDataTable();
             this.loadData();
+            this.loadStatistics();
         },
-        
-        // Page cleanup
-        cleanup: function() {
+
+        cleanup: function () {
             console.log(`Cleaning up ${this.pageId}...`);
-            
-            // Unregister from shared module
+
             window.RomSharedModule.unregisterPage(this.pageId);
-            
-            // Cleanup page-specific events (with page namespace)
+
+            if (this.dataTable) {
+                this.dataTable.destroy();
+                this.dataTable = null;
+            }
+
             $(document).off(`.${this.eventNamespace}`);
             $(window).off(`.${this.eventNamespace}`);
-            
-            // Cleanup page-specific animations
+
             if (typeof gsap !== 'undefined') {
                 gsap.killTweensOf(`.${this.pageId}-page *`);
             }
-            
-            // Clear any intervals/timeouts
-            if (this.intervals) {
-                this.intervals.forEach(interval => clearInterval(interval));
-                this.intervals = [];
-            }
-            
-            if (this.timeouts) {
-                this.timeouts.forEach(timeout => clearTimeout(timeout));
-                this.timeouts = [];
-            }
-            
+
             console.log(`${this.pageId} cleanup completed`);
         },
-        
-        // Render page HTML
-        render: function() {
+
+        render: function () {
             const html = `
                 <div class="rom-booking-list-page">
                     <!-- Page Header -->
@@ -137,66 +120,15 @@
                                     </div>
                                 </div>
                                 <div class="col-md-4 text-md-end">
+                                    <button class="btn btn-outline-light btn-lg me-2" id="btnPrintReport">
+                                        <i class="bi bi-printer-fill"></i> Print Report
+                                    </button>
                                     <button class="btn btn-light btn-lg me-2" id="btnRefresh">
                                         <i class="bi bi-arrow-clockwise"></i> Refresh
                                     </button>
                                     <button class="btn btn-outline-light btn-lg" id="btnNewBooking">
                                         <i class="bi bi-plus-circle"></i> New Booking
                                     </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Statistics Cards -->
-                    <div class="container-fluid mb-4" data-aos="fade-up" data-aos-delay="200">
-                        <div class="row">
-                            <div class="col-md-3 col-sm-6 mb-3">
-                                <div class="stat-card">
-                                    <div class="stat-card-icon total">
-                                        <i class="bi bi-calendar-heart"></i>
-                                    </div>
-                                    <div class="stat-card-content">
-                                        <div class="stat-value" id="totalBookings">0</div>
-                                        <div class="stat-label">Total Bookings</div>
-                                        <small class="stat-subtitle">All time bookings</small>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3 col-sm-6 mb-3">
-                                <div class="stat-card">
-                                    <div class="stat-card-icon pending">
-                                        <i class="bi bi-clock-history"></i>
-                                    </div>
-                                    <div class="stat-card-content">
-                                        <div class="stat-value" id="pendingBookings">0</div>
-                                        <div class="stat-label">Pending</div>
-                                        <small class="stat-subtitle">Awaiting confirmation</small>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3 col-sm-6 mb-3">
-                                <div class="stat-card">
-                                    <div class="stat-card-icon confirmed">
-                                        <i class="bi bi-check-circle-fill"></i>
-                                    </div>
-                                    <div class="stat-card-content">
-                                        <div class="stat-value" id="confirmedBookings">0</div>
-                                        <div class="stat-label">Confirmed</div>
-                                        <small class="stat-subtitle">Ready for ceremony</small>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3 col-sm-6 mb-3">
-                                <div class="stat-card">
-                                    <div class="stat-card-icon completed">
-                                        <i class="bi bi-award-fill"></i>
-                                    </div>
-                                    <div class="stat-card-content">
-                                        <div class="stat-value" id="completedBookings">0</div>
-                                        <div class="stat-label">Completed</div>
-                                        <small class="stat-subtitle">Ceremonies done</small>
-                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -225,19 +157,19 @@
                                         <label class="form-label">Status</label>
                                         <select class="form-select" id="filterStatus">
                                             <option value="">All Status</option>
-                                            <option value="pending">Pending</option>
-                                            <option value="confirmed">Confirmed</option>
-                                            <option value="completed">Completed</option>
-                                            <option value="cancelled">Cancelled</option>
+                                            <option value="PENDING">Pending</option>
+                                            <option value="CONFIRMED">Confirmed</option>
+                                            <option value="COMPLETED">Completed</option>
+                                            <option value="CANCELLED">Cancelled</option>
                                         </select>
                                     </div>
                                     <div class="col-md-3 mb-3">
-                                        <label class="form-label">Venue</label>
-                                        <select class="form-select" id="filterVenue">
-                                            <option value="">All Venues</option>
-                                            <option value="1">Main Temple Hall</option>
-                                            <option value="2">Garden Pavilion</option>
-                                            <option value="3">Sacred Chamber</option>
+                                        <label class="form-label">Payment Status</label>
+                                        <select class="form-select" id="filterPaymentStatus">
+                                            <option value="">All Payment Status</option>
+                                            <option value="PENDING">Pending</option>
+                                            <option value="PARTIAL">Partial</option>
+                                            <option value="FULL">Paid</option>
                                         </select>
                                     </div>
                                     <div class="col-md-3 mb-3">
@@ -250,22 +182,14 @@
                                     </div>
                                 </div>
                                 <div class="row">
-                                    <div class="col-md-6 mb-3">
+                                    <div class="col-md-9 mb-3">
                                         <label class="form-label">Search</label>
                                         <div class="input-group">
                                             <span class="input-group-text">
                                                 <i class="bi bi-search"></i>
                                             </span>
-                                            <input type="text" class="form-control" id="filterSearch" placeholder="Search by name, IC, phone...">
+                                            <input type="text" class="form-control" id="filterSearch" placeholder="Search by booking number, register name, phone...">
                                         </div>
-                                    </div>
-                                    <div class="col-md-3 mb-3">
-                                        <label class="form-label">Session</label>
-                                        <select class="form-select" id="filterSession">
-                                            <option value="">All Sessions</option>
-                                            <option value="am">Morning (AM)</option>
-                                            <option value="pm">Afternoon (PM)</option>
-                                        </select>
                                     </div>
                                     <div class="col-md-3 mb-3 d-flex align-items-end">
                                         <button type="button" class="btn btn-primary w-100" id="btnApplyFilter">
@@ -280,38 +204,18 @@
                     <!-- Bookings Table -->
                     <div class="container-fluid" data-aos="fade-up" data-aos-delay="400">
                         <div class="card table-card">
-                            <div class="card-header">
-                                <div class="row align-items-center">
-                                    <div class="col-md-6">
-                                        <h5 class="mb-0">
-                                            <i class="bi bi-list-ul"></i> ROM Bookings List
-                                        </h5>
-                                    </div>
-                                    <div class="col-md-6 text-md-end">
-                                        <div class="btn-group">
-                                            <button type="button" class="btn btn-outline-primary btn-sm" id="btnExportExcel">
-                                                <i class="bi bi-file-earmark-excel"></i> Excel
-                                            </button>
-                                            <button type="button" class="btn btn-outline-primary btn-sm" id="btnExportPDF">
-                                                <i class="bi bi-file-earmark-pdf"></i> PDF
-                                            </button>
-                                            <button type="button" class="btn btn-outline-primary btn-sm" id="btnPrint">
-                                                <i class="bi bi-printer"></i> Print
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            
                             <div class="card-body">
                                 <div class="table-responsive">
                                     <table class="table table-hover" id="romBookingsTable">
                                         <thead>
                                             <tr>
-                                                <th>Booking ID</th>
-                                                <th>Couple Names</th>
+                                                <th>Booking No.</th>
+                                                <th>Date</th>
+                                                <th>Register</th>
+                                                <th>Couples</th>
                                                 <th>Venue</th>
-                                                <th>Date & Session</th>
-                                                <th>Contact</th>
+                                                <th>Session</th>
                                                 <th>Amount</th>
                                                 <th>Status</th>
                                                 <th>Actions</th>
@@ -327,48 +231,9 @@
                     </div>
                 </div>
 
-                <!-- Status Update Modal -->
-                <div class="modal fade" id="statusUpdateModal" tabindex="-1">
-                    <div class="modal-dialog">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">
-                                    <i class="bi bi-pencil-square"></i> Update Booking Status
-                                </h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                            </div>
-                            <div class="modal-body">
-                                <form id="statusUpdateForm">
-                                    <input type="hidden" id="updateBookingId">
-                                    <div class="mb-3">
-                                        <label class="form-label">New Status</label>
-                                        <select class="form-select" id="newStatus" required>
-                                            <option value="">Select Status</option>
-                                            <option value="pending">Pending</option>
-                                            <option value="confirmed">Confirmed</option>
-                                            <option value="completed">Completed</option>
-                                            <option value="cancelled">Cancelled</option>
-                                        </select>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Notes (Optional)</label>
-                                        <textarea class="form-control" id="statusNotes" rows="3" placeholder="Add any notes about this status change..."></textarea>
-                                    </div>
-                                </form>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                <button type="button" class="btn btn-primary" id="btnUpdateStatus">
-                                    <i class="bi bi-check-circle"></i> Update Status
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- View Details Modal -->
                 <div class="modal fade" id="viewDetailsModal" tabindex="-1">
-                    <div class="modal-dialog modal-lg">
+                    <div class="modal-dialog modal-xl">
                         <div class="modal-content">
                             <div class="modal-header">
                                 <h5 class="modal-title">
@@ -388,22 +253,61 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Status Update Modal -->
+                <div class="modal fade" id="statusUpdateModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    <i class="bi bi-arrow-repeat"></i> Update Booking Status
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label class="form-label">Booking Number: <strong id="statusBookingNumber"></strong></label>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Current Status: <span id="currentStatus" class="badge"></span></label>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="newStatus" class="form-label">New Status <span class="text-danger">*</span></label>
+                                    <select class="form-select" id="newStatus" required>
+                                        <option value="">Select Status</option>
+                                        <option value="PENDING">Pending</option>
+                                        <option value="CONFIRMED">Confirmed</option>
+                                        <option value="COMPLETED">Completed</option>
+                                        <option value="CANCELLED">Cancelled</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="statusNotes" class="form-label">Notes</label>
+                                    <textarea class="form-control" id="statusNotes" rows="3" placeholder="Add any notes about this status change..."></textarea>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-primary" id="btnUpdateStatus">
+                                    <i class="bi bi-check-circle"></i> Update Status
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             `;
-            
+
             $('#page-container').html(html);
         },
-        
-        // Initialize animations
-        initAnimations: function() {
-            // AOS initialization
+
+        initAnimations: function () {
             AOS.init({
                 duration: 1000,
                 easing: 'ease-out-cubic',
                 once: true,
                 offset: 100
             });
-            
-            // GSAP header animation
+
             gsap.timeline()
                 .from('.rom-booking-title', {
                     y: 30,
@@ -417,8 +321,7 @@
                     duration: 0.8,
                     ease: 'power3.out'
                 }, '-=0.6');
-                
-            // Statistics cards animation
+
             gsap.from('.stat-card', {
                 y: 50,
                 opacity: 0,
@@ -428,17 +331,17 @@
                 ease: 'back.out(1.7)'
             });
         },
-        
-        // Initialize DataTable
-        initDataTable: function() {
+
+        initDataTable: function () {
+            const self = this;
+
             this.dataTable = $('#romBookingsTable').DataTable({
                 responsive: true,
                 processing: true,
-                serverSide: false, // Changed to false for frontend demo
+                serverSide: false,
                 pageLength: 25,
                 lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
                 order: [[0, 'desc']],
-                dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>t<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
                 language: {
                     search: "Search bookings:",
                     lengthMenu: "Show _MENU_ bookings per page",
@@ -447,93 +350,100 @@
                     zeroRecords: "No matching bookings found"
                 },
                 columns: [
-                    { 
-                        data: 'id',
-                        render: function(data) {
-                            return `<strong class="booking-id">ROM-${String(data).padStart(4, '0')}</strong>`;
+                    {
+                        data: 'booking_number',
+                        render: function (data) {
+                            return `<strong class="booking-id">${data}</strong>`;
                         }
                     },
-                    { 
+                    {
+                        data: 'booking_date',
+                        render: function (data) {
+                            const date = new Date(data);
+                            return date.toLocaleDateString('en-GB');
+                        }
+                    },
+                    {
                         data: null,
-                        render: function(data) {
-                            return `
-                                <div class="couple-names">
-                                    <div><strong>${data.bride_name}</strong> (Bride)</div>
-                                    <div><strong>${data.groom_name}</strong> (Groom)</div>
-                                </div>
-                            `;
-                        }
-                    },
-                    { 
-                        data: 'venue_name',
-                        render: function(data, type, row) {
-                            return `
-                                <div class="venue-info">
-                                    <div><strong>${data}</strong></div>
-                                    <small class="text-muted">${row.venue_location}</small>
-                                </div>
-                            `;
-                        }
-                    },
-                    { 
-                        data: null,
-                        render: function(data) {
-                            const date = new Date(data.booking_date);
-                            const sessionText = data.session === 'am' ? 'Morning (9:00 AM - 12:00 PM)' : 'Afternoon (2:00 PM - 5:00 PM)';
-                            return `
-                                <div class="datetime-info">
-                                    <div><strong>${date.toLocaleDateString('en-GB')}</strong></div>
-                                    <small class="text-muted">${sessionText}</small>
-                                </div>
-                            `;
-                        }
-                    },
-                    { 
-                        data: 'registrar_phone',
-                        render: function(data, type, row) {
+                        render: function (data) {
                             return `
                                 <div class="contact-info">
-                                    <div>${data}</div>
-                                    <small class="text-muted">${row.registrar_name}</small>
+                                    <div><strong>${data.register_name}</strong></div>
+                                    <small class="text-muted">${data.register_phone}</small>
                                 </div>
                             `;
                         }
                     },
-                    { 
-                        data: 'amount',
-                        render: function(data) {
+                    {
+                        data: 'couples',
+                        render: function (data) {
+                            if (!data || data.length === 0) return 'N/A';
+
+                            const couplesList = data.map((couple, index) => {
+                                return `
+                                    <div class="couple-info mb-2">
+                                        <small><strong>Couple ${index + 1}:</strong></small><br>
+                                        <small>👰 ${couple.bride?.name || 'N/A'}</small><br>
+                                        <small>🤵 ${couple.groom?.name || 'N/A'}</small>
+                                    </div>
+                                `;
+                            }).join('');
+
+                            return couplesList;
+                        }
+                    },
+                    {
+                        data: 'venue',
+                        render: function (data) {
+                            if (!data) return 'N/A';
+                            return `
+                                <div class="venue-info">
+                                    <strong>${data.name_primary || data.name_secondary || 'N/A'}</strong>
+                                    ${data.city ? `<br><small class="text-muted">${data.city}</small>` : ''}
+                                </div>
+                            `;
+                        }
+                    },
+                    {
+                        data: 'session',
+                        render: function (data) {
+                            if (!data) return 'N/A';
+                            return `
+                                <div class="session-info">
+                                    <strong>${data.name_primary || data.name_secondary || 'N/A'}</strong>
+                                    ${data.from_time ? `<br><small>${data.from_time} - ${data.to_time}</small>` : ''}
+                                </div>
+                            `;
+                        }
+                    },
+                    {
+                        data: 'total_amount',
+                        render: function (data) {
                             return `<strong class="amount">RM ${parseFloat(data).toFixed(2)}</strong>`;
                         }
                     },
-                    { 
-                        data: 'status',
-                        render: function(data) {
+                    {
+                        data: 'booking_status',
+                        render: function (data) {
                             const statusClasses = {
-                                'pending': 'warning',
-                                'confirmed': 'success', 
-                                'completed': 'primary',
-                                'cancelled': 'danger'
+                                'PENDING': 'warning',
+                                'CONFIRMED': 'success',
+                                'COMPLETED': 'primary',
+                                'CANCELLED': 'danger'
                             };
-                            const statusTexts = {
-                                'pending': 'Pending',
-                                'confirmed': 'Confirmed',
-                                'completed': 'Completed',
-                                'cancelled': 'Cancelled'
-                            };
-                            return `<span class="badge bg-${statusClasses[data] || 'secondary'}">${statusTexts[data] || data}</span>`;
+                            return `<span class="badge bg-${statusClasses[data] || 'secondary'}">${data}</span>`;
                         }
                     },
-                    { 
+                    {
                         data: null,
                         orderable: false,
-                        render: function(data) {
-                            // Show print button only for confirmed/completed bookings
-                            const showPrintBtn = ['confirmed', 'completed'].includes(data.status);
-                            const printButton = showPrintBtn ? 
-                                `<button class="btn btn-outline-info btn-print" data-id="${data.id}" title="Print Receipt">
+                        render: function (data) {
+                            const showPrintBtn = ['CONFIRMED', 'COMPLETED'].includes(data.booking_status);
+                            const printButton = showPrintBtn ?
+                                `<button class="btn btn-outline-info btn-sm btn-print" data-id="${data.id}" title="Print Receipt">
                                     <i class="bi bi-printer"></i>
                                 </button>` : '';
-                            
+
                             return `
                                 <div class="btn-group btn-group-sm">
                                     <button class="btn btn-outline-primary btn-view" data-id="${data.id}" title="View Details">
@@ -542,7 +452,7 @@
                                     <button class="btn btn-outline-success btn-edit" data-id="${data.id}" title="Edit Booking">
                                         <i class="bi bi-pencil-square"></i>
                                     </button>
-                                    <button class="btn btn-outline-warning btn-status" data-id="${data.id}" title="Update Status">
+                                    <button class="btn btn-outline-warning btn-status" data-id="${data.id}" data-status="${data.booking_status}" data-booking-number="${data.booking_number}" title="Update Status">
                                         <i class="bi bi-arrow-repeat"></i>
                                     </button>
                                     ${printButton}
@@ -556,396 +466,505 @@
                 ]
             });
         },
-        
-        // Load data
-        loadData: function() {
-            // Sample data for frontend demo
-            const sampleData = [
-                {
-                    id: 1,
-                    bride_name: 'Sarah Lim',
-                    groom_name: 'Michael Chen',
-                    venue_name: 'Main Temple Hall',
-                    venue_location: 'Ground Floor',
-                    booking_date: '2025-12-15',
-                    session: 'am',
-                    registrar_name: 'John Wong',
-                    registrar_phone: '+60123456789',
-                    amount: 300.00,
-                    status: 'confirmed',
-                    created_at: '2025-11-20T10:30:00Z'
-                },
-                {
-                    id: 2,
-                    bride_name: 'Alice Tan',
-                    groom_name: 'David Lee',
-                    venue_name: 'Garden Pavilion',
-                    venue_location: 'Outdoor Garden',
-                    booking_date: '2025-12-22',
-                    session: 'pm',
-                    registrar_name: 'Mary Koh',
-                    registrar_phone: '+60129876543',
-                    amount: 350.00,
-                    status: 'pending',
-                    created_at: '2025-11-20T14:45:00Z'
-                },
-                {
-                    id: 3,
-                    bride_name: 'Emily Wang',
-                    groom_name: 'James Liu',
-                    venue_name: 'Sacred Chamber',
-                    venue_location: 'Second Floor',
-                    booking_date: '2025-11-25',
-                    session: 'am',
-                    registrar_name: 'Peter Ng',
-                    registrar_phone: '+60135555555',
-                    amount: 300.00,
-                    status: 'completed',
-                    created_at: '2025-11-15T09:15:00Z'
-                }
-            ];
-            
-            // Clear existing data and add sample data
-            this.dataTable.clear();
-            this.dataTable.rows.add(sampleData);
-            this.dataTable.draw();
-            
-            // Update statistics
-            this.updateStatistics(sampleData);
-            
-            // For production, replace with actual API call:
-            /*
-            TempleAPI.get('/rom-booking')
-                .done((response) => {
+
+        loadData: function () {
+            const self = this;
+            TempleCore.showLoading(true);
+
+            const filters = this.getFilters();
+
+            TempleAPI.get('/rom-booking', filters)
+                .done(function (response) {
                     if (response.success) {
-                        this.dataTable.clear();
-                        this.dataTable.rows.add(response.data);
-                        this.dataTable.draw();
-                        this.updateStatistics(response.data);
+                        self.dataTable.clear();
+                        self.dataTable.rows.add(response.data);
+                        self.dataTable.draw();
+                    } else {
+                        TempleCore.showToast('Failed to load bookings', 'error');
                     }
                 })
-                .fail((error) => {
-                    TempleCore.showToast('Failed to load bookings', 'error');
+                .fail(function (error) {
+                    console.error('Load bookings error:', error);
+                    TempleCore.showToast('Error loading bookings', 'error');
+                })
+                .always(function () {
+                    TempleCore.showLoading(false);
                 });
-            */
         },
-        
-        // Update statistics
-        updateStatistics: function(data) {
-            const stats = {
-                total: data.length,
-                pending: data.filter(item => item.status === 'pending').length,
-                confirmed: data.filter(item => item.status === 'confirmed').length,
-                completed: data.filter(item => item.status === 'completed').length
+
+        loadStatistics: function () {
+            const self = this;
+
+            TempleAPI.get('/rom-booking/statistics')
+                .done(function (response) {
+                    if (response.success) {
+                        const stats = response.data;
+                        self.animateCounter('#totalBookings', stats.total || 0);
+                        self.animateCounter('#pendingBookings', stats.pending || 0);
+                        self.animateCounter('#confirmedBookings', stats.confirmed || 0);
+                        self.animateCounter('#completedBookings', stats.completed || 0);
+                    }
+                })
+                .fail(function (error) {
+                    console.error('Load statistics error:', error);
+                });
+        },
+
+        getFilters: function () {
+            return {
+                status: $('#filterStatus').val(),
+                payment_status: $('#filterPaymentStatus').val(),
+                date_from: $('#filterDateFrom').val(),
+                date_to: $('#filterDateTo').val(),
+                search: $('#filterSearch').val()
             };
-            
-            // Animate counter updates
-            this.animateCounter('#totalBookings', stats.total);
-            this.animateCounter('#pendingBookings', stats.pending);
-            this.animateCounter('#confirmedBookings', stats.confirmed);
-            this.animateCounter('#completedBookings', stats.completed);
         },
-        
-        // Animate counter
-        animateCounter: function(selector, targetValue) {
+
+        animateCounter: function (selector, targetValue) {
             const $element = $(selector);
             const currentValue = parseInt($element.text()) || 0;
-            
+
             gsap.to({ value: currentValue }, {
                 value: targetValue,
                 duration: 1,
                 ease: 'power2.out',
-                onUpdate: function() {
+                onUpdate: function () {
                     $element.text(Math.round(this.targets()[0].value));
                 }
             });
         },
-        
-        // View booking details
-        viewBookingDetails: function(bookingId) {
-            // Sample booking details for demo
-            const detailsHTML = `
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="section-header-gradient mb-3">
-                            <i class="bi bi-person-badge"></i>
-                            <span>Registrar Details</span>
+
+        viewBookingDetails: function (bookingId) {
+            const self = this;
+            TempleCore.showLoading(true);
+
+            TempleAPI.get(`/rom-booking/${bookingId}`)
+                .done(function (response) {
+                    if (response.success) {
+                        const booking = response.data;
+                        self.renderBookingDetails(booking);
+
+                        const modal = new bootstrap.Modal(document.getElementById('viewDetailsModal'));
+                        modal.show();
+
+                        $('#btnEditFromView').attr('data-id', bookingId);
+                    } else {
+                        TempleCore.showToast('Failed to load booking details', 'error');
+                    }
+                })
+                .fail(function (error) {
+                    console.error('Load booking details error:', error);
+                    TempleCore.showToast('Error loading booking details', 'error');
+                })
+                .always(function () {
+                    TempleCore.showLoading(false);
+                });
+        },
+
+        renderBookingDetails: function (booking) {
+            const couplesHtml = booking.couples.map((couple, index) => `
+        <div class="col-md-6 mb-3">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <strong>Couple ${index + 1}</strong>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>👰 Bride:</strong><br>
+                            ${couple.bride?.name || 'N/A'}<br>
+                            <small>IC: ${couple.bride?.ic || 'N/A'}</small><br>
+                            ${couple.bride?.phone ? `<small>📞 ${couple.bride.phone}</small><br>` : ''}
+                            ${couple.bride?.email ? `<small>📧 ${couple.bride.email}</small>` : ''}
                         </div>
-                        <table class="table table-borderless">
-                            <tr><td><strong>Name:</strong></td><td>John Wong</td></tr>
-                            <tr><td><strong>IC:</strong></td><td>123456-12-1234</td></tr>
-                            <tr><td><strong>Phone:</strong></td><td>+60123456789</td></tr>
-                            <tr><td><strong>Email:</strong></td><td>john@example.com</td></tr>
-                        </table>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="section-header-gradient mb-3">
-                            <i class="bi bi-calendar-heart"></i>
-                            <span>Booking Details</span>
+                        <div class="col-6">
+                            <strong>🤵 Groom:</strong><br>
+                            ${couple.groom?.name || 'N/A'}<br>
+                            <small>IC: ${couple.groom?.ic || 'N/A'}</small><br>
+                            ${couple.groom?.phone ? `<small>📞 ${couple.groom.phone}</small><br>` : ''}
+                            ${couple.groom?.email ? `<small>📧 ${couple.groom.email}</small>` : ''}
                         </div>
-                        <table class="table table-borderless">
-                            <tr><td><strong>Venue:</strong></td><td>Main Temple Hall</td></tr>
-                            <tr><td><strong>Date:</strong></td><td>December 15, 2025</td></tr>
-                            <tr><td><strong>Session:</strong></td><td>Morning (9:00 AM - 12:00 PM)</td></tr>
-                            <tr><td><strong>Amount:</strong></td><td>RM 300.00</td></tr>
-                        </table>
                     </div>
                 </div>
-                <div class="row mt-3">
-                    <div class="col-md-6">
-                        <div class="section-header-gradient mb-3">
-                            <i class="bi bi-person-dress"></i>
-                            <span>Bride Details</span>
-                        </div>
-                        <table class="table table-borderless">
-                            <tr><td><strong>Name:</strong></td><td>Sarah Lim</td></tr>
-                            <tr><td><strong>IC:</strong></td><td>654321-12-4321</td></tr>
-                            <tr><td><strong>Phone:</strong></td><td>+60129999999</td></tr>
-                            <tr><td><strong>Email:</strong></td><td>sarah@example.com</td></tr>
-                        </table>
+            </div>
+        </div>
+    `).join('');
+
+            let witnessesHtml = '<p class="text-muted">No witnesses added</p>';
+            if (booking.witnesses && Array.isArray(booking.witnesses) && booking.witnesses.length > 0) {
+                witnessesHtml = booking.witnesses.map((witness, index) => `
+            <div class="col-md-4 mb-2">
+                <div class="card">
+                    <div class="card-body p-2">
+                        <strong>Witness ${index + 1}:</strong> ${witness.name || 'N/A'}<br>
+                        <small>IC: ${witness.ic || 'N/A'}</small><br>
+                        ${witness.phone ? `<small>📞 ${witness.phone}</small>` : ''}
                     </div>
-                    <div class="col-md-6">
-                        <div class="section-header-gradient mb-3">
-                            <i class="bi bi-person-standing"></i>
-                            <span>Groom Details</span>
+                </div>
+            </div>
+        `).join('');
+            }
+
+            let documentsHtml = '<p class="text-muted">No documents uploaded</p>';
+            if (booking.documents && Array.isArray(booking.documents) && booking.documents.length > 0) {
+                documentsHtml = booking.documents.map((doc, index) => {
+                    const fileName = doc.name || doc.file_name || 'Document';
+                    const fileUrl = doc.signed_url || doc.file_url || doc.url || '#';
+                    const isPDF = fileName.toLowerCase().endsWith('.pdf');
+                    const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
+
+                    let icon = 'bi-file-earmark';
+                    let iconColor = 'text-secondary';
+                    if (isPDF) {
+                        icon = 'bi-file-earmark-pdf';
+                        iconColor = 'text-danger';
+                    } else if (isImage) {
+                        icon = 'bi-file-earmark-image';
+                        iconColor = 'text-primary';
+                    }
+
+                    return `
+                <div class="col-md-3 mb-2">
+                    <div class="card h-100">
+                        <div class="card-body p-2 text-center">
+                            <i class="bi ${icon} ${iconColor}" style="font-size: 2rem;"></i>
+                            <p class="small mb-1 mt-2" style="word-break: break-word;">${fileName}</p>
+                            ${fileUrl !== '#' ? `
+                                <a href="${fileUrl}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye"></i> View
+                                </a>
+                            ` : '<span class="badge bg-warning">No URL</span>'}
                         </div>
-                        <table class="table table-borderless">
-                            <tr><td><strong>Name:</strong></td><td>Michael Chen</td></tr>
-                            <tr><td><strong>IC:</strong></td><td>789456-12-7890</td></tr>
-                            <tr><td><strong>Phone:</strong></td><td>+60128888888</td></tr>
-                            <tr><td><strong>Email:</strong></td><td>michael@example.com</td></tr>
-                        </table>
                     </div>
                 </div>
             `;
-            
-            $('#viewDetailsContent').html(detailsHTML);
-            $('#btnEditFromView').attr('data-id', bookingId);
-            
-            const modal = new bootstrap.Modal(document.getElementById('viewDetailsModal'));
+                }).join('');
+            }
+
+            let paymentsHtml = '<p class="text-muted">No payment records</p>';
+            if (booking.payments && Array.isArray(booking.payments) && booking.payments.length > 0) {
+                paymentsHtml = booking.payments.map((payment, index) => `
+            <tr>
+                <td>${index + 1}</td>
+                <td>${payment.payment_reference || 'N/A'}</td>
+                <td>${payment.payment_date ? new Date(payment.payment_date).toLocaleDateString('en-GB') : 'N/A'}</td>
+                <td>${payment.payment_mode?.name || 'N/A'}</td>
+                <td>RM ${parseFloat(payment.amount || 0).toFixed(2)}</td>
+                <td><span class="badge bg-${payment.payment_status === 'SUCCESS' ? 'success' : 'warning'}">${payment.payment_status}</span></td>
+            </tr>
+        `).join('');
+
+                paymentsHtml = `
+            <table class="table table-sm table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Reference</th>
+                        <th>Date</th>
+                        <th>Mode</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${paymentsHtml}
+                </tbody>
+            </table>
+        `;
+            }
+
+            const html = `
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <h5><i class="bi bi-person-badge"></i> Register Details</h5>
+                <table class="table table-borderless table-sm">
+                    <tr><td><strong>Name:</strong></td><td>${booking.register_name}</td></tr>
+                    <tr><td><strong>IC:</strong></td><td>${booking.register_details?.ic || 'N/A'}</td></tr>
+                    <tr><td><strong>Phone:</strong></td><td>${booking.register_phone}</td></tr>
+                    <tr><td><strong>Email:</strong></td><td>${booking.register_details?.email || 'N/A'}</td></tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h5><i class="bi bi-calendar-heart"></i> Booking Details</h5>
+                <table class="table table-borderless table-sm">
+                    <tr><td><strong>Booking No:</strong></td><td>${booking.booking_number}</td></tr>
+                    <tr><td><strong>Date:</strong></td><td>${new Date(booking.booking_date).toLocaleDateString('en-GB')}</td></tr>
+                    <tr><td><strong>Venue:</strong></td><td>${booking.venue?.name_primary || 'N/A'}</td></tr>
+                    <tr><td><strong>Session:</strong></td><td>${booking.session?.name_primary || 'N/A'}</td></tr>
+                    <tr><td><strong>Amount:</strong></td><td>RM ${parseFloat(booking.total_amount || 0).toFixed(2)}</td></tr>
+                    <tr><td><strong>Status:</strong></td><td><span class="badge bg-success">${booking.booking_status}</span></td></tr>
+                </table>
+            </div>
+        </div>
+
+        <hr>
+
+        <h5><i class="bi bi-heart-fill text-danger"></i> Couples (${booking.couples?.length || 0})</h5>
+        <div class="row mb-4">
+            ${couplesHtml}
+        </div>
+
+        <hr>
+
+        <h5><i class="bi bi-people"></i> Witnesses (${booking.witnesses?.length || 0})</h5>
+        <div class="row mb-4">
+            ${witnessesHtml}
+        </div>
+
+        <hr>
+
+        <h5><i class="bi bi-files"></i> Documents (${booking.documents?.length || 0})</h5>
+        <div class="row mb-4">
+            ${documentsHtml}
+        </div>
+
+        <hr>
+
+        <h5><i class="bi bi-credit-card"></i> Payment Details</h5>
+        <div class="mb-4">
+            ${paymentsHtml}
+        </div>
+
+        ${booking.additional_notes ? `
+            <hr>
+            <h5><i class="bi bi-sticky"></i> Additional Notes</h5>
+            <div class="alert alert-info">
+                ${booking.additional_notes}
+            </div>
+        ` : ''}
+    `;
+
+            $('#viewDetailsContent').html(html);
+        },
+
+        deleteBooking: function (bookingId) {
+            const self = this;
+
+            if (!confirm('Are you sure you want to delete this booking? This action cannot be undone.')) {
+                return;
+            }
+
+            TempleCore.showLoading(true);
+
+            TempleAPI.delete(`/rom-booking/${bookingId}`)
+                .done(function (response) {
+                    if (response.success) {
+                        TempleCore.showToast('Booking deleted successfully', 'success');
+                        self.loadData();
+                        self.loadStatistics();
+                    } else {
+                        TempleCore.showToast(response.message || 'Failed to delete booking', 'error');
+                    }
+                })
+                .fail(function (error) {
+                    console.error('Delete booking error:', error);
+                    const errorMessage = error.responseJSON?.message ||
+                        error.responseText ||
+                        'Error deleting booking';
+                    TempleCore.showToast(errorMessage, 'error');
+                })
+                .always(function () {
+                    TempleCore.showLoading(false);
+                });
+        },
+
+        showStatusUpdateModal: function (bookingId, currentStatus, bookingNumber) {
+            const self = this;
+
+            self.currentBookingId = bookingId;
+
+            $('#statusBookingNumber').text(bookingNumber);
+            const statusClasses = {
+                'PENDING': 'warning',
+                'CONFIRMED': 'success',
+                'COMPLETED': 'primary',
+                'CANCELLED': 'danger'
+            };
+            $('#currentStatus')
+                .removeClass('bg-warning bg-success bg-primary bg-danger bg-secondary')
+                .addClass(`bg-${statusClasses[currentStatus] || 'secondary'}`)
+                .text(currentStatus);
+
+            $('#newStatus').val('');
+            $('#statusNotes').val('');
+
+            const modal = new bootstrap.Modal(document.getElementById('statusUpdateModal'));
             modal.show();
         },
-        
-        // Update booking status
-        updateBookingStatus: function(bookingId) {
+
+        updateBookingStatus: function () {
+            const self = this;
             const newStatus = $('#newStatus').val();
             const notes = $('#statusNotes').val();
-            
+
             if (!newStatus) {
                 TempleCore.showToast('Please select a status', 'warning');
                 return;
             }
-            
-            // Show loading
+
+            if (!self.currentBookingId) {
+                TempleCore.showToast('Invalid booking ID', 'error');
+                return;
+            }
+
             const $btn = $('#btnUpdateStatus');
-            const originalText = $btn.html();
-            $btn.prop('disabled', true).html('<i class="spinner-border spinner-border-sm"></i> Updating...');
-            
-            // Simulate API call
-            setTimeout(() => {
-                TempleCore.showToast('Booking status updated successfully!', 'success');
-                $('#statusUpdateModal').modal('hide');
-                this.loadData(); // Refresh data
-                $btn.prop('disabled', false).html(originalText);
-            }, 1500);
-            
-            // Actual API implementation:
-            /*
-            TempleAPI.put('/rom-booking/' + bookingId + '/status', {
+            const originalHtml = $btn.html();
+            $btn.prop('disabled', true).html('<i class="spinner-border spinner-border-sm me-1"></i> Updating...');
+
+            TempleAPI.post(`/rom-booking/${self.currentBookingId}/status`, {
                 status: newStatus,
                 notes: notes
             })
-            .done((response) => {
-                if (response.success) {
-                    TempleCore.showToast('Booking status updated successfully!', 'success');
-                    $('#statusUpdateModal').modal('hide');
-                    this.loadData();
-                }
-            })
-            .fail((error) => {
-                TempleCore.showToast('Failed to update status', 'error');
-            })
-            .always(() => {
-                $btn.prop('disabled', false).html(originalText);
-            });
-            */
-        },
-        
-        // Delete booking
-        deleteBooking: function(bookingId) {
-            if (!confirm('Are you sure you want to delete this booking? This action cannot be undone.')) {
-                return;
-            }
-            
-            // Simulate API call
-            TempleCore.showToast('Booking deleted successfully!', 'success');
-            this.loadData(); // Refresh data
-            
-            // Actual API implementation:
-            /*
-            TempleAPI.delete('/rom-booking/' + bookingId)
-                .done((response) => {
+                .done(function (response) {
                     if (response.success) {
-                        TempleCore.showToast('Booking deleted successfully!', 'success');
-                        this.loadData();
+                        TempleCore.showToast('Booking status updated successfully!', 'success');
+
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('statusUpdateModal'));
+                        modal.hide();
+
+                        self.loadData();
+                        self.loadStatistics();
+                    } else {
+                        TempleCore.showToast(response.message || 'Failed to update status', 'error');
                     }
                 })
-                .fail((error) => {
-                    TempleCore.showToast('Failed to delete booking', 'error');
+                .fail(function (error) {
+                    console.error('Update status error:', error);
+                    const errorMessage = error.responseJSON?.message ||
+                        error.responseText ||
+                        'Error updating status';
+                    TempleCore.showToast(errorMessage, 'error');
+                })
+                .always(function () {
+                    $btn.prop('disabled', false).html(originalHtml);
                 });
-            */
         },
-        
-        // Apply filters
-        applyFilters: function() {
-            const filters = {
-                status: $('#filterStatus').val(),
-                venue: $('#filterVenue').val(),
-                session: $('#filterSession').val(),
-                dateFrom: $('#filterDateFrom').val(),
-                dateTo: $('#filterDateTo').val(),
-                search: $('#filterSearch').val()
-            };
-            
-            // Apply DataTable search and filters
-            let searchValue = filters.search || '';
-            
-            // Add status filter to search if selected
-            if (filters.status) {
-                searchValue += ' status:' + filters.status;
-            }
-            
-            this.dataTable.search(searchValue).draw();
-            
-            TempleCore.showToast('Filters applied successfully', 'success');
+
+        applyFilters: function () {
+            this.loadData();
+            TempleCore.showToast('Filters applied', 'info');
         },
-        
-        // Reset filters
-        resetFilters: function() {
-            $('#filterStatus, #filterVenue, #filterSession').val('');
+
+        resetFilters: function () {
+            $('#filterStatus, #filterPaymentStatus').val('');
             $('#filterDateFrom, #filterDateTo, #filterSearch').val('');
-            this.dataTable.search('').draw();
+            this.loadData();
             TempleCore.showToast('Filters reset', 'info');
         },
-        
-        // Export functions
-        exportExcel: function() {
-            TempleCore.showToast('Excel export started', 'info');
-            // Implement Excel export logic
-        },
-        
-        exportPDF: function() {
-            TempleCore.showToast('PDF export started', 'info');
-            // Implement PDF export logic
-        },
-        
-        printTable: function() {
-            window.print();
-        },
-        
-        // Print booking receipt
-        printBookingReceipt: function(bookingId) {
+
+        printBookingReceipt: function (bookingId) {
             const self = this;
-            
-            // Check if the receipt print page is already loaded
-            if (window.RomReceiptPrintPage) {
-                // Navigate to receipt print page
+
+            if (window.RomBookingPrintPage) {
                 self.cleanup();
                 TempleRouter.navigate('rom-booking/print', { id: bookingId });
             } else {
-                // Load receipt print script and then navigate
                 TempleCore.showLoading(true);
                 const script = document.createElement('script');
                 script.src = '/js/pages/rom-booking/print.js';
-                script.onload = function() {
+                script.onload = function () {
                     TempleCore.showLoading(false);
                     self.cleanup();
                     TempleRouter.navigate('rom-booking/print', { id: bookingId });
                 };
-                script.onerror = function() {
+                script.onerror = function () {
                     TempleCore.showLoading(false);
                     TempleCore.showToast('Error loading receipt printer', 'error');
                 };
                 document.head.appendChild(script);
             }
         },
-        
-        // Bind events
-        bindEvents: function() {
+
+        printReport: function () {
             const self = this;
-            
-            // Header buttons
-            $('#btnNewBooking').on('click.' + this.eventNamespace, function() {
-				self.cleanup();
+            const filters = this.getFilters();
+
+            if (window.RomBookingReportPrintPage) {
+                self.cleanup();
+                TempleRouter.navigate('rom-booking/report-print', filters);
+            } else {
+                TempleCore.showLoading(true);
+                const script = document.createElement('script');
+                script.src = '/js/pages/rom-booking/report-print.js';
+                script.onload = function () {
+                    TempleCore.showLoading(false);
+                    self.cleanup();
+                    TempleRouter.navigate('rom-booking/report-print', filters);
+                };
+                script.onerror = function () {
+                    TempleCore.showLoading(false);
+                    TempleCore.showToast('Error loading report printer', 'error');
+                };
+                document.head.appendChild(script);
+            }
+        },
+
+        bindEvents: function () {
+            const self = this;
+
+            $('#btnNewBooking').on('click.' + this.eventNamespace, function () {
+                self.cleanup();
                 TempleRouter.navigate('rom-booking/create');
             });
-            
-            $('#btnRefresh').on('click.' + this.eventNamespace, function() {
+
+            $('#btnRefresh').on('click.' + this.eventNamespace, function () {
                 self.loadData();
+                self.loadStatistics();
                 TempleCore.showToast('Data refreshed', 'success');
             });
-            
-            // Filter buttons
+
+            $('#btnPrintReport').on('click.' + this.eventNamespace, function () {
+                self.printReport();
+            });
+
             $('#btnApplyFilter').on('click.' + this.eventNamespace, () => self.applyFilters());
             $('#btnResetFilter').on('click.' + this.eventNamespace, () => self.resetFilters());
-            
-            // Export buttons
-            $('#btnExportExcel').on('click.' + this.eventNamespace, () => self.exportExcel());
-            $('#btnExportPDF').on('click.' + this.eventNamespace, () => self.exportPDF());
-            $('#btnPrint').on('click.' + this.eventNamespace, () => self.printTable());
-            
-            // Table action buttons
-            $('#romBookingsTable').on('click.' + this.eventNamespace, '.btn-view', function() {
+
+            $('#romBookingsTable').on('click.' + this.eventNamespace, '.btn-view', function () {
                 const bookingId = $(this).data('id');
                 self.viewBookingDetails(bookingId);
             });
-            
-            $('#romBookingsTable').on('click.' + this.eventNamespace, '.btn-edit', function() {
+
+            $('#romBookingsTable').on('click.' + this.eventNamespace, '.btn-edit', function () {
                 const bookingId = $(this).data('id');
-				self.cleanup();
+                self.cleanup();
                 TempleRouter.navigate('rom-booking/edit', { id: bookingId });
             });
-            
-            $('#romBookingsTable').on('click.' + this.eventNamespace, '.btn-status', function() {
+
+            $('#romBookingsTable').on('click.' + this.eventNamespace, '.btn-status', function () {
                 const bookingId = $(this).data('id');
-                $('#updateBookingId').val(bookingId);
-                $('#newStatus').val('');
-                $('#statusNotes').val('');
-                const modal = new bootstrap.Modal(document.getElementById('statusUpdateModal'));
-                modal.show();
+                const currentStatus = $(this).data('status');
+                const bookingNumber = $(this).data('booking-number');
+                self.showStatusUpdateModal(bookingId, currentStatus, bookingNumber);
             });
-            
-            $('#romBookingsTable').on('click.' + this.eventNamespace, '.btn-delete', function() {
-                const bookingId = $(this).data('id');
-                self.deleteBooking(bookingId);
+
+            $('#btnUpdateStatus').on('click.' + this.eventNamespace, function () {
+                self.updateBookingStatus();
             });
-            
-            // Print receipt button
-            $('#romBookingsTable').on('click.' + this.eventNamespace, '.btn-print', function() {
+
+            $('#romBookingsTable').on('click.' + this.eventNamespace, '.btn-print', function () {
                 const bookingId = $(this).data('id');
                 self.printBookingReceipt(bookingId);
             });
-            
-            // Modal buttons
-            $('#btnUpdateStatus').on('click.' + this.eventNamespace, function() {
-                const bookingId = $('#updateBookingId').val();
-                self.updateBookingStatus(bookingId);
+
+            $('#romBookingsTable').on('click.' + this.eventNamespace, '.btn-delete', function () {
+                const bookingId = $(this).data('id');
+                self.deleteBooking(bookingId);
             });
-            
-            $('#btnEditFromView').on('click.' + this.eventNamespace, function() {
+
+            $('#btnEditFromView').on('click.' + this.eventNamespace, function () {
                 const bookingId = $(this).attr('data-id');
                 $('#viewDetailsModal').modal('hide');
-				self.cleanup();
+                self.cleanup();
                 TempleRouter.navigate('rom-booking/edit', { id: bookingId });
             });
-            
-            // Search on enter
-            $('#filterSearch').on('keypress.' + this.eventNamespace, function(e) {
+
+            $('#filterSearch').on('keypress.' + this.eventNamespace, function (e) {
                 if (e.which === 13) {
                     self.applyFilters();
                 }
             });
         }
     };
-    
+
 })(jQuery, window);

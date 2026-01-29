@@ -17,12 +17,19 @@ class SpecialOccasion extends Model
         'primary_lang',
         'secondary_lang',
         'occasion_options',
-        'status'
+        'status',
+        'enable_table_assignment',
+        'enable_relocation',
+        'table_layouts',
     ];
 
-    protected $casts = [
-        'occasion_options' => 'array',
-    ];
+protected $casts = [
+    'occasion_options' => 'array',
+    // Add these three lines:
+    'enable_table_assignment' => 'boolean',
+    'enable_relocation' => 'boolean',
+    'table_layouts' => 'array',  // This converts array <-> JSON automatically
+];
 
     // ========================================
     // RELATIONSHIPS

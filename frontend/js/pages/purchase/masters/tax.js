@@ -116,6 +116,7 @@
                                             <option value="both">Both Products & Services</option>
                                             <option value="product">Products Only</option>
                                             <option value="service">Services Only</option>
+                                            <option value="package">Package</option>
                                         </select>
                                     </div>
                                     
@@ -208,7 +209,8 @@
             const types = {
                 'both': 'Products & Services',
                 'product': 'Products Only',
-                'service': 'Services Only'
+                'service': 'Services Only',
+                'package': 'Package'
             };
             return types[type] || type;
         },

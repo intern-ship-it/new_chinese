@@ -1369,4 +1369,42 @@ class SettingsController extends Controller
             return $this->errorResponse('Failed to delete logo: ' . $e->getMessage());
         }
     }
+    public function getTempleDetailSettingsValues(Request $request)
+    {
+        try {
+            $type = $request->get('type');
+            $type = $type ? strtoupper($type) : null;
+
+            // Get available types
+            $availableTypes = array_keys($this->settingDefinitions);
+
+            // Validate type if provided
+            if ($type && !in_array($type, $availableTypes)) {
+                return $this->errorResponse("Invalid setting type. Available types: " . implode(', ', $availableTypes));
+            }
+
+            // If type is specified, return only that type's values
+            if ($type) {
+                $values = $this->getSettingsByType($type);
+
+                return $this->successResponse([
+                    'type' => $type,
+                    'values' => $values
+                ], "Setting values retrieved successfully");
+            }
+
+            // Return all setting values grouped by type
+            $allValues = [];
+            foreach ($availableTypes as $settingType) {
+                $allValues[$settingType] = $this->getSettingsByType($settingType);
+            }
+
+            return $this->successResponse([
+                'values' => $allValues
+            ], "All setting values retrieved successfully");
+        } catch (\Exception $e) {
+            Log::error('Failed to get setting values: ' . $e->getMessage());
+            return $this->errorResponse('Failed to retrieve setting values: ' . $e->getMessage());
+        }
+    }
 }

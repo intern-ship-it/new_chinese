@@ -9,7 +9,6 @@ class CheckUserType
     public function handle(Request $request, Closure $next, ...$types)
     {
         $user = auth()->user();
-        
         if (!$user) {
             return response()->json([
                 'success' => false,

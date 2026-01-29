@@ -369,32 +369,53 @@
                     moment(light.expiry_date).format('DD/MM/YYYY') :
                     '-';
 
-                return `
-                    <tr>
-                        <td><strong>${light.light_number}</strong></td>
-                        <td><code class="light-code">${light.light_code}</code></td>
-                        <td><small>${location}</small></td>
-                        <td class="text-center">${light.floor_number || '-'}</td>
-                        <td class="text-center">${light.rag_position || '-'}</td>
-                        <td>${statusBadge}</td>
-                        <td>${devoteeInfo}</td>
-                        <td class="text-center">${expiryDate}</td>
-                        <td>
-                            <div class="btn-group btn-group-sm">
-                                <button class="btn btn-outline-primary btn-view-light" 
-                                        data-id="${light.id}" title="View Details">
-                                    <i class="bi bi-eye"></i>
-                                </button>
-                                ${light.status === 'available' ? `
-                                    <button class="btn btn-outline-success btn-register-light" 
-                                            data-number="${light.light_number}" title="Register">
-                                        <i class="bi bi-plus-circle"></i>
-                                    </button>
-                                ` : ''}
-                            </div>
-                        </td>
-                    </tr>
+                // Determine action buttons based on status and blocked state
+                let actionButtons = '';
+
+                if (light.is_blocked) {
+                    // Blocked light - show unlock icon
+                    actionButtons = `
+                    <button class="btn btn-outline-warning btn-unblock-light" 
+                            data-id="${light.id}" 
+                            title="Unblock Light - ${light.block_reason || 'No reason provided'}">
+                        <i class="bi bi-unlock"></i>
+                    </button>
                 `;
+                } else if (light.status === 'available') {
+                    // Available light - show register and block icons
+                    actionButtons = `
+                    <button class="btn btn-outline-success btn-register-light" 
+                            data-number="${light.light_number}" title="Register">
+                        <i class="bi bi-plus-circle"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary btn-block-light" 
+                            data-id="${light.id}" title="Block Light">
+                        <i class="bi bi-lock"></i>
+                    </button>
+                `;
+                }
+
+                return `
+                <tr ${light.is_blocked ? 'class="table-warning"' : ''}>
+                    <td><strong>${light.light_number}</strong></td>
+                    <td><code class="light-code">${light.light_code}</code></td>
+                    <td><small>${location}</small></td>
+                    <td class="text-center">${light.floor_number || '-'}</td>
+                    <td class="text-center">${light.rag_position || '-'}</td>
+                    <td>${statusBadge}${light.is_blocked ? ' <span class="badge bg-warning text-dark"><i class="bi bi-lock-fill"></i> Blocked</span>' : ''}</td>
+                    <td>${devoteeInfo}</td>
+                    <td class="text-center">${expiryDate}</td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary btn-view-light" 
+                                    data-id="${light.id}" title="View Details">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                            ${actionButtons}
+                        </div>
+                    </td>
+                </tr>
+            `;
             }).join('');
 
             $('#lightsTableBody').html(rows);
@@ -559,6 +580,18 @@
                 self.registerLight(lightNumber);
             });
 
+            // Block light
+            $(document).on('click.pagodaLights', '.btn-block-light', function () {
+                const lightId = $(this).data('id');
+                self.blockLight(lightId);
+            });
+
+            // Unblock light
+            $(document).on('click.pagodaLights', '.btn-unblock-light', function () {
+                const lightId = $(this).data('id');
+                self.unblockLight(lightId);
+            });
+
             // New registration
             $(document).on('click.pagodaLights', '#btnNewRegistration', function () {
                 TempleRouter.navigate('auspicious-light/entry');
@@ -717,6 +750,12 @@
                                                 <td class="text-muted">Tower:</td>
                                                 <td>${location.tower || 'N/A'} ${location.tower_code ? '(' + location.tower_code + ')' : ''}</td>
                                             </tr>
+                                            ${location.category_name ? `
+                                            <tr>
+                                                <td class="text-muted">Category:</td>
+                                                <td><span class="badge bg-info">${location.category_name}</span></td>
+                                            </tr>
+                                            ` : ''}
                                             <tr>
                                                 <td class="text-muted">Block:</td>
                                                 <td>${location.block || 'N/A'} ${location.block_code ? '(' + location.block_code + ')' : ''}</td>
@@ -805,6 +844,80 @@
             // Store light number in session storage for the entry form to pick up
             sessionStorage.setItem('selected_light_number', lightNumber);
             TempleRouter.navigate('auspicious-light/entry');
+        },
+
+        // Block a light from new registrations
+        blockLight: function (lightId) {
+            const self = this;
+
+            Swal.fire({
+                title: 'Block Light',
+                text: 'Please provide a reason for blocking this light:',
+                input: 'textarea',
+                inputPlaceholder: 'e.g., Maintenance required, Damaged, etc.',
+                showCancelButton: true,
+                confirmButtonText: '<i class="bi bi-lock"></i> Block Light',
+                confirmButtonColor: '#6c757d',
+                cancelButtonText: 'Cancel',
+                inputValidator: (value) => {
+                    if (!value) {
+                        return 'Please provide a reason for blocking';
+                    }
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    TempleUtils.showLoading('Blocking light...');
+
+                    TempleAPI.post(`/pagoda/lights/${lightId}/block`, {
+                        reason: result.value
+                    })
+                        .done(function (response) {
+                            if (response.success) {
+                                TempleUtils.showSuccess('Light blocked successfully');
+                                self.loadLights(); // Reload the list
+                            }
+                        })
+                        .fail(function (xhr) {
+                            TempleUtils.handleAjaxError(xhr, 'Failed to block light');
+                        })
+                        .always(function () {
+                            TempleUtils.hideLoading();
+                        });
+                }
+            });
+        },
+
+        // Unblock a light to allow new registrations
+        unblockLight: function (lightId) {
+            const self = this;
+
+            Swal.fire({
+                title: 'Unblock Light',
+                text: 'Are you sure you want to unblock this light? It will be available for new registrations.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: '<i class="bi bi-unlock"></i> Unblock Light',
+                confirmButtonColor: '#ffc107',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    TempleUtils.showLoading('Unblocking light...');
+
+                    TempleAPI.post(`/pagoda/lights/${lightId}/unblock`)
+                        .done(function (response) {
+                            if (response.success) {
+                                TempleUtils.showSuccess('Light unblocked successfully');
+                                self.loadLights(); // Reload the list
+                            }
+                        })
+                        .fail(function (xhr) {
+                            TempleUtils.handleAjaxError(xhr, 'Failed to unblock light');
+                        })
+                        .always(function () {
+                            TempleUtils.hideLoading();
+                        });
+                }
+            });
         },
 
         // Export lights to CSV

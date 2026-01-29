@@ -16,22 +16,22 @@ class PagodaLightService
     public function generateLightsForBlock(PagodaBlock $block)
     {
         DB::beginTransaction();
-        
+
         try {
             $tower = $block->tower;
-            
+
             // Get the starting light number (next available)
             $startLightNumber = PagodaLightSlot::max('light_number') ?? 0;
             $startLightNumber += 1;
-            
+
             $currentLightNumber = $startLightNumber;
             $lightsGenerated = 0;
             $lights = [];
-            
+
             // Generate lights for each floor and rag position
             for ($floor = 1; $floor <= $block->total_floors; $floor++) {
                 for ($rag = 1; $rag <= $block->rags_per_floor; $rag++) {
-                    
+
                     // Generate light code: A-B1-01-001
                     $lightCode = sprintf(
                         '%s-%s-%02d-%03d',
@@ -40,7 +40,7 @@ class PagodaLightService
                         $floor,
                         $rag
                     );
-                    
+
                     $lights[] = [
                         'id' => Str::uuid()->toString(),
                         'block_id' => $block->id,
@@ -52,10 +52,10 @@ class PagodaLightService
                         'created_at' => now(),
                         'updated_at' => now()
                     ];
-                    
+
                     $currentLightNumber++;
                     $lightsGenerated++;
-                    
+
                     // Batch insert every 500 records for performance
                     if (count($lights) >= 500) {
                         PagodaLightSlot::insert($lights);
@@ -63,14 +63,14 @@ class PagodaLightService
                     }
                 }
             }
-            
+
             // Insert remaining lights
             if (count($lights) > 0) {
                 PagodaLightSlot::insert($lights);
             }
-            
+
             DB::commit();
-            
+
             return [
                 'success' => true,
                 'total_generated' => $lightsGenerated,
@@ -78,10 +78,10 @@ class PagodaLightService
                 'end_number' => $currentLightNumber - 1,
                 'message' => "Successfully generated {$lightsGenerated} lights"
             ];
-            
+
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             return [
                 'success' => false,
                 'message' => 'Failed to generate lights: ' . $e->getMessage()
@@ -100,17 +100,48 @@ class PagodaLightService
     /**
      * Get next available light (for auto-assignment)
      */
-    public function getNextAvailableLight($blockId = null)
+    // public function getNextAvailableLight($blockId = null)
+    // {
+    //     $query = PagodaLightSlot::where('status', 'available');
+
+    //     if ($blockId) {
+    //         $query->where('block_id', $blockId);
+    //     }
+
+    //     return $query->orderBy('light_number')->first();
+    // }
+    public function getNextAvailableLight($blockId = null, $excludeIds = [], $categoryId = null)
     {
-        $query = PagodaLightSlot::where('status', 'available');
-        
+        $query = PagodaLightSlot::where('status', 'available')
+                            ->notBlocked(); // Exclude blocked lights
+
+        // Filter by block if provided
         if ($blockId) {
             $query->where('block_id', $blockId);
         }
-        
+
+        // Filter by category if provided
+        if ($categoryId) {
+            $query->whereHas('block.tower', function ($q) use ($categoryId) {
+                $q->where('category_id', $categoryId);
+            });
+        }
+
+        // ★ NEW: Exclude already assigned light IDs
+        // This prevents the same light being returned for multiple family members
+        if (!empty($excludeIds)) {
+            // Ensure excludeIds is an array
+            if (!is_array($excludeIds)) {
+                $excludeIds = [$excludeIds];
+            }
+            $query->whereNotIn('id', $excludeIds);
+        }
+
+        // Load relationships
+        $query->with(['block.tower']);
+
         return $query->orderBy('light_number')->first();
     }
-
     /**
      * Generate receipt number
      */
@@ -118,9 +149,9 @@ class PagodaLightService
     {
         $date = now()->format('Ymd');
         $sequence = DB::table('pagoda_light_registrations')
-                      ->whereDate('created_at', now()->toDateString())
-                      ->count() + 1;
-        
+            ->whereDate('created_at', now()->toDateString())
+            ->count() + 1;
+
         return 'TH' . $date . str_pad($sequence, 4, '0', STR_PAD_LEFT);
     }
 
@@ -132,7 +163,7 @@ class PagodaLightService
         if (!$months) {
             $months = PagodaBookingSetting::get('expiry_duration_months', 12);
         }
-        
+
         return \Carbon\Carbon::parse($offerDate)->addMonths($months)->toDateString();
     }
 
@@ -142,17 +173,17 @@ class PagodaLightService
     public function getLightStatistics($towerId = null, $blockId = null)
     {
         $query = PagodaLightSlot::query();
-        
+
         if ($towerId) {
-            $query->whereHas('block', function($q) use ($towerId) {
+            $query->whereHas('block', function ($q) use ($towerId) {
                 $q->where('tower_id', $towerId);
             });
         }
-        
+
         if ($blockId) {
             $query->where('block_id', $blockId);
         }
-        
+
         return [
             'total' => $query->count(),
             'available' => (clone $query)->where('status', 'available')->count(),
@@ -178,24 +209,24 @@ class PagodaLightService
     public function searchLights($filters = [])
     {
         $query = PagodaLightSlot::with(['block.tower', 'currentRegistration.devotee']);
-        
+
         // Filter by tower
         if (!empty($filters['tower_id'])) {
-            $query->whereHas('block', function($q) use ($filters) {
+            $query->whereHas('block', function ($q) use ($filters) {
                 $q->where('tower_id', $filters['tower_id']);
             });
         }
-        
+
         // Filter by block
         if (!empty($filters['block_id'])) {
             $query->where('block_id', $filters['block_id']);
         }
-        
+
         // Filter by floor
         if (!empty($filters['floor_number'])) {
             $query->where('floor_number', $filters['floor_number']);
         }
-        
+
         // Filter by status
         if (!empty($filters['status'])) {
             if (is_array($filters['status'])) {
@@ -204,7 +235,7 @@ class PagodaLightService
                 $query->where('status', $filters['status']);
             }
         }
-        
+
         // Filter by light number range
         if (!empty($filters['light_number_from'])) {
             $query->where('light_number', '>=', $filters['light_number_from']);
@@ -212,21 +243,21 @@ class PagodaLightService
         if (!empty($filters['light_number_to'])) {
             $query->where('light_number', '<=', $filters['light_number_to']);
         }
-        
+
         // Search by light code
         if (!empty($filters['search'])) {
             $search = $filters['search'];
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('light_number', 'ILIKE', "%{$search}%")
-                  ->orWhere('light_code', 'ILIKE', "%{$search}%");
+                    ->orWhere('light_code', 'ILIKE', "%{$search}%");
             });
         }
-        
+
         // Sorting
         $sortBy = $filters['sort_by'] ?? 'light_number';
         $sortOrder = $filters['sort_order'] ?? 'asc';
         $query->orderBy($sortBy, $sortOrder);
-        
+
         return $query;
     }
 }

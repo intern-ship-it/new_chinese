@@ -9,6 +9,7 @@ use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Tymon\JWTAuth\Contracts\JWTSubject;
+use Illuminate\Support\Facades\DB;
 
 class User extends Authenticatable implements JWTSubject
 {
@@ -100,7 +101,7 @@ class User extends Authenticatable implements JWTSubject
     public function canLoginFromChannel($channel)
     {
         if (in_array($this->user_type, ['SUPER_ADMIN', 'ADMIN', 'STAFF'])) {
-            return in_array($channel, ['COUNTER', 'ADMIN']);
+            return in_array($channel, ['COUNTER', 'ADMIN','STAFF']);
         }
         return true;
     }
@@ -202,5 +203,11 @@ class User extends Authenticatable implements JWTSubject
             return $this->signature->signature_url;
         }
         return null;
+    }
+	public function getConnectionName()
+    {
+        // Use the currently active database connection
+        // This ensures User model queries use the temple-specific database
+        return DB::getDefaultConnection();
     }
 }

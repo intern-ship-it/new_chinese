@@ -154,9 +154,19 @@
                                     <label class="sales-form-label">
                                         Short Code <span class="required"></span>
                                     </label>
-                                    <input type="text" id="short_code" class="sales-form-input" placeholder="e.g., GHL">
+                                    <div style="display: flex; gap: 8px;">
+        <input type="text" id="short_code" class="sales-form-input" 
+               placeholder="Auto-generated" readonly 
+               style="background-color: #f8f9fa; flex: 1;">
+       
+    </div>
                                 </div>
                             </div>
+
+
+
+       
+
                             <div class="sales-col sales-col-3">
                                 <div class="sales-form-group">
                                     <label class="sales-form-label">
@@ -195,15 +205,15 @@
                             <div class="sales-col sales-col-2">
                                 <div class="sales-form-group">
                                     <label class="sales-form-label">
-                                        Name (English) <span class="required"></span>
+                                        Name (Primary) <span class="required"></span>
                                     </label>
-                                    <input type="text" id="name_primary" class="sales-form-input" placeholder="Enter English name">
+                                    <input type="text" id="name_primary" class="sales-form-input" placeholder="Enter Primary name">
                                 </div>
                             </div>
                             <div class="sales-col sales-col-2">
                                 <div class="sales-form-group">
-                                    <label class="sales-form-label">Name (Tamil)</label>
-                                    <input type="text" id="name_secondary" class="sales-form-input" placeholder="Enter Tamil name">
+                                    <label class="sales-form-label">Name (Secondary)</label>
+                                    <input type="text" id="name_secondary" class="sales-form-input" placeholder="Enter Secondary name">
                                 </div>
                             </div>
                         </div>
@@ -217,7 +227,7 @@
                         <div class="sales-row">
                             <div class="sales-col sales-col-3">
                                 <div class="sales-form-group">
-                                    <label class="sales-form-label">Group</label>
+                                    <label class="sales-form-label">Category</label>
                                     <div class="sales-multiselect" id="categories-multiselect">
                                         <div class="sales-multiselect-input" tabindex="0">
                                             <span id="categories-placeholder">Select...</span>
@@ -652,7 +662,7 @@
                 const option = $(`
                     <div class="sales-multiselect-option" data-value="${session.id}">
                         <input type="checkbox" class="sales-checkbox">
-                        <span>${session.name_primary}${session.name_secondary ? ' (' + session.name_secondary + ')' : ''}</span>
+                        <span>${session.name}</span>
                     </div>
                 `);
                 dropdown.append(option);

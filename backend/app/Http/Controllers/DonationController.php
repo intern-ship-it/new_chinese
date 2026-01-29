@@ -17,6 +17,33 @@ use Exception;
 class DonationController extends Controller
 {
     /**
+     * Fiuu Payment Gateway Configuration
+     */
+    private $fiuuCredentials;
+    private $fiuuUrls;
+    private $isSandbox;
+
+    /**
+     * Constructor - Load Fiuu configuration
+     */
+    public function __construct()
+    {
+        $this->isSandbox = config('fiuu.is_sandbox', true);
+        $mode = $this->isSandbox ? 'sandbox' : 'production';
+        
+        $this->fiuuCredentials = config("fiuu.{$mode}", [
+            'merchant_id' => 'SB_graspsoftware',
+            'verify_key' => '3f97a57034112582ef5a1ffbe1d21a30',
+            'secret_key' => '77e7bf7f53130877abdbef553725a785',
+        ]);
+        
+        $this->fiuuUrls = config("fiuu.urls.{$mode}", [
+            'payment' => 'https://sandbox-payment.fiuu.com/RMS/pay/',
+            'api' => 'https://sandbox-api.fiuu.com',
+        ]);
+    }
+
+    /**
      * Get active donation types
      */
     public function getActiveDonations()
@@ -24,10 +51,9 @@ class DonationController extends Controller
         try {
             $donations = DonationMaster::where('status', 1)
                 ->whereNull('deleted_at')
-                ->select('id', 'name', 'secondary_name', 'type', 'details')
+      ->select('id', 'name', 'secondary_name', 'type', 'details', 'image_url', 'group_id')
                 ->orderBy('name')
                 ->get();
-
             return response()->json([
                 'success' => true,
                 'data' => $donations
@@ -72,7 +98,7 @@ class DonationController extends Controller
     public function store(Request $request)
     {
         $isAnonymous = $request->input('is_anonymous', false);
-        
+
         // Base validation rules
         $rules = [
             'donation_id' => 'required|string',
@@ -84,8 +110,10 @@ class DonationController extends Controller
             // Pledge fields
             'is_pledge' => 'nullable|boolean',
             'pledge_amount' => 'nullable|numeric|min:0.01',
+            // Booking channel field
+            'booking_through' => 'nullable|in:ADMIN,COUNTER,APP,KIOSK,ONLINE',
         ];
-        
+
         // Make personal info optional if anonymous
         if (!$isAnonymous) {
             $rules['name_chinese'] = 'required|string|max:255';
@@ -139,6 +167,9 @@ class DonationController extends Controller
             $pledgeAmount = $request->input('pledge_amount', 0);
             $isAnonymous = $request->input('is_anonymous', false);
 
+            // Get booking_through value, default to ADMIN if not provided
+            $bookingThrough = $request->input('booking_through', 'ADMIN');
+
             // Get donation details
             $donation = DonationMaster::find($request->donation_id);
 
@@ -149,6 +180,10 @@ class DonationController extends Controller
             // Generate booking number
             $bookingNumber = $this->generateBookingNumber('DONATION');
             $paymentMode = PaymentMode::find($request->payment_mode_id);
+            
+            // Check if this is a payment gateway transaction
+            $isPaymentGateway = $paymentMode->is_payment_gateway == true;
+            
             // Generate payment reference
             $paymentReference = $this->generatePaymentReference();
 
@@ -158,11 +193,18 @@ class DonationController extends Controller
                 'amount' => $request->amount,
                 'is_pledge' => $isPledge,
                 'pledge_amount' => $pledgeAmount,
-                'is_anonymous' => $isAnonymous
+                'is_anonymous' => $isAnonymous,
+                'booking_through' => $bookingThrough,
+                'is_payment_gateway' => $isPaymentGateway,
             ]);
 
-            // Determine booking and payment status based on pledge
-            if ($isPledge) {
+            // Determine booking and payment status based on pledge and payment gateway
+            if ($isPaymentGateway) {
+                // For payment gateway, initial status is PENDING
+                $bookingStatus = 'PENDING';
+                $paymentStatus = 'PENDING';
+                $totalAmount = $isPledge ? $pledgeAmount : $request->amount;
+            } elseif ($isPledge) {
                 $bookingStatus = 'CONFIRMED';
                 $paymentStatus = ($request->amount >= $pledgeAmount) ? 'FULL' : 'PARTIAL';
                 $totalAmount = $pledgeAmount;
@@ -172,7 +214,7 @@ class DonationController extends Controller
                 $totalAmount = $request->amount;
             }
 
-            // Create booking
+            // Create booking with booking_through
             $booking = Booking::create([
                 'booking_number' => $bookingNumber,
                 'booking_type' => 'DONATION',
@@ -184,16 +226,23 @@ class DonationController extends Controller
                 'discount_amount' => 0,
                 'total_amount' => $totalAmount,
                 'paid_amount' => $request->amount,
+                'account_migration' => 0,
                 'deposit_amount' => 0,
                 'print_option' => $request->print_option ?? 'SINGLE_PRINT',
                 'payment_method' => $paymentMode ? $paymentMode->name : null,
                 'special_instructions' => $request->notes,
+                'booking_through' => $bookingThrough, // Set booking_through
                 'created_by' => $user->id
             ]);
 
-            Log::info('Booking created', ['booking_id' => $booking->id]);
+            Log::info('Booking created', [
+                'booking_id' => $booking->id,
+                'booking_through' => $bookingThrough
+            ]);
 
             // Create booking item
+            $itemStatus = $isPaymentGateway ? 'PENDING' : 'SUCCESS';
+            
             BookingItem::create([
                 'booking_id' => $booking->id,
                 'item_type' => 'DONATION',
@@ -205,7 +254,7 @@ class DonationController extends Controller
                 'quantity' => 1,
                 'unit_price' => $totalAmount,
                 'total_price' => $totalAmount,
-                'status' => 'SUCCESS',
+                'status' => $itemStatus,
                 'notes' => $request->notes
             ]);
 
@@ -218,7 +267,7 @@ class DonationController extends Controller
                 'donation_id' => $donation->id,
                 'is_anonymous' => $isAnonymous ? 'true' : 'false',
             ];
-            
+
             // Add personal info only if not anonymous
             if (!$isAnonymous) {
                 $metaData['nric'] = $request->nric ?? '';
@@ -236,7 +285,7 @@ class DonationController extends Controller
 
             // Pledge metadata
             $metaData['is_pledge'] = $isPledge ? 'true' : 'false';
-            
+
             if ($isPledge) {
                 $metaData['pledge_amount'] = $pledgeAmount;
                 $metaData['pledge_balance'] = $pledgeAmount - $request->amount;
@@ -255,31 +304,77 @@ class DonationController extends Controller
 
             Log::info('Booking metadata created');
 
-            // Create payment record
+            // Set payment status based on gateway
+            if ($isPaymentGateway) {
+                $paymentRecordStatus = 'PENDING';
+            } else {
+                $paymentRecordStatus = 'SUCCESS';
+            }
+
+            // Create payment record with paid_through
             $payment = BookingPayment::create([
                 'booking_id' => $booking->id,
                 'payment_date' => now(),
                 'amount' => $request->amount,
                 'payment_mode_id' => $request->payment_mode_id,
                 'payment_reference' => $paymentReference,
-                'payment_type' => $isPledge ? 'DEPOSIT' : 'FULL',
+                'payment_type' => ($isPledge && $request->amount < $pledgeAmount) ? 'SPLIT' : 'FULL',
                 'payment_method' => $paymentMode ? $paymentMode->name : null,
-                'payment_status' => 'SUCCESS',
-                'notes' => $isPledge ? 'Initial pledge payment' : $request->notes,
+                'payment_status' => $paymentRecordStatus,
+                'notes' => $isPaymentGateway ? 'Payment gateway transaction pending' : ($isPledge ? 'Initial pledge payment' : $request->notes),
+                'paid_through' => $bookingThrough, // Set paid_through same as booking_through
                 'created_by' => $user->id
             ]);
 
-            Log::info('Payment record created', ['payment_id' => $payment->id]);
+            Log::info('Payment record created', [
+                'payment_id' => $payment->id,
+                'paid_through' => $bookingThrough,
+                'is_payment_gateway' => $isPaymentGateway
+            ]);
 
+            // If payment gateway, generate payment URL and return
+            if ($isPaymentGateway) {
+                DB::commit();
+                
+                // Generate payment URL
+                $paymentUrl = route('donations.payment_process') . '?temple_id=' . $request->header('X-Temple-ID') . '&payment_id=' . $payment->id;
+                
+                Log::info('Payment gateway transaction initiated', [
+                    'booking_id' => $booking->id,
+                    'booking_number' => $bookingNumber,
+                    'payment_url' => $paymentUrl
+                ]);
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Donation booking created successfully. Please complete payment.',
+                    'data' => [
+                        'booking' => [
+                            'id' => $booking->id,
+                            'booking_number' => $bookingNumber,
+                        ],
+                        'booking_id' => $booking->id,
+                        'booking_number' => $bookingNumber,
+                        'payment_url' => $paymentUrl,
+                        'total_amount' => $totalAmount,
+                        'payment_status' => 'PENDING',
+                        'payment_reference' => $paymentReference,
+                        'is_pledge' => $isPledge,
+                        'pledge_amount' => $pledgeAmount,
+                        'is_anonymous' => $isAnonymous,
+                        'booking_through' => $bookingThrough,
+                    ]
+                ], 201);
+            }
+
+            // For non-gateway payments, process immediately
             // Account Migration
-          
-                $this->accountMigration($booking->id);
-        
+            $this->accountMigration($booking->id);
 
             DB::commit();
 
             // Load relationships for response
-            $booking->load(['bookingItems', 'bookingPayments.paymentMode', 'bookingMeta']);
+            $booking->load(['bookingItems', 'bookingPayments.paymentMode', 'bookingMeta', 'createdBy']);
 
             Log::info('Donation created successfully', ['booking_id' => $booking->id]);
 
@@ -297,12 +392,13 @@ class DonationController extends Controller
                 'success' => true,
                 'message' => $message,
                 'data' => [
-                    'booking' => $booking,
+                    'booking' => $this->formatDonationResponse($booking),
                     'booking_number' => $bookingNumber,
                     'payment_reference' => $paymentReference,
                     'is_pledge' => $isPledge,
                     'pledge_amount' => $pledgeAmount,
-                    'is_anonymous' => $isAnonymous
+                    'is_anonymous' => $isAnonymous,
+                    'booking_through' => $bookingThrough,
                 ]
             ], 201);
         } catch (Exception $e) {
@@ -371,13 +467,13 @@ class DonationController extends Controller
 
             // Determine credit ledger (Income side)
             $creditLedgerId = null;
-            
+
             if (!empty($donation->ledger_id)) {
                 $creditLedgerId = $donation->ledger_id;
             } else {
                 // Get or create "All Incomes" ledger under Incomes group
                 $incomesGroup = DB::table('groups')->where('code', '8000')->first();
-                
+
                 if (!$incomesGroup) {
                     // Create Incomes group if it doesn't exist
                     $incomesGroupId = DB::table('groups')->insertGetId([
@@ -402,7 +498,7 @@ class DonationController extends Controller
                     // Get the next right_code for this group
                     $lastRightCode = DB::table('ledgers')
                         ->where('group_id', $incomesGroupId)
-                        ->where('left_code', '8913')
+                        ->where('left_code', '8000')
                         ->orderBy('right_code', 'desc')
                         ->value('right_code');
 
@@ -411,7 +507,7 @@ class DonationController extends Controller
                     $creditLedgerId = DB::table('ledgers')->insertGetId([
                         'group_id' => $incomesGroupId,
                         'name' => 'All Incomes',
-                        'left_code' => '8913',
+                        'left_code' => '8000',
                         'right_code' => $newRightCode,
                         'created_at' => now(),
                         'updated_at' => now()
@@ -456,7 +552,7 @@ class DonationController extends Controller
             $donorName = $meta['name_primary'] ?? 'Anonymous';
             $donorNric = $meta['nric'] ?? '';
             $donorEmail = $meta['email'] ?? '';
-            
+
             $narration = "Cash Donation ({$booking->booking_number})\n";
             $narration .= "Name: {$donorName}\n";
             if ($donorNric) {
@@ -513,7 +609,7 @@ class DonationController extends Controller
                 'created_at' => now(),
                 'updated_at' => now()
             ]);
-
+     $booking->update(['account_migration' => 1]);
             Log::info('Credit entry item created', [
                 'ledger_id' => $creditLedgerId,
                 'amount' => $booking->paid_amount
@@ -525,7 +621,6 @@ class DonationController extends Controller
             ]);
 
             return true;
-
         } catch (Exception $e) {
             Log::error('Error in account migration: ' . $e->getMessage(), [
                 'booking_id' => $bookingId,
@@ -545,7 +640,7 @@ class DonationController extends Controller
             $page = $request->input('page', 1);
 
             $query = Booking::where('booking_type', 'DONATION')
-                ->with(['bookingItems', 'bookingPayments.paymentMode', 'bookingMeta']);
+                ->with(['bookingItems', 'bookingPayments.paymentMode', 'bookingMeta', 'createdBy']);
 
             // Apply filters
             if ($request->has('donation_type')) {
@@ -567,6 +662,11 @@ class DonationController extends Controller
 
             if ($request->has('to_date')) {
                 $query->whereDate('booking_date', '<=', $request->to_date);
+            }
+
+            // Filter by booking_through
+            if ($request->has('booking_through')) {
+                $query->where('booking_through', $request->booking_through);
             }
 
             // Filter by pledge status
@@ -673,7 +773,7 @@ class DonationController extends Controller
     {
         try {
             $booking = Booking::where('booking_type', 'DONATION')->findOrFail($id);
-            
+
             $payments = BookingPayment::where('booking_id', $booking->id)
                 ->with('paymentMode')
                 ->orderBy('payment_date', 'desc')
@@ -700,7 +800,8 @@ class DonationController extends Controller
         $validator = Validator::make($request->all(), [
             'amount' => 'required|numeric|min:0.01',
             'payment_mode_id' => 'required|integer|exists:payment_modes,id',
-            'notes' => 'nullable|string'
+            'notes' => 'nullable|string',
+            'booking_through' => 'nullable|in:ADMIN,COUNTER,APP,KIOSK,ONLINE',
         ]);
 
         if ($validator->fails()) {
@@ -716,56 +817,62 @@ class DonationController extends Controller
         try {
             $booking = Booking::where('booking_type', 'DONATION')
                 ->findOrFail($id);
-            
+
             // Check if it's a pledge
             $isPledgeMeta = $booking->bookingMeta()
                 ->where('meta_key', 'is_pledge')
                 ->where('meta_value', 'true')
                 ->first();
-                
+
             if (!$isPledgeMeta) {
                 throw new Exception('This donation is not a pledge');
             }
-            
+
             // Get current pledge data
             $pledgeAmount = (float) $booking->bookingMeta()
                 ->where('meta_key', 'pledge_amount')
                 ->value('meta_value');
-                
+
             $currentPaid = $booking->paid_amount;
             $newPaidAmount = $currentPaid + $request->amount;
-            
+
             // Check if payment exceeds pledge
             if ($newPaidAmount > $pledgeAmount) {
                 throw new Exception('Payment amount exceeds remaining pledge balance');
             }
-            
+
             $user = auth()->user();
             $paymentMode = PaymentMode::find($request->payment_mode_id);
             $paymentReference = $this->generatePaymentReference();
-            
+
+            // Get booking_through value
+            // Use the value from request, or fallback to the booking's existing booking_through
+            $bookingThrough = $request->input('booking_through', $booking->booking_through);
+
             Log::info('Recording partial payment', [
                 'booking_id' => $booking->id,
                 'booking_number' => $booking->booking_number,
                 'amount' => $request->amount,
                 'new_total_paid' => $newPaidAmount,
-                'pledge_amount' => $pledgeAmount
+                'pledge_amount' => $pledgeAmount,
+                'booking_through' => $bookingThrough,
             ]);
-            
-            // Create payment record
+
+            // Create payment record with paid_through
             BookingPayment::create([
                 'booking_id' => $booking->id,
                 'payment_date' => now(),
                 'amount' => $request->amount,
                 'payment_mode_id' => $request->payment_mode_id,
                 'payment_reference' => $paymentReference,
-                'payment_type' => 'PARTIAL',
+                'payment_type' => 'SPLIT',
                 'payment_method' => $paymentMode ? $paymentMode->name : null,
                 'payment_status' => 'SUCCESS',
                 'notes' => $request->notes ?? 'Partial pledge payment',
+                'paid_through' => $bookingThrough, // Set paid_through
                 'created_by' => $user->id
             ]);
-            
+
             // Update booking
             $newPaymentStatus = ($newPaidAmount >= $pledgeAmount) ? 'FULL' : 'PARTIAL';
             $booking->update([
@@ -773,16 +880,16 @@ class DonationController extends Controller
                 'payment_status' => $newPaymentStatus,
                 'updated_by' => $user->id
             ]);
-            
+
             // Update pledge metadata
             $newBalance = $pledgeAmount - $newPaidAmount;
             $pledgeStatus = ($newBalance <= 0) ? 'FULFILLED' : 'PENDING';
-            
+
             BookingMeta::updateOrCreate(
                 ['booking_id' => $booking->id, 'meta_key' => 'pledge_balance'],
                 ['meta_value' => (string) $newBalance, 'meta_type' => 'string']
             );
-            
+
             BookingMeta::updateOrCreate(
                 ['booking_id' => $booking->id, 'meta_key' => 'pledge_status'],
                 ['meta_value' => $pledgeStatus, 'meta_type' => 'string']
@@ -790,14 +897,15 @@ class DonationController extends Controller
 
             // Account Migration for partial payment
             $this->accountMigrationPartialPayment($booking->id, $request->amount, $paymentMode);
-            
+
             DB::commit();
-            
+
             Log::info('Partial payment recorded successfully', [
                 'booking_id' => $booking->id,
-                'payment_reference' => $paymentReference
+                'payment_reference' => $paymentReference,
+                'paid_through' => $bookingThrough
             ]);
-            
+
             return response()->json([
                 'success' => true,
                 'message' => 'Partial payment recorded successfully',
@@ -806,14 +914,14 @@ class DonationController extends Controller
                     'total_paid' => $newPaidAmount,
                     'remaining_balance' => $newBalance,
                     'pledge_status' => $pledgeStatus,
-                    'is_fulfilled' => $pledgeStatus === 'FULFILLED'
+                    'is_fulfilled' => $pledgeStatus === 'FULFILLED',
+                    'paid_through' => $bookingThrough,
                 ]
             ]);
-            
         } catch (Exception $e) {
             DB::rollBack();
             Log::error('Error recording partial payment: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage()
@@ -859,7 +967,7 @@ class DonationController extends Controller
 
             // Determine credit ledger (same as initial donation)
             $creditLedgerId = null;
-            
+
             if (!empty($donation->ledger_id)) {
                 $creditLedgerId = $donation->ledger_id;
             } else {
@@ -870,7 +978,7 @@ class DonationController extends Controller
                         ->where('name', 'All Incomes')
                         ->where('group_id', $incomesGroup->id)
                         ->first();
-                    
+
                     if ($allIncomesLedger) {
                         $creditLedgerId = $allIncomesLedger->id;
                     }
@@ -955,7 +1063,7 @@ class DonationController extends Controller
                 'created_at' => now(),
                 'updated_at' => now()
             ]);
-
+         $booking->update(['account_migration' => 1]);
             Log::info('Account migration for partial payment completed', [
                 'booking_id' => $bookingId,
                 'entry_id' => $entryId,
@@ -963,7 +1071,6 @@ class DonationController extends Controller
             ]);
 
             return true;
-
         } catch (Exception $e) {
             Log::error('Error in partial payment account migration: ' . $e->getMessage(), [
                 'booking_id' => $bookingId,
@@ -1038,6 +1145,22 @@ class DonationController extends Controller
                             ->where('meta_value', 'true');
                     })
                     ->sum('total_amount'),
+                // Booking channel statistics
+                'admin_bookings' => Booking::where('booking_type', 'DONATION')
+                    ->where('booking_through', 'ADMIN')
+                    ->count(),
+                'app_bookings' => Booking::where('booking_type', 'DONATION')
+                    ->where('booking_through', 'APP')
+                    ->count(),
+                'kiosk_bookings' => Booking::where('booking_type', 'DONATION')
+                    ->where('booking_through', 'KIOSK')
+                    ->count(),
+                'counter_bookings' => Booking::where('booking_type', 'DONATION')
+                    ->where('booking_through', 'COUNTER')
+                    ->count(),
+                'online_bookings' => Booking::where('booking_type', 'DONATION')
+                    ->where('booking_through', 'ONLINE')
+                    ->count(),
             ];
 
             return response()->json([
@@ -1059,7 +1182,7 @@ class DonationController extends Controller
     public function update(Request $request, $id)
     {
         $isAnonymous = $request->input('is_anonymous', false);
-        
+
         // Base validation rules
         $rules = [
             'donation_id' => 'required|string',
@@ -1070,8 +1193,10 @@ class DonationController extends Controller
             // Pledge fields
             'is_pledge' => 'nullable|boolean',
             'pledge_amount' => 'nullable|numeric|min:0.01',
+            // Booking channel field
+            'booking_through' => 'nullable|in:ADMIN,COUNTER,APP,KIOSK,ONLINE',
         ];
-        
+
         // Make personal info optional if anonymous
         if (!$isAnonymous) {
             $rules['name_chinese'] = 'required|string|max:255';
@@ -1151,8 +1276,8 @@ class DonationController extends Controller
                 $totalAmount = $request->amount;
             }
 
-            // Update booking
-            $booking->update([
+            // Prepare update data
+            $updateData = [
                 'subtotal' => $totalAmount,
                 'total_amount' => $totalAmount,
                 'paid_amount' => $request->amount,
@@ -1160,7 +1285,15 @@ class DonationController extends Controller
                 'special_instructions' => $request->notes,
                 'payment_method' => $paymentMode ? $paymentMode->name : null,
                 'updated_by' => $user->id
-            ]);
+            ];
+
+            // Update booking_through if provided
+            if ($request->has('booking_through')) {
+                $updateData['booking_through'] = $request->booking_through;
+            }
+
+            // Update booking
+            $booking->update($updateData);
 
             // Update booking item
             $booking->bookingItems()->update([
@@ -1179,7 +1312,7 @@ class DonationController extends Controller
                 'is_pledge' => $isPledge ? 'true' : 'false',
                 'is_anonymous' => $isAnonymous ? 'true' : 'false',
             ];
-            
+
             // Update personal info based on anonymous status
             if (!$isAnonymous) {
                 $metaUpdates['nric'] = $request->nric ?? '';
@@ -1215,15 +1348,24 @@ class DonationController extends Controller
                 );
             }
 
-            // Update payment
-            $booking->bookingPayments()->update([
+            // Prepare payment update data
+            $paymentUpdateData = [
                 'amount' => $request->amount,
                 'payment_mode_id' => $request->payment_mode_id,
                 'payment_method' => $paymentMode ? $paymentMode->name : null,
-                'payment_type' => $isPledge ? 'DEPOSIT' : 'FULL',
+                'payment_type' => ($isPledge && $request->amount < $pledgeAmount) ? 'SPLIT' : 'FULL',
+
                 'notes' => $request->notes,
                 'updated_by' => $user->id
-            ]);
+            ];
+
+            // Update paid_through if booking_through is provided
+            if ($request->has('booking_through')) {
+                $paymentUpdateData['paid_through'] = $request->booking_through;
+            }
+
+            // Update payment
+            $booking->bookingPayments()->update($paymentUpdateData);
 
             DB::commit();
 
@@ -1352,7 +1494,7 @@ class DonationController extends Controller
         $pledgeAmount = $isPledge ? (float)($meta['pledge_amount'] ?? 0) : 0;
         $pledgeBalance = $isPledge ? (float)($meta['pledge_balance'] ?? 0) : 0;
         $pledgeStatus = $isPledge ? ($meta['pledge_status'] ?? 'PENDING') : null;
-        
+
         $isAnonymous = ($meta['is_anonymous'] ?? 'false') === 'true';
 
         return [
@@ -1382,6 +1524,9 @@ class DonationController extends Controller
             'pledge_status' => $pledgeStatus,
             // Anonymous flag
             'is_anonymous' => $isAnonymous,
+            // Booking channel data
+            'booking_through' => $booking->booking_through ?? 'ADMIN',
+            'paid_through' => $payment?->paid_through ?? 'ADMIN',
         ];
     }
 
@@ -1392,7 +1537,7 @@ class DonationController extends Controller
     {
         try {
             $query = Booking::where('booking_type', 'DONATION')
-                ->with(['bookingItems', 'bookingPayments.paymentMode', 'bookingMeta']);
+                ->with(['bookingItems', 'bookingPayments.paymentMode', 'bookingMeta', 'createdBy']);
 
             // Apply filters (same as index method)
             if ($request->has('donation_type')) {
@@ -1414,6 +1559,10 @@ class DonationController extends Controller
 
             if ($request->has('to_date')) {
                 $query->whereDate('booking_date', '<=', $request->to_date);
+            }
+
+            if ($request->has('booking_through')) {
+                $query->where('booking_through', $request->booking_through);
             }
 
             if ($request->has('pledge_status')) {
@@ -1483,17 +1632,17 @@ class DonationController extends Controller
                 'total_donations' => $formattedDonations->count(),
                 'total_amount' => $formattedDonations->sum('amount'),
                 'average_amount' => $formattedDonations->avg('amount') ?: 0,
-                
+
                 // Payment method breakdown
                 'cash_amount' => $formattedDonations->where('payment_method', 'Cash')->sum('amount'),
                 'card_amount' => $formattedDonations->where('payment_method', 'Card')->sum('amount'),
-                'ebanking_amount' => $formattedDonations->filter(function($d) {
-                    return stripos($d['payment_method'], 'banking') !== false || 
-                           stripos($d['payment_method'], 'bank') !== false;
+                'ebanking_amount' => $formattedDonations->filter(function ($d) {
+                    return stripos($d['payment_method'], 'banking') !== false ||
+                        stripos($d['payment_method'], 'bank') !== false;
                 })->sum('amount'),
                 'cheque_amount' => $formattedDonations->where('payment_method', 'Cheque')->sum('amount'),
                 'duitnow_amount' => $formattedDonations->where('payment_method', 'DuitNow')->sum('amount'),
-                
+
                 // Pledge statistics
                 'total_pledges' => $formattedDonations->where('is_pledge', true)->count(),
                 'active_pledges' => $formattedDonations->where('is_pledge', true)
@@ -1506,10 +1655,17 @@ class DonationController extends Controller
                     ->sum('paid_amount'),
                 'total_pledge_balance' => $formattedDonations->where('is_pledge', true)
                     ->sum('pledge_balance'),
-                
+
                 // Anonymous statistics
                 'anonymous_donations' => $formattedDonations->where('is_anonymous', true)->count(),
                 'anonymous_amount' => $formattedDonations->where('is_anonymous', true)->sum('amount'),
+
+                // Booking channel statistics
+                'admin_donations' => $formattedDonations->where('booking_through', 'ADMIN')->count(),
+                'app_donations' => $formattedDonations->where('booking_through', 'APP')->count(),
+                'kiosk_donations' => $formattedDonations->where('booking_through', 'KIOSK')->count(),
+                'counter_donations' => $formattedDonations->where('booking_through', 'COUNTER')->count(),
+                'online_donations' => $formattedDonations->where('booking_through', 'ONLINE')->count(),
             ];
 
             // Prepare report data
@@ -1523,7 +1679,8 @@ class DonationController extends Controller
                     'type' => $request->donation_type ?: '',
                     'payment_method' => $request->payment_mode_id ?: '',
                     'pledge_status' => $request->pledge_status ?: '',
-                    'anonymous_status' => $request->anonymous_status ?: ''
+                    'anonymous_status' => $request->anonymous_status ?: '',
+                    'booking_through' => $request->booking_through ?: ''
                 ],
                 'summary' => $summary,
                 'donations' => $formattedDonations,
@@ -1534,7 +1691,6 @@ class DonationController extends Controller
                 'success' => true,
                 'data' => $reportData
             ]);
-
         } catch (Exception $e) {
             Log::error('Error generating donations report: ' . $e->getMessage());
             return response()->json([
@@ -1566,6 +1722,456 @@ class DonationController extends Controller
                 'success' => false,
                 'message' => 'Failed to fetch ledgers'
             ], 500);
+        }
+    }
+
+    /**
+     * Process payment - Generate Fiuu payment URL
+     *
+     * @param Request $request
+     * @return \Illuminate\View\View
+     */
+    public function payment_process(Request $request)
+    {
+        $b_payment = BookingPayment::find($request->payment_id);
+        
+        if ($b_payment->payment_status == 'PENDING') {
+            $booking = Booking::find($b_payment->booking_id);
+            $metas = BookingMeta::where('booking_id', $b_payment->booking_id)
+                ->whereIn('meta_key', array('name_primary', 'email', 'phone_no'))
+                ->get(['meta_key', 'meta_value'])
+                ->pluck('meta_value', 'meta_key');
+
+            // Ensure all keys exist with empty string as default
+            $devotee_name = $metas->get('name_primary', '');
+            $devotee_email = $metas->get('email', '');
+            $devotee_phone = $metas->get('phone_no', '');
+            $payment_reference = $b_payment->payment_reference;
+            
+            // Prepare payment data according to Fiuu specification
+            $paymentData = [
+                'merchant_id' => $this->fiuuCredentials['merchant_id'],
+                'orderid' => $payment_reference,
+                'amount' => number_format($b_payment->amount, 2, '.', ''),
+                'currency' => 'MYR',
+                'bill_name' => $devotee_name ?: 'Donor',
+                'bill_email' => $devotee_email ?: 'noreply@temple.com',
+                'bill_mobile' => $devotee_phone ?: '',
+                'bill_desc' => 'Donation - ' . $booking->booking_number,
+                'country' => 'MY',
+                'returnurl' => route('donations.payment.callback') . '?temple_id=' . $request->temple_id,
+                'callbackurl' => route('donations.payment.webhook') . '?temple_id=' . $request->temple_id,
+                'cancelurl' => route('donations.payment.cancel') . '?temple_id=' . $request->temple_id,
+                'langcode' => 'en'
+            ];
+
+            // Generate vcode according to Fiuu specification
+            $vcodeString = $paymentData['amount'] . 
+                          $paymentData['merchant_id'] . 
+                          $paymentData['orderid'] . 
+                          $this->fiuuCredentials['verify_key']; 
+            
+            $paymentData['vcode'] = md5($vcodeString);
+
+            return view('payment.fiuu-redirect', [
+                'paymentData' => $paymentData,
+                'gatewayUrl' => $this->isSandbox ? 
+                    $this->fiuuUrls['payment'] . $this->fiuuCredentials['merchant_id'] . '/' :
+                    $this->fiuuUrls['payment'] . $this->fiuuCredentials['merchant_id'] . '/'
+            ]);
+        }
+    }
+
+    /**
+     * Get payment status
+     *
+     * @param string $id
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getPaymentStatus($id)
+    {
+        try {
+            // Try to find by ID first, then by booking_number
+            $booking = Booking::where('id', $id)
+                ->orWhere('booking_number', $id)
+                ->with(['payment'])
+                ->first();
+            
+            if (!$booking) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Booking not found'
+                ], 404);
+            }
+            
+            // Prepare payment data - handle case where payment might not exist
+            $paymentData = null;
+            if ($booking->payment) {
+                $paymentData = [
+                    'payment_id' => $booking->payment->id,
+                    'transaction_id' => $booking->payment->transaction_id,
+                    'payment_reference' => $booking->payment->payment_reference,
+                    'amount' => $booking->payment->amount,
+                    'payment_method' => $booking->payment->payment_method,
+                    'payment_status' => $booking->payment->payment_status,
+                    'payment_date' => $booking->payment->payment_date
+                ];
+            }
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment status retrieved successfully',
+                'data' => [
+                    'booking_id' => $booking->id,
+                    'booking_number' => $booking->booking_number,
+                    'booking_status' => $booking->booking_status,
+                    'payment_status' => $booking->payment_status,
+                    'total_amount' => $booking->total_amount,
+                    'paid_amount' => $booking->paid_amount,
+                    'payment' => $paymentData
+                ]
+            ], 200);
+            
+        } catch (Exception $e) {
+            Log::error('Error getting payment status', [
+                'booking_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching payment status: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Handle payment callback from Fiuu
+     * This is called when customer returns to site after payment
+     *
+     * @param Request $request
+     * @return \Illuminate\View\View|\Illuminate\Http\JsonResponse
+     */
+    public function handlePaymentCallback(Request $request)
+    {
+        Log::info('Fiuu Payment Callback Received (Donations)', $request->all());
+
+        try {
+            $response_data = $request->all();
+            $orderid = $request->get('orderid');
+            $status = $request->get('status');
+            $tranID = $request->get('tranID');
+            $amount = $request->get('amount');
+            
+            $payment = BookingPayment::where('payment_reference', $orderid)->first();
+            
+            if (!$payment) {
+                Log::error('Payment record not found', ['orderid' => $orderid]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Payment record not found'
+                ], 404);
+            }
+            
+            // Find booking by booking_number
+            $booking = Booking::where('id', $payment->booking_id)->first();
+            
+            if (!$booking) {
+                Log::error('Booking not found for payment callback', ['booking_id' => $payment->booking_id]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Booking not found'
+                ], 404);
+            }
+
+            $paymentMode = PaymentMode::find($payment->payment_mode_id);
+            
+            // Verify signature (commented out for testing)
+            /* if (!$this->verifyFiuuSignature($request, $paymentMode)) {
+                Log::error('Fiuu signature verification failed', [
+                    'booking_number' => $orderid
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Security verification failed'
+                ], 403);
+            } */
+
+            // Process based on status
+            if ($status == '00') { // Success
+                $this->processSuccessfulPayment($booking, $payment, $tranID, $request->all());
+                
+                return view('payment.success', [
+                    'order_no' => $response_data['orderid'],
+                    'transaction_id' => $response_data['tranID'],
+                    'amount' => $response_data['amount'],
+                    'currency' => $response_data['currency'],
+                    'payment_date' => $response_data['paydate'],
+                    'channel' => $response_data['channel']
+                ]);
+            } elseif ($status == '11') { // Failed
+                $this->processFailedPayment($booking, $payment, $request->all());
+                
+                return view('payment.failed', [
+                    'message' => $response_data['error_desc'] ?? 'Payment failed',
+                    'error_code' => $response_data['error_code'],
+                    'order_no' => $response_data['orderid']
+                ]);
+            } elseif ($status == '22') { // Pending
+                return view('payment.pending', [
+                    'order_no' => $response_data['orderid'],
+                    'transaction_id' => $response_data['tranID'] ?? null,
+                    'amount' => $response_data['amount'] ?? null,
+                    'message' => $response_data['error_desc'] ?? 'Payment is pending confirmation'
+                ]);
+            } else {
+                $this->processFailedPayment($booking, $payment, $request->all());
+                
+                return view('payment.failed', [
+                    'message' => 'Unknown payment status: ' . $response_data['status'],
+                    'order_no' => $response_data['orderid']
+                ]);
+            }
+
+        } catch (Exception $e) {
+            Log::error('Error processing payment callback', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error processing payment: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Handle webhook notification from Fiuu
+     * This is called asynchronously by Fiuu
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\Response
+     */
+    public function handlePaymentWebhook(Request $request)
+    {
+        Log::info('Fiuu Payment Webhook Received (Donations)', $request->all());
+
+        $nbcb = $request->get('nbcb');
+        
+        // Handle callback token request
+        if ($nbcb == '1') {
+            echo "CBTOKEN:MPSTATOK";
+            return;
+        }
+
+        try {
+            $orderid = $request->get('orderid');
+            $status = $request->get('status');
+            $tranID = $request->get('tranID');
+            
+            // Find payment by payment reference
+            $payment = BookingPayment::where('payment_reference', $orderid)->first();
+            
+            if (!$payment) {
+                Log::error('Payment not found for webhook', ['orderid' => $orderid]);
+                return response('Payment not found', 404);
+            }
+            
+            // Find booking
+            $booking = Booking::where('id', $payment->booking_id)->first();
+            
+            if (!$booking) {
+                Log::error('Booking not found for webhook', ['orderid' => $orderid]);
+                return response('Booking not found', 404);
+            }
+
+            $paymentMode = PaymentMode::find($payment->payment_mode_id);
+            
+            // Verify signature (commented out for testing)
+            /* if (!$this->verifyFiuuSignature($request, $paymentMode)) {
+                Log::error('Webhook signature verification failed');
+                return response('Invalid signature', 403);
+            } */
+
+            // Process based on status
+            if ($status == '00') { // Success
+                $this->processSuccessfulPayment($booking, $payment, $tranID, $request->all());
+            } elseif ($status == '11') { // Failed
+                $this->processFailedPayment($booking, $payment, $request->all());
+            }
+
+            return response('OK', 200);
+
+        } catch (Exception $e) {
+            Log::error('Error processing webhook', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response('Error', 500);
+        }
+    }
+
+    /**
+     * Handle payment cancellation
+     *
+     * @param Request $request
+     * @return \Illuminate\View\View
+     */
+    public function handlePaymentCancel(Request $request)
+    {
+        Log::info('Fiuu Payment Cancelled (Donations)', $request->all());
+
+        $orderid = $request->get('orderid');
+        
+        if ($orderid) {
+            $payment = BookingPayment::where('payment_reference', $orderid)->first();
+            
+            if ($payment) {
+                $booking = Booking::where('id', $payment->booking_id)->first();
+                
+                if ($booking) {
+                    $this->processFailedPayment($booking, $payment, [
+                        'error_desc' => 'Payment cancelled by user',
+                        'status' => 'cancelled'
+                    ]);
+                }
+            }
+        }
+
+        return view('payment.failed', [
+            'message' => 'Payment was cancelled',
+            'error_code' => 'USER_CANCELLED',
+            'order_no' => $orderid
+        ]);
+    }
+
+    /**
+     * Verify Fiuu signature (commented out for testing)
+     *
+     * @param Request $request
+     * @param PaymentMode $paymentMode
+     * @return bool
+     */
+    private function verifyFiuuSignature($request, $paymentMode)
+    {
+        $tranID = $request->get('tranID');
+        $orderid = $request->get('orderid');
+        $status = $request->get('status');
+        $domain = $request->get('domain');
+        $amount = $request->get('amount');
+        $currency = $request->get('currency');
+        $paydate = $request->get('paydate');
+        $appcode = $request->get('appcode');
+        $skey = $request->get('skey');
+
+        // Calculate expected skey
+        // $pre_skey = md5($tranID . $orderid . $status . $domain . $amount . $currency);
+        $pre_skey = md5($tranID . $orderid . $status . $domain . $amount);
+        $calculated_skey = md5($paydate . $domain . $pre_skey . $appcode . $this->fiuuCredentials['secret_key']);
+
+        return $calculated_skey === $skey;
+    }
+
+    /**
+     * Process successful payment
+     *
+     * @param Booking $booking
+     * @param BookingPayment $payment
+     * @param string $transactionId
+     * @param array $paymentResponse
+     * @return void
+     */
+    private function processSuccessfulPayment($booking, $payment, $transactionId, $paymentResponse)
+    {
+        DB::beginTransaction();
+
+        try {
+            // Update payment record
+            $payment->update([
+                'payment_status' => 'SUCCESS',
+                'transaction_id' => $transactionId,
+                'payment_response' => json_encode($paymentResponse),
+                'notes' => 'Payment completed successfully via Fiuu',
+                'updated_at' => now()
+            ]);
+
+            // Update booking status
+            $booking->update([
+                'booking_status' => 'CONFIRMED',
+                'payment_status' => 'PAID',
+                'updated_at' => now()
+            ]);
+
+            // Update booking items status
+            BookingItem::where('booking_id', $booking->id)
+                ->update(['status' => 'SUCCESS']);
+
+            // Run account migration
+            $this->accountMigration($booking->id);
+
+            DB::commit();
+
+            Log::info('Payment processed successfully (Donations)', [
+                'booking_id' => $booking->id,
+                'booking_number' => $booking->booking_number,
+                'transaction_id' => $transactionId
+            ]);
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            
+            Log::error('Error processing successful payment (Donations)', [
+                'booking_id' => $booking->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            throw $e;
+        }
+    }
+
+    /**
+     * Process failed payment
+     *
+     * @param Booking $booking
+     * @param BookingPayment $payment
+     * @param array $paymentResponse
+     * @return void
+     */
+    private function processFailedPayment($booking, $payment, $paymentResponse)
+    {
+        try {
+            // Update payment record
+            $payment->update([
+                'payment_status' => 'FAILED',
+                'payment_response' => json_encode($paymentResponse),
+                'notes' => 'Payment failed: ' . ($paymentResponse['error_desc'] ?? 'Unknown error'),
+                'updated_at' => now()
+            ]);
+
+            // Update booking status
+            $booking->update([
+                'booking_status' => 'CANCELLED',
+                'payment_status' => 'FAILED',
+                'updated_at' => now()
+            ]);
+
+            Log::info('Payment marked as failed (Donations)', [
+                'booking_id' => $booking->id,
+                'booking_number' => $booking->booking_number
+            ]);
+
+        } catch (Exception $e) {
+            Log::error('Error processing failed payment (Donations)', [
+                'booking_id' => $booking->id,
+                'error' => $e->getMessage()
+            ]);
         }
     }
 }

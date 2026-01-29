@@ -322,7 +322,7 @@
                     </td>
                     <td class="text-center">
                         <span class="badge bg-warning-subtle text-warning-emphasis border">
-                            ${block.rags_per_floor || block.lights_per_floor || 0}/Floor
+                            ${block.rags_per_floor || 0}/Floor
                         </span>
                     </td>
                     <td class="text-center">
@@ -508,6 +508,189 @@
             const self = this;
             const isEdit = !!tower;
 
+            // First load categories (required)
+            PagodaAPI.towerCategories.getActive()
+                .done(function (response) {
+                    console.log('Categories response:', response);
+                    const categories = response && response.success && response.data ? response.data : [];
+                    console.log('Parsed categories:', categories);
+                    console.log('Categories length:', categories.length);
+
+                    // Check if there are any active categories
+                    if (categories.length === 0) {
+                        Swal.fire({
+                            title: 'No Categories Available',
+                            text: 'Please create at least one active tower category before adding a tower.',
+                            icon: 'warning',
+                            confirmButtonText: 'Go to Categories',
+                            showCancelButton: true,
+                            cancelButtonText: 'Cancel'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                window.location.hash = '#/pagoda/tower-categories';
+                            }
+                        });
+                        return;
+                    }
+
+                    const categoryOptions = categories.map(cat =>
+                        `<option value="${cat.id}" ${tower && tower.category_id === cat.id ? 'selected' : ''}>
+                            ${cat.full_name}
+                        </option>`
+                    ).join('');
+
+                    // Load deities (optional - don't block modal if this fails)
+                    TempleAPI.get('/deities/active')
+                        .done(function (deitiesResponse) {
+                            console.log('Deities response:', deitiesResponse);
+                            const deities = deitiesResponse && deitiesResponse.success && deitiesResponse.data ? deitiesResponse.data : [];
+                            console.log('Parsed deities:', deities);
+
+                            const deityOptions = deities.map(deity =>
+                                `<option value="${deity.id}" ${tower && tower.deity_id === deity.id ? 'selected' : ''}>
+                                    ${deity.name}${deity.name_secondary ? ' (' + deity.name_secondary + ')' : ''}
+                                </option>`
+                            ).join('');
+
+                            self.renderTowerModal(tower, isEdit, categoryOptions, deityOptions);
+                        })
+                        .fail(function (xhr) {
+                            console.warn('Failed to load deities, showing modal without deity options:', xhr);
+                            // Show modal without deity options
+                            self.renderTowerModal(tower, isEdit, categoryOptions, '');
+                        });
+                })
+                .fail(function (xhr) {
+                    console.error('Failed to load categories:', xhr);
+                    TempleUtils.showError('Failed to load categories. Please try again.');
+                });
+        },
+
+        // Renders the tower modal with provided options
+        renderTowerModal: function (tower, isEdit, categoryOptions, deityOptions) {
+            const self = this; // Ensure 'self' is available within this function
+            const modalHtml = `
+                        <div class="modal fade" id="towerModal" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header bg-primary text-white">
+                                        <h5 class="modal-title">
+                                            <i class="bi bi-building me-2"></i>
+                                            ${isEdit ? 'Edit Tower' : 'Add New Tower'}
+                                        </h5>
+                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <form id="towerForm">
+                                        <div class="modal-body">
+                                            <div class="row g-3">
+                                                <div class="col-12">
+                                                    <label class="form-label">Tower Name *</label>
+                                                    <input type="text" class="form-control" name="tower_name" 
+                                                           value="${tower ? tower.tower_name : ''}" required>
+                                                </div>
+                                                <div class="col-12">
+                                                    <label class="form-label">Tower Code *</label>
+                                                    <input type="text" class="form-control" name="tower_code" 
+                                                           value="${tower ? tower.tower_code : ''}" 
+                                                           placeholder="e.g., T1, T2" required>
+                                                </div>
+                                                <div class="col-12">
+                                                    <label class="form-label">
+                                                        <i class="bi bi-tags text-primary me-1"></i>
+                                                        Tower Category *
+                                                    </label>
+                                                    <select class="form-select" name="category_id" required>
+                                                        <option value="">-- Select Category --</option>
+                                                        ${categoryOptions}
+                                                    </select>
+                                                    <small class="text-muted">Select a category for this tower</small>
+                                                </div>
+                                                <div class="col-12">
+                                                    <label class="form-label">
+                                                        <i class="bi bi-star text-warning me-1"></i>
+                                                        Deity
+                                                    </label>
+                                                    <select class="form-select" name="deity_id">
+                                                        <option value="">-- Select Deity (Optional) --</option>
+                                                        ${deityOptions}
+                                                    </select>
+                                                    <small class="text-muted">Select a deity associated with this tower</small>
+                                                </div>
+                                                <div class="col-12">
+                                                    <label class="form-label">Description</label>
+                                                    <textarea class="form-control" name="description" rows="3">${tower ? (tower.description || '') : ''}</textarea>
+                                                </div>
+                                                <div class="col-12">
+                                                    <div class="form-check form-switch">
+                                                        <input class="form-check-input" type="checkbox" name="is_active"
+                                                               id="towerActive"
+                                                               ${!tower || tower.status === 'active' ? 'checked' : ''}>
+                                                        <label class="form-check-label" for="towerActive">Active</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                            <button type="submit" class="btn btn-primary">
+                                                <i class="bi bi-check-circle"></i> ${isEdit ? 'Update' : 'Create'} Tower
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+            $('#towerModal').remove();
+            $('body').append(modalHtml);
+            const modal = new bootstrap.Modal(document.getElementById('towerModal'));
+            modal.show();
+
+            $('#towerForm').on('submit', function (e) {
+                e.preventDefault();
+
+                const formData = {
+                    tower_name: $('input[name="tower_name"]').val(),
+                    tower_code: $('input[name="tower_code"]').val(),
+                    category_id: $('select[name="category_id"]').val(),
+                    deity_id: $('select[name="deity_id"]').val() || null,
+                    description: $('textarea[name="description"]').val(),
+                    status: $('input[name="is_active"]').is(':checked') ? 'active' : 'inactive'
+                };
+
+                TempleUtils.showLoading(isEdit ? 'Updating tower...' : 'Creating tower...');
+
+                const promise = isEdit ?
+                    PagodaAPI.towers.update(tower.id, formData) :
+                    PagodaAPI.towers.create(formData);
+
+                promise
+                    .done(function (response) {
+                        if (response.success) {
+                            TempleUtils.showSuccess(isEdit ? 'Tower updated successfully' : 'Tower created successfully');
+                            modal.hide();
+                            self.loadTowers();
+                        }
+                    })
+                    .fail(function (xhr) {
+                        TempleUtils.handleAjaxError(xhr, isEdit ? 'Failed to update tower' : 'Failed to create tower');
+                    })
+                    .always(function () {
+                        TempleUtils.hideLoading();
+                    });
+            });
+
+            $('#towerModal').on('hidden.bs.modal', function () {
+                $(this).remove();
+            });
+        },
+
+        // Fallback modal without categories (in case category loading fails)
+        showTowerModalFallback: function (tower = null) {
+            const self = this;
+            const isEdit = !!tower;
+
             const modalHtml = `
                 <div class="modal fade" id="towerModal" tabindex="-1">
                     <div class="modal-dialog">
@@ -540,9 +723,9 @@
                                         <div class="col-12">
                                             <div class="form-check form-switch">
                                                 <input class="form-check-input" type="checkbox" name="is_active"
-               id="towerActive"
-               ${!tower || tower.status === 'active' ? 'checked' : ''}>
-        <label class="form-check-label" for="towerActive">Active</label>
+                                                       id="towerActive"
+                                                       ${!tower || tower.status === 'active' ? 'checked' : ''}>
+                                                <label class="form-check-label" for="towerActive">Active</label>
                                             </div>
                                         </div>
                                     </div>
@@ -737,8 +920,8 @@
                                         </div>
                                         <div class="col-6">
                                             <label class="form-label">Lights per Floor *</label>
-                                            <input type="number" class="form-control" name="lights_per_floor" 
-                                                   value="${block ? (block.rags_per_floor || block.lights_per_floor) : '100'}" 
+                                            <input type="number" class="form-control" name="rags_per_floor" 
+                                                   value="${block ? (block.rags_per_floor) : '100'}" 
                                                    min="1" max="500" required>
                                         </div>
 
@@ -798,19 +981,19 @@
                         e.preventDefault();
 
                         const formData = {
-                            tower_id: parseInt($('select[name="tower_id"]').val()),
+                            tower_id: $('select[name="tower_id"]').val(),
                             block_name: $('input[name="block_name"]').val(),
                             block_code: $('input[name="block_code"]').val(),
                             total_floors: parseInt($('input[name="total_floors"]').val()),
-                            lights_per_floor: parseInt($('input[name="lights_per_floor"]').val()),
+                            rags_per_floor: parseInt($('input[name="rags_per_floor"]').val()),
                             description: $('textarea[name="description"]').val(),
                             auto_generate_lights: $('input[name="auto_generate_lights"]').is(':checked'),
                             is_active: $('input[name="is_active"]').is(':checked')
                         };
 
                         console.log('Submitting block data:', formData);
-
-                        if (!formData.tower_id || isNaN(formData.tower_id)) {
+		
+                        if (!formData.tower_id) {
                             TempleUtils.showWarning('Please select a tower');
                             return;
                         }

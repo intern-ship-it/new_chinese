@@ -4,18 +4,22 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\DonationMaster;
+use App\Services\S3UploadService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use App\Models\User;
+use Exception;
 
 class DonationMasterController extends Controller
 {
-    /**
-     * Allowed donation types
-     */
-    private const ALLOWED_TYPES = ['maintenance', 'meal', 'voucher', 'general'];
+    protected $s3Service;
+
+    public function __construct(S3UploadService $s3Service)
+    {
+        $this->s3Service = $s3Service;
+    }
 
     /**
      * Get all donation masters
@@ -23,8 +27,13 @@ class DonationMasterController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = DonationMaster::with('ledger')
+            $query = DonationMaster::with(['ledger', 'group'])
                 ->whereNull('deleted_at');
+
+            // Filter by group_id if provided
+            if ($request->filled('group_id')) {
+                $query->where('group_id', $request->group_id);
+            }
 
             // Filter by ledger_id if provided
             if ($request->filled('ledger_id')) {
@@ -44,6 +53,9 @@ class DonationMasterController extends Controller
                         ->orWhere('secondary_name', 'LIKE', "%{$search}%")
                         ->orWhereHas('ledger', function ($q) use ($search) {
                             $q->where('name', 'LIKE', "%{$search}%");
+                        })
+                        ->orWhereHas('group', function ($q) use ($search) {
+                            $q->where('name', 'LIKE', "%{$search}%");
                         });
                 });
             }
@@ -51,6 +63,14 @@ class DonationMasterController extends Controller
             // Pagination
             $perPage = $request->get('per_page', 20);
             $donations = $query->orderBy('name')->paginate($perPage);
+
+            // Generate signed URLs for images
+            $donations->getCollection()->transform(function ($donation) {
+                if ($donation->image_url) {
+                    $donation->image_url = $this->s3Service->getSignedUrl($donation->image_url);
+                }
+                return $donation;
+            });
 
             $user = Auth::user();
             $permissions = $this->assignPermissions($user);
@@ -61,71 +81,13 @@ class DonationMasterController extends Controller
                 'permissions' => $permissions
             ]);
         } catch (\Exception $e) {
+            \Log::error('Error fetching donation masters: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch donation masters',
                 'error' => $e->getMessage()
             ], 500);
         }
-    }
-
-    /**
-     * Get unique donation types from existing records
-     */
-    public function getTypes()
-    {
-        try {
-            // Return the predefined types instead of database values
-            $types = self::ALLOWED_TYPES;
-
-            return response()->json([
-                'success' => true,
-                'data' => $types
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to fetch types',
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * Debug permissions
-     */
-    public function debugPermissions()
-    {
-        $user = Auth::user();
-
-        return response()->json([
-            'user_id' => $user->id,
-            'user_email' => $user->email,
-            'roles' => $user->roles->map(function ($role) {
-                return [
-                    'name' => $role->name,
-                    'guard_name' => $role->guard_name
-                ];
-            }),
-            'all_permissions' => $user->getAllPermissions()->map(function ($perm) {
-                return [
-                    'name' => $perm->name,
-                    'guard_name' => $perm->guard_name
-                ];
-            }),
-            'direct_checks' => [
-                'donation_masters.view' => $user->can('donation_masters.view'),
-                'donation_masters.create' => $user->can('donation_masters.create'),
-                'donation_masters.edit' => $user->can('donation_masters.edit'),
-                'donation_masters.delete' => $user->can('donation_masters.delete'),
-            ],
-            'with_web_guard' => [
-                'donation_masters.view' => $user->hasPermissionTo('donation_masters.view', 'web'),
-                'donation_masters.create' => $user->hasPermissionTo('donation_masters.create', 'web'),
-                'donation_masters.edit' => $user->hasPermissionTo('donation_masters.edit', 'web'),
-                'donation_masters.delete' => $user->hasPermissionTo('donation_masters.delete', 'web'),
-            ]
-        ]);
     }
 
     /**
@@ -137,13 +99,20 @@ class DonationMasterController extends Controller
         $permissions = $this->assignPermissions($user);
 
         try {
-            $donation = DonationMaster::whereNull('deleted_at')->find($id);
+            $donation = DonationMaster::with(['ledger', 'group'])
+                ->whereNull('deleted_at')
+                ->find($id);
 
             if (!$donation) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Donation master not found'
                 ], 404);
+            }
+
+            // Generate signed URL for image
+            if ($donation->image_url) {
+                $donation->image_url = $this->s3Service->getSignedUrl($donation->image_url);
             }
 
             return response()->json([
@@ -173,13 +142,15 @@ class DonationMasterController extends Controller
         }
 
         try {
-            // Validate request
+            // Validate request - FIXED: group_id should be integer, not uuid
             $validator = Validator::make($request->all(), [
                 'name' => 'required|string|max:300',
                 'secondary_name' => 'nullable|string|max:300',
-                   'ledger_id' => 'required|integer|exists:ledgers,id',
+                'group_id' => 'required|integer|exists:donation_groups,id',
+                'ledger_id' => 'required|integer|exists:ledgers,id',
                 'details' => 'nullable|string',
-                'status' => 'integer|in:0,1'
+                'status' => 'integer|in:0,1',
+                'image' => 'nullable|file|image|mimes:jpeg,jpg,png,gif,webp|max:2048'
             ]);
 
             if ($validator->fails()) {
@@ -207,13 +178,46 @@ class DonationMasterController extends Controller
             $donation = new DonationMaster();
             $donation->name = $request->name;
             $donation->secondary_name = $request->secondary_name;
+            $donation->group_id = $request->group_id;
             $donation->ledger_id = $request->ledger_id;
             $donation->details = $request->details;
             $donation->status = $request->get('status', 1);
             $donation->created_by = Auth::id();
+
+            // Handle image upload
+            if ($request->hasFile('image')) {
+                $file = $request->file('image');
+                
+                // Validate file
+                $validation = $this->s3Service->validateFile($file);
+                if (!$validation['valid']) {
+                    throw new Exception($validation['message']);
+                }
+
+                // Upload to S3
+                $templeId = $request->header('X-Temple-ID');
+                $result = $this->s3Service->uploadSignature(
+                    $file,
+                    $donation->id ?? uniqid('donation_'),
+                    $templeId
+                );
+
+                if (!$result['success']) {
+                    throw new Exception($result['message']);
+                }
+
+                $donation->image_url = $result['path'];
+            }
+
             $donation->save();
 
             DB::commit();
+
+            // Load relationships and generate signed URL
+            $donation->load(['ledger', 'group']);
+            if ($donation->image_url) {
+                $donation->image_url = $this->s3Service->getSignedUrl($donation->image_url);
+            }
 
             return response()->json([
                 'success' => true,
@@ -222,6 +226,7 @@ class DonationMasterController extends Controller
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Error creating donation master: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create donation master',
@@ -229,7 +234,6 @@ class DonationMasterController extends Controller
             ], 500);
         }
     }
-
 
     /**
      * Update donation master
@@ -253,13 +257,15 @@ class DonationMasterController extends Controller
                 ], 404);
             }
 
-            // Validate request
+            // Validate request - FIXED: group_id should be integer, not uuid
             $validator = Validator::make($request->all(), [
                 'name' => 'string|max:300',
                 'secondary_name' => 'nullable|string|max:300',
+                'group_id' => 'integer|exists:donation_groups,id',
                 'ledger_id' => 'integer|exists:ledgers,id',
                 'details' => 'nullable|string',
-                'status' => 'integer|in:0,1'
+                'status' => 'integer|in:0,1',
+                'image' => 'nullable|file|image|mimes:jpeg,jpg,png,gif,webp|max:2048'
             ]);
 
             if ($validator->fails()) {
@@ -289,14 +295,51 @@ class DonationMasterController extends Controller
 
             if ($request->has('name')) $donation->name = $request->name;
             if ($request->has('secondary_name')) $donation->secondary_name = $request->secondary_name;
+            if ($request->has('group_id')) $donation->group_id = $request->group_id;
             if ($request->has('ledger_id')) $donation->ledger_id = $request->ledger_id;
             if ($request->has('details')) $donation->details = $request->details;
             if ($request->has('status')) $donation->status = $request->status;
             $donation->updated_by = Auth::id();
 
+            // Handle image upload
+            if ($request->hasFile('image')) {
+                // Delete old image from S3 if exists
+                if ($donation->image_url) {
+                    $this->s3Service->deleteDonationImage($donation->image_url);
+                }
+
+                $file = $request->file('image');
+                
+                // Validate file
+                $validation = $this->s3Service->validateFile($file);
+                if (!$validation['valid']) {
+                    throw new Exception($validation['message']);
+                }
+
+                // Upload new image to S3
+                $templeId = $request->header('X-Temple-ID');
+                $result = $this->s3Service->uploadSignature(
+                    $file,
+                    $donation->id,
+                    $templeId
+                );
+
+                if (!$result['success']) {
+                    throw new Exception($result['message']);
+                }
+
+                $donation->image_url = $result['path'];
+            }
+
             $donation->save();
 
             DB::commit();
+
+            // Load relationships and generate signed URL
+            $donation->load(['ledger', 'group']);
+            if ($donation->image_url) {
+                $donation->image_url = $this->s3Service->getSignedUrl($donation->image_url);
+            }
 
             return response()->json([
                 'success' => true,
@@ -305,6 +348,7 @@ class DonationMasterController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Error updating donation master: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update donation master',
@@ -337,6 +381,11 @@ class DonationMasterController extends Controller
 
             DB::beginTransaction();
 
+            // Delete image from S3 if exists
+            if ($donation->image_url) {
+                $this->s3Service->deleteDonationImage($donation->image_url);
+            }
+
             $donation->deleted_at = now();
             $donation->deleted_by = Auth::id();
             $donation->save();
@@ -349,6 +398,7 @@ class DonationMasterController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Error deleting donation master: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete donation master',
@@ -363,16 +413,25 @@ class DonationMasterController extends Controller
     public function getActiveDonations(Request $request)
     {
         try {
-            $query = DonationMaster::where('status', 1)
+            $query = DonationMaster::with(['ledger', 'group'])
+                ->where('status', 1)
                 ->whereNull('deleted_at');
 
-            // Filter by type if provided
-            if ($request->has('type')) {
-                $query->where('type', $request->type);
+            // Filter by group if provided
+            if ($request->has('group_id')) {
+                $query->where('group_id', $request->group_id);
             }
 
             $donations = $query->orderBy('name')
-                ->get(['id', 'name', 'secondary_name', 'type', 'details']);
+                ->get(['id', 'name', 'secondary_name', 'group_id', 'details', 'image_url']);
+
+            // Generate signed URLs for images
+            $donations->transform(function ($donation) {
+                if ($donation->image_url) {
+                    $donation->image_url = $this->s3Service->getSignedUrl($donation->image_url);
+                }
+                return $donation;
+            });
 
             return response()->json([
                 'success' => true,
@@ -414,7 +473,6 @@ class DonationMasterController extends Controller
      */
     private function assignPermissions(User $user)
     {
-        // Check if user has admin role
         $hasAdminRole = $user->hasRole(['super_admin', 'admin']);
 
         $permissions = [
@@ -426,49 +484,36 @@ class DonationMasterController extends Controller
 
         return $permissions;
     }
-public function getDonationLedgers()
-{
-    try {
-        $donationGroup = DB::table('groups')
-            ->where('code', '8001')
-            ->first();
 
-        if (!$donationGroup) {
+    public function getDonationLedgers()
+    {
+        try {
+            $ledgers = DB::table('ledgers')
+                ->whereNull('deleted_at')
+                ->where('left_code', '>=', '8001')
+                ->where('left_code', '<=', '8999')
+                ->orderBy('left_code')
+                ->select('id', 'name', 'left_code')
+                ->get();
+
+            \Log::info('Donation Ledgers:', [
+                'count' => $ledgers->count(),
+                'sample' => $ledgers->first()
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => $ledgers,
+                'count' => $ledgers->count()
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error fetching donation ledgers: ' . $e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'Donation group (code 8001) not found'
-            ], 404);
+                'message' => 'Failed to fetch donation ledgers',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        // Ensure left_code is selected and ordered properly
-        $ledgers = DB::table('ledgers')
-            ->where('group_id', $donationGroup->id)
-            ->whereNull('deleted_at')
-            ->where('left_code', '>=', '8001')
-            ->where('left_code', '<=', '8999')
-            ->orderBy('left_code')
-            ->select('id', 'name', 'left_code')  // IMPORTANT: Include left_code
-            ->get();
-
-        // Debug log to verify data
-        \Log::info('Donation Ledgers:', [
-            'count' => $ledgers->count(),
-            'sample' => $ledgers->first()
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'data' => $ledgers,
-            'count' => $ledgers->count()
-        ]);
-    } catch (\Exception $e) {
-        \Log::error('Error fetching donation ledgers: ' . $e->getMessage());
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Failed to fetch donation ledgers',
-            'error' => $e->getMessage()
-        ], 500);
     }
-}
 }

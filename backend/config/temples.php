@@ -15,7 +15,17 @@ return [
             'id' => 'temple3',
             'database' => 'temple3',
             'status' => 'active'
-        ]
+        ],
+        'temple_dev' => [
+			'id' => 'temple_dev',
+			'database' => 'temple_dev',
+			'status' => 'active' 
+		],
+        'citiansi' => [
+			'id' => 'citiansi',
+			'database' => 'citiansi',
+			'status' => 'active' 
+		]
     ],
     
     // Encryption key for temple identifier

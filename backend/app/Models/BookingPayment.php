@@ -27,6 +27,7 @@ class BookingPayment extends Model
         'payment_status',
         'payment_response',
         'notes',
+        'paid_through',
         'created_by',
         'updated_by'
     ];
@@ -51,9 +52,15 @@ class BookingPayment extends Model
      */
     const TYPE_FULL = 'FULL';
     const TYPE_SPLIT = 'SPLIT';
-    const TYPE_DEPOSIT = 'DEPOSIT';
-    const TYPE_PARTIAL = 'PARTIAL';
-    const TYPE_REFUND = 'REFUND';
+	
+	/**
+     * Paid Through Constants
+     */
+    const PAID_THROUGH_ADMIN = 'ADMIN';
+    const PAID_THROUGH_COUNTER = 'COUNTER';
+    const PAID_THROUGH_APP = 'APP';
+    const PAID_THROUGH_KIOSK = 'KIOSK';
+    const PAID_THROUGH_ONLINE = 'ONLINE';
 
     public function booking()
     {
@@ -214,5 +221,105 @@ class BookingPayment extends Model
         return $this->belongsTo(User::class, 'updated_by');
     }
 
-    
+
+
+    // ========================================
+    // HELPER METHODS
+    // ========================================
+
+    /**
+     * Check if payment is successful
+     */
+    public function isSuccess()
+    {
+        return $this->payment_status === 'SUCCESS';
+    }
+
+
+
+    /**
+     * Check if payment is cancelled
+     */
+    public function isCancelled()
+    {
+        return $this->payment_status === 'CANCELLED';
+    }
+
+    /**
+     * Check if payment is full
+     */
+    public function isFull()
+    {
+        return $this->payment_type === 'FULL';
+    }
+
+    /**
+     * Check if payment is split
+     */
+    public function isSplit()
+    {
+        return $this->payment_type === 'SPLIT';
+    }
+
+    /**
+     * Format payment amount with currency
+     */
+    public function getFormattedAmountAttribute()
+    {
+        return 'RM ' . number_format($this->amount, 2);
+    }
+
+    // ========================================
+    // SCOPES
+    // ========================================
+
+    /**
+     * Scope to filter by payment status
+     */
+    public function scopeWithStatus($query, $status)
+    {
+        return $query->where('payment_status', $status);
+    }
+
+
+    /**
+     * Scope to filter by payment channel
+     */
+    public function scopeThroughChannel($query, $channel)
+    {
+        return $query->where('paid_through', $channel);
+    }
+
+    /**
+     * Scope to filter by payment mode
+     */
+    public function scopeWithPaymentMode($query, $modeId)
+    {
+        return $query->where('payment_mode_id', $modeId);
+    }
+
+    /**
+     * Scope to filter by payment date
+     */
+    public function scopeForDate($query, $date)
+    {
+        return $query->whereDate('payment_date', $date);
+    }
+
+
+    /**
+     * Scope to get failed payments only
+     */
+    public function scopeFailed($query)
+    {
+        return $query->where('payment_status', 'FAILED');
+    }
+
+    /**
+     * Scope to get recent payments
+     */
+    public function scopeRecent($query, $days = 7)
+    {
+        return $query->where('payment_date', '>=', now()->subDays($days));
+    }
 }

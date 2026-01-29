@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\BookingMeta;
 use App\Models\BookingPayment;
+use App\Models\BookingItem;
 use App\Models\PaymentMode;
+use App\Models\BuddhaLampMaster;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -33,6 +35,34 @@ class BuddhaLampController extends Controller
     const PAYMENT_PREFIX_LIVE = 'PYL';
 
     /**
+     * Get active Buddha Lamp masters for selection
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getActiveMasters()
+    {
+        try {
+            $masters = BuddhaLampMaster::where('status', '1')->select('*')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $masters
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch Buddha Lamp masters', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch Buddha Lamp types'
+            ], 500);
+        }
+    }
+
+    /**
      * Store a new Buddha Lamp booking
      *
      * @param Request $request
@@ -40,12 +70,15 @@ class BuddhaLampController extends Controller
      */
     public function store(Request $request)
     {
-        // Validate request
+        // Validate request - buddha_lamp_master_id is now optional for custom amounts
         $validator = Validator::make($request->all(), [
             'booking_type' => 'required|string',
             'booking_date' => 'required|date',
-            'total_amount' => 'required|numeric|min:0',
-            'paid_amount' => 'required|numeric|min:0',
+            'buddha_lamp_master_id' => 'nullable|exists:buddha_lamp_masters,id', // Changed to nullable
+            'subtotal' => 'nullable|numeric|min:0', // Subtotal before discount
+            'discount_amount' => 'nullable|numeric|min:0', // Discount amount
+            'total_amount' => 'required|numeric|min:0.01', // Final total after discount
+            'paid_amount' => 'required|numeric|min:0.01',
             'print_option' => 'required|in:NO_PRINT,SINGLE_PRINT,SEP_PRINT',
             'special_instructions' => 'nullable|string',
             
@@ -58,7 +91,7 @@ class BuddhaLampController extends Controller
             'meta.additional_notes' => 'nullable|string',
             
             // Payment validation
-            'payment.amount' => 'required|numeric|min:0',
+            'payment.amount' => 'required|numeric|min:0.01',
             'payment.payment_mode_id' => 'required|exists:payment_modes,id',
             'payment.payment_type' => 'required|in:FULL,SPLIT,DEPOSIT,PARTIAL',
             'payment.payment_status' => 'required|in:PENDING,SUCCESS,FAILED',
@@ -78,16 +111,38 @@ class BuddhaLampController extends Controller
             $user = $request->user();
             $isLive = config('app.env') === 'production';
             
+            // Get Buddha Lamp Master details if provided
+            $buddhaLampMaster = null;
+            $buddhaLampName = 'Custom Amount Buddha Lamp'; // Default name for custom amounts
+            
+            if ($request->has('buddha_lamp_master_id') && $request->input('buddha_lamp_master_id')) {
+                $buddhaLampMaster = BuddhaLampMaster::findOrFail($request->input('buddha_lamp_master_id'));
+                $buddhaLampName = $buddhaLampMaster->name_primary;
+            }
+            
+            // Calculate amounts
+            $subtotal = $request->input('subtotal', $request->input('total_amount'));
+            $discountAmount = $request->input('discount_amount', 0);
+            $totalAmount = $request->input('total_amount');
+            $paidAmount = $request->input('paid_amount');
+            
             // Generate booking number
             $bookingNumber = $this->generateBookingNumber($isLive);
             
-            // Get payment mode name for reference
+            // Get payment mode for reference
             $paymentMode = PaymentMode::find($request->input('payment.payment_mode_id'));
             
             // Determine booking and payment status
-            $paidAmount = $request->input('paid_amount');
-            $totalAmount = $request->input('total_amount');
             $paymentStatus = $this->determinePaymentStatus($paidAmount, $totalAmount);
+            
+            Log::info('Creating Buddha Lamp booking', [
+                'booking_number' => $bookingNumber,
+                'user_id' => $user->id,
+                'subtotal' => $subtotal,
+                'discount_amount' => $discountAmount,
+                'total_amount' => $totalAmount,
+                'paid_amount' => $paidAmount,
+            ]);
             
             // Create booking record
             $booking = Booking::create([
@@ -97,22 +152,29 @@ class BuddhaLampController extends Controller
                 'booking_date' => Carbon::parse($request->input('booking_date')),
                 'booking_status' => 'CONFIRMED', // Direct confirmation for Buddha Lamp
                 'payment_status' => $paymentStatus,
-                'subtotal' => $totalAmount,
+                'subtotal' => $subtotal,
                 'tax_amount' => 0,
-                'discount_amount' => 0,
+                'discount_amount' => $discountAmount, // Save discount amount
                 'deposit_amount' => 0,
                 'total_amount' => $totalAmount,
                 'paid_amount' => $paidAmount,
+                'account_migration' => 0,
                 'payment_method' => $paymentMode ? $paymentMode->name : null,
                 'print_option' => $request->input('print_option'),
                 'special_instructions' => $request->input('special_instructions'),
                 'created_by' => $user->id,
+                'user_id' => $user->id,
             ]);
+
+            Log::info('Booking created', ['booking_id' => $booking->id]);
 
             // Create booking meta records
             $metaData = $request->input('meta');
             $metaRecords = [
                 ['meta_key' => 'booking_type', 'meta_value' => self::BOOKING_TYPE, 'meta_type' => 'STRING'],
+                ['meta_key' => 'buddha_lamp_master_id', 'meta_value' => $buddhaLampMaster ? $buddhaLampMaster->id : 'custom', 'meta_type' => 'STRING'],
+                ['meta_key' => 'buddha_lamp_name', 'meta_value' => $buddhaLampName, 'meta_type' => 'STRING'],
+                ['meta_key' => 'is_custom_amount', 'meta_value' => $buddhaLampMaster ? 'false' : 'true', 'meta_type' => 'STRING'],
                 ['meta_key' => 'nric', 'meta_value' => $metaData['nric'], 'meta_type' => 'STRING'],
                 ['meta_key' => 'name_primary', 'meta_value' => $metaData['name_primary'], 'meta_type' => 'STRING'],
                 ['meta_key' => 'name_secondary', 'meta_value' => $metaData['name_secondary'] ?? '', 'meta_type' => 'STRING'],
@@ -131,12 +193,35 @@ class BuddhaLampController extends Controller
                 ]);
             }
 
+            Log::info('Booking metadata created');
+
+            // Create booking item record
+            // Note: item_id is set to NULL because it's bigint type in DB
+            // The actual master ID is stored in booking_meta
+            BookingItem::create([
+                'booking_id' => $booking->id,
+                'item_type' => self::BOOKING_TYPE,
+                'item_id' => null, // Set to NULL as the column is bigint, not UUID
+                'item_name' => $buddhaLampName,
+                'item_description' => $buddhaLampMaster ? $buddhaLampMaster->description_primary : 'Custom amount Buddha Lamp offering',
+                'quantity' => 1,
+                'unit_price' => $subtotal,
+                'subtotal' => $subtotal,
+                'tax_amount' => 0,
+                'discount_amount' => $discountAmount,
+                'total_price' => $totalAmount,
+                'status' => 'SUCCESS',
+                'created_at' => now(),
+            ]);
+
+            Log::info('Booking item created');
+
             // Generate payment reference
             $paymentReference = $this->generatePaymentReference($isLive);
             
             // Create payment record
             $paymentData = $request->input('payment');
-            BookingPayment::create([
+            $payment = BookingPayment::create([
                 'booking_id' => $booking->id,
                 'payment_date' => now(),
                 'amount' => $paymentData['amount'],
@@ -148,10 +233,17 @@ class BuddhaLampController extends Controller
                 'created_by' => $user->id,
             ]);
 
+            Log::info('Payment record created', ['payment_id' => $payment->id]);
+
+            // Account Migration
+            $this->accountMigration($booking->id, $buddhaLampMaster);
+
             DB::commit();
 
             // Load relationships for response
-            $booking->load(['meta', 'payments']);
+            $booking->load(['meta', 'payments', 'items']);
+
+            Log::info('Buddha Lamp booking created successfully', ['booking_id' => $booking->id]);
 
             // Format response data
             $responseData = $this->formatBookingResponse($booking);
@@ -180,6 +272,271 @@ class BuddhaLampController extends Controller
     }
 
     /**
+     * Account Migration
+     * This method creates accounting entries for Buddha Lamp transactions
+     */
+    protected function accountMigration($bookingId, $buddhaLampMaster = null)
+    {
+        try {
+            Log::info('Starting account migration', ['booking_id' => $bookingId]);
+
+            // Get booking details
+            $booking = Booking::with(['payments.paymentMode', 'meta'])
+                ->findOrFail($bookingId);
+
+            // Get payment details
+            $payment = $booking->payments->first();
+            if (!$payment) {
+                throw new \Exception('No payment found for booking');
+            }
+
+            $paymentMode = $payment->paymentMode;
+            if (!$paymentMode) {
+                throw new \Exception('Payment mode not found');
+            }
+
+            // Check if payment mode has ledger_id
+            if (empty($paymentMode->ledger_id)) {
+                Log::warning('Payment mode does not have ledger_id', [
+                    'payment_mode_id' => $paymentMode->id,
+                    'payment_mode_name' => $paymentMode->name
+                ]);
+                throw new \Exception('Payment mode ledger configuration missing');
+            }
+
+            // Determine credit ledger (Income side)
+            $creditLedgerId = null;
+
+            // Check if Buddha Lamp Master has ledger_id
+            if ($buddhaLampMaster && !empty($buddhaLampMaster->ledger_id)) {
+                $creditLedgerId = $buddhaLampMaster->ledger_id;
+            } else {
+                // Get or create "All Incomes" ledger under Revenue group
+                $incomesGroup = DB::table('groups')->where('code', '4000')->first();
+
+                if (!$incomesGroup) {
+                    // Create Incomes group if it doesn't exist
+                    $incomesGroupId = DB::table('groups')->insertGetId([
+                        'parent_id' => 0,
+                        'name' => 'Revenue',
+                        'code' => '4000',
+                        'added_by' => auth()->id(),
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+                } else {
+                    $incomesGroupId = $incomesGroup->id;
+                }
+
+                // Get or create "All Revenue" ledger
+                $allIncomesLedger = DB::table('ledgers')
+                    ->where('name', 'All Revenue')
+                    ->where('group_id', $incomesGroupId)
+                    ->first();
+
+                if (!$allIncomesLedger) {
+                    // Get the next right_code for this group
+                    $lastRightCode = DB::table('ledgers')
+                        ->where('group_id', $incomesGroupId)
+                        ->where('left_code', '4000')
+                        ->orderBy('right_code', 'desc')
+                        ->value('right_code');
+
+                    $newRightCode = str_pad(((int)$lastRightCode + 1), 4, '0', STR_PAD_LEFT);
+
+                    $creditLedgerId = DB::table('ledgers')->insertGetId([
+                        'group_id' => $incomesGroupId,
+                        'name' => 'All Revenue',
+                        'left_code' => '4000',
+                        'right_code' => $newRightCode,
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+                } else {
+                    $creditLedgerId = $allIncomesLedger->id;
+                }
+            }
+
+            // Debit ledger is from payment mode
+            $debitLedgerId = $paymentMode->ledger_id;
+
+            // Generate entry code
+            $date = $booking->booking_date;
+            $year = $date->format('y');
+            $month = $date->format('m');
+
+            // Get last entry code for the month
+            $lastEntry = DB::table('entries')
+                ->whereYear('date', $date->format('Y'))
+                ->whereMonth('date', $month)
+                ->where('entrytype_id', 1) // Receipt entry type
+                ->orderBy('id', 'desc')
+                ->first();
+
+            $lastNumber = 0;
+            if ($lastEntry && !empty($lastEntry->entry_code)) {
+                $lastNumber = (int)substr($lastEntry->entry_code, -5);
+            }
+
+            $entryCode = 'REC' . $year . $month . str_pad($lastNumber + 1, 5, '0', STR_PAD_LEFT);
+
+            // Get next entry number
+            $lastEntryNumber = DB::table('entries')
+                ->where('entrytype_id', 1)
+                ->orderBy('id', 'desc')
+                ->value('number');
+
+            $entryNumber = $lastEntryNumber ? (int)$lastEntryNumber + 1 : 1;
+
+            // Get metadata for narration
+            $meta = $booking->meta->pluck('meta_value', 'meta_key');
+            $devoteName = $meta['name_primary'] ?? 'Unknown';
+            $devoteNric = $meta['nric'] ?? '';
+            $devoteEmail = $meta['email'] ?? '';
+            $buddhaLampName = $meta['buddha_lamp_name'] ?? 'Buddha Lamp';
+
+            // Prepare narration
+            $narration = "Buddha Lamp Booking ({$booking->booking_number})\n";
+            $narration .= "Type: {$buddhaLampName}\n";
+            $narration .= "Name: {$devoteName}\n";
+            if ($devoteNric) {
+                $narration .= "NRIC: {$devoteNric}\n";
+            }
+            if ($devoteEmail) {
+                $narration .= "Email: {$devoteEmail}\n";
+            }
+            
+            // Add discount info to narration if applicable
+            if ($booking->discount_amount > 0) {
+                $narration .= "Discount: " . number_format($booking->discount_amount, 2) . "\n";
+            }
+			
+			$discountLedgerId = null;
+			if ($booking->discount_amount > 0) {
+                // Get discount ledger from booking_settings
+                $discountSetting = DB::table('booking_settings')
+                    ->where('key', 'discount_ledger_id')
+                    ->first();
+
+                if ($discountSetting && !empty($discountSetting->value)) {
+                    $discountLedgerId = (int)$discountSetting->value;
+                } else {
+                    // Get or create default Discount ledger
+                    $discountLedgerId = $this->getOrCreateDiscountLedger();
+                }
+
+                Log::info('Discount entry prepared', [
+                    'ledger_id' => $discountLedgerId,
+                    'amount' => $booking->discount_amount
+                ]);
+            }
+			
+            // Calculate totals for entry
+            // When there's a discount:
+            // - Credit to Income = subtotal (original amount before discount)
+            // - Debit to Discount = discount_amount (expense)
+            // - Debit to Payment Mode = paid_amount (actual money received)
+            $subtotalAmount = $booking->subtotal ?? ($booking->total_amount + $booking->discount_amount);
+            $drTotal = $booking->paid_amount + $booking->discount_amount;
+            $crTotal = $subtotalAmount;
+            
+            // Create entry
+            $entryId = DB::table('entries')->insertGetId([
+                'entrytype_id' => 1, // Receipt type
+                'number' => $entryCode,
+                'date' => $date,
+                'dr_total' => $drTotal,
+                'cr_total' => $crTotal,
+                'narration' => $narration,
+                'inv_id' => $bookingId,
+                'inv_type' => 4, // Buddha Lamp type (you may need to adjust this based on your system)
+                'entry_code' => $entryCode,
+                'created_by' => auth()->id(),
+                'user_id' => auth()->id(),
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            Log::info('Entry created', [
+                'entry_id' => $entryId,
+                'entry_code' => $entryCode,
+                'dr_total' => $drTotal,
+                'cr_total' => $crTotal
+            ]);
+			
+			// ========================================
+            // CREATE DISCOUNT DEBIT ENTRY (if applicable)
+            // ========================================
+            if ($booking->discount_amount > 0 && $discountLedgerId) {
+                DB::table('entryitems')->insert([
+                    'entry_id' => $entryId,
+                    'ledger_id' => $discountLedgerId,
+                    'amount' => $booking->discount_amount,
+                    'details' => "Discount - Buddha Lamp Booking ({$booking->booking_number})",
+                    'dc' => 'D', // Debit (expense)
+                    'is_discount' => 1,
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
+
+                Log::info('Discount debit entry item created', [
+                    'ledger_id' => $discountLedgerId,
+                    'amount' => $booking->discount_amount
+                ]);
+            }
+
+            // Create debit entry item (Payment mode ledger)
+            DB::table('entryitems')->insert([
+                'entry_id' => $entryId,
+                'ledger_id' => $debitLedgerId,
+                'amount' => $booking->paid_amount,
+                'details' => "Buddha Lamp Booking ({$booking->booking_number})",
+                'dc' => 'D', // Debit
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            Log::info('Debit entry item created', [
+                'ledger_id' => $debitLedgerId,
+                'amount' => $booking->paid_amount
+            ]);
+
+            // Create credit entry item (Income ledger) - credit the full subtotal
+            DB::table('entryitems')->insert([
+                'entry_id' => $entryId,
+                'ledger_id' => $creditLedgerId,
+                'amount' => $subtotalAmount,
+                'details' => "Buddha Lamp Booking ({$booking->booking_number})",
+                'dc' => 'C', // Credit
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+            
+            // Update booking to mark account migration as complete
+            $booking->update(['account_migration' => 1]);
+
+            Log::info('Credit entry item created', [
+                'ledger_id' => $creditLedgerId,
+                'amount' => $subtotalAmount
+            ]);
+
+            Log::info('Account migration completed successfully', [
+                'booking_id' => $bookingId,
+                'entry_id' => $entryId,
+                'has_discount' => $booking->discount_amount > 0
+            ]);
+
+            return true;
+        } catch (\Exception $e) {
+            Log::error('Error in account migration: ' . $e->getMessage(), [
+                'booking_id' => $bookingId,
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
      * Get a single Buddha Lamp booking
      *
      * @param string $id
@@ -188,7 +545,7 @@ class BuddhaLampController extends Controller
     public function show($id)
     {
         try {
-            $booking = Booking::with(['meta', 'payments', 'creator'])
+            $booking = Booking::with(['meta', 'payments', 'items', 'creator'])
                 ->where(function($query) use ($id) {
                     $query->where('id', $id)
                           ->orWhere('booking_number', $id);
@@ -222,7 +579,7 @@ class BuddhaLampController extends Controller
     }
 
     /**
-     * List all Buddha Lamp bookings with pagination
+     * Get all Buddha Lamp bookings with pagination
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -230,59 +587,42 @@ class BuddhaLampController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = Booking::with(['meta', 'payments', 'creator'])
+            $perPage = $request->input('per_page', 15);
+            $search = $request->input('search');
+            $status = $request->input('status');
+            $dateFrom = $request->input('date_from');
+            $dateTo = $request->input('date_to');
+
+            $query = Booking::with(['meta', 'payments', 'items', 'creator'])
                 ->where('booking_type', self::BOOKING_TYPE);
 
             // Apply filters
-            if ($request->has('booking_status')) {
-                $query->where('booking_status', $request->booking_status);
-            }
-
-            if ($request->has('payment_status')) {
-                $query->where('payment_status', $request->payment_status);
-            }
-
-            if ($request->has('from_date')) {
-                $query->whereDate('booking_date', '>=', $request->from_date);
-            }
-
-            if ($request->has('to_date')) {
-                $query->whereDate('booking_date', '<=', $request->to_date);
-            }
-
-            if ($request->has('search')) {
-                $search = $request->search;
+            if ($search) {
                 $query->where(function($q) use ($search) {
-                    $q->where('booking_number', 'ILIKE', "%{$search}%")
-                      ->orWhereHas('meta', function($metaQuery) use ($search) {
-                          $metaQuery->where('meta_key', 'name_primary')
-                                   ->where('meta_value', 'ILIKE', "%{$search}%");
-                      })
-                      ->orWhereHas('meta', function($metaQuery) use ($search) {
-                          $metaQuery->where('meta_key', 'name_secondary')
-                                   ->where('meta_value', 'ILIKE', "%{$search}%");
-                      })
-                      ->orWhereHas('meta', function($metaQuery) use ($search) {
-                          $metaQuery->where('meta_key', 'nric')
-                                   ->where('meta_value', 'ILIKE', "%{$search}%");
-                      })
-                      ->orWhereHas('meta', function($metaQuery) use ($search) {
-                          $metaQuery->where('meta_key', 'phone_no')
-                                   ->where('meta_value', 'ILIKE', "%{$search}%");
+                    $q->where('booking_number', 'LIKE', "%{$search}%")
+                      ->orWhereHas('meta', function($mq) use ($search) {
+                          $mq->whereIn('meta_key', ['name_primary', 'name_secondary', 'nric', 'email', 'phone_no'])
+                             ->where('meta_value', 'LIKE', "%{$search}%");
                       });
                 });
             }
 
-            // Sort
-            $sortBy = $request->get('sort_by', 'created_at');
-            $sortOrder = $request->get('sort_order', 'desc');
-            $query->orderBy($sortBy, $sortOrder);
+            if ($status) {
+                $query->where('booking_status', $status);
+            }
 
-            // Pagination
-            $perPage = $request->get('per_page', 15);
-            $bookings = $query->paginate($perPage);
+            if ($dateFrom) {
+                $query->whereDate('booking_date', '>=', $dateFrom);
+            }
 
-            // Format response
+            if ($dateTo) {
+                $query->whereDate('booking_date', '<=', $dateTo);
+            }
+
+            $bookings = $query->orderBy('created_at', 'desc')
+                              ->paginate($perPage);
+
+            // Format each booking
             $formattedBookings = $bookings->getCollection()->map(function($booking) {
                 return $this->formatBookingResponse($booking);
             });
@@ -294,7 +634,7 @@ class BuddhaLampController extends Controller
                     'current_page' => $bookings->currentPage(),
                     'last_page' => $bookings->lastPage(),
                     'per_page' => $bookings->perPage(),
-                    'total' => $bookings->total()
+                    'total' => $bookings->total(),
                 ]
             ]);
 
@@ -313,34 +653,22 @@ class BuddhaLampController extends Controller
     /**
      * Update a Buddha Lamp booking
      *
-     * @param string $id
      * @param Request $request
+     * @param string $id
      * @return \Illuminate\Http\JsonResponse
      */
-    public function update($id, Request $request)
+    public function update(Request $request, $id)
     {
-        // Validate request
         $validator = Validator::make($request->all(), [
-            'booking_date' => 'required|date',
-            'booking_status' => 'required|in:PENDING,CONFIRMED,COMPLETED',
-            'total_amount' => 'required|numeric|min:0',
-            'paid_amount' => 'required|numeric|min:0',
-            'print_option' => 'required|in:NO_PRINT,SINGLE_PRINT,SEP_PRINT',
+            'booking_date' => 'sometimes|date',
+            'booking_status' => 'sometimes|in:PENDING,CONFIRMED,COMPLETED,CANCELLED',
             'special_instructions' => 'nullable|string',
-            
-            // Meta validation
-            'meta.nric' => 'required|string|max:50',
-            'meta.name_primary' => 'required|string|max:255',
+            'meta.nric' => 'sometimes|string|max:50',
+            'meta.name_primary' => 'sometimes|string|max:255',
             'meta.name_secondary' => 'nullable|string|max:255',
-            'meta.email' => 'required|email|max:255',
-            'meta.phone_no' => 'required|string|max:50',
+            'meta.email' => 'sometimes|email|max:255',
+            'meta.phone_no' => 'sometimes|string|max:50',
             'meta.additional_notes' => 'nullable|string',
-            
-            // Payment validation
-            'payment.amount' => 'required|numeric|min:0',
-            'payment.payment_mode_id' => 'required|exists:payment_modes,id',
-            'payment.payment_type' => 'required|in:FULL,SPLIT,DEPOSIT,PARTIAL',
-            'payment.payment_status' => 'required|in:PENDING,SUCCESS,FAILED',
         ]);
 
         if ($validator->fails()) {
@@ -354,10 +682,11 @@ class BuddhaLampController extends Controller
         DB::beginTransaction();
 
         try {
-            $user = $request->user();
-            
-            // Find booking
-            $booking = Booking::where('id', $id)
+            $booking = Booking::with(['meta'])
+                ->where(function($query) use ($id) {
+                    $query->where('id', $id)
+                          ->orWhere('booking_number', $id);
+                })
                 ->where('booking_type', self::BOOKING_TYPE)
                 ->first();
 
@@ -368,124 +697,55 @@ class BuddhaLampController extends Controller
                 ], 404);
             }
 
-            // Check if booking can be edited
-            if ($booking->booking_status === 'CANCELLED') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Cancelled bookings cannot be edited'
-                ], 400);
+            // Update booking fields
+            $updateData = [];
+            if ($request->has('booking_date')) {
+                $updateData['booking_date'] = Carbon::parse($request->input('booking_date'));
+            }
+            if ($request->has('booking_status')) {
+                $updateData['booking_status'] = $request->input('booking_status');
+            }
+            if ($request->has('special_instructions')) {
+                $updateData['special_instructions'] = $request->input('special_instructions');
             }
 
-            // Get payment mode name for reference
-            $paymentMode = PaymentMode::find($request->input('payment.payment_mode_id'));
-            
-            // Determine payment status
-            $paidAmount = $request->input('paid_amount');
-            $totalAmount = $request->input('total_amount');
-            $paymentStatus = $this->determinePaymentStatus($paidAmount, $totalAmount);
-            
-            // Update booking record
-            $booking->update([
-                'booking_date' => Carbon::parse($request->input('booking_date')),
-                'booking_status' => $request->input('booking_status'),
-                'payment_status' => $paymentStatus,
-                'subtotal' => $totalAmount,
-                'total_amount' => $totalAmount,
-                'paid_amount' => $paidAmount,
-                'payment_method' => $paymentMode ? $paymentMode->name : null,
-                'print_option' => $request->input('print_option'),
-                'special_instructions' => $request->input('special_instructions'),
-                'updated_at' => now(),
-            ]);
-
-            // Update booking meta records
-            $metaData = $request->input('meta');
-            $metaUpdates = [
-                'nric' => $metaData['nric'],
-                'name_primary' => $metaData['name_primary'],
-                'name_secondary' => $metaData['name_secondary'] ?? '',
-                'email' => $metaData['email'],
-                'phone_no' => $metaData['phone_no'],
-                'additional_notes' => $metaData['additional_notes'] ?? '',
-            ];
-
-            foreach ($metaUpdates as $key => $value) {
-                BookingMeta::updateOrCreate(
-                    [
-                        'booking_id' => $booking->id,
-                        'meta_key' => $key
-                    ],
-                    [
-                        'meta_value' => $value,
-                        'meta_type' => 'STRING',
-                        'updated_at' => now(),
-                    ]
-                );
+            if (!empty($updateData)) {
+                $booking->update($updateData);
             }
 
-            // Update or create payment record
-            $paymentData = $request->input('payment');
-            $existingPayment = BookingPayment::where('booking_id', $booking->id)
-                ->where('payment_status', 'SUCCESS')
-                ->first();
-
-            if ($existingPayment) {
-                // Update existing payment
-                $existingPayment->update([
-                    'amount' => $paymentData['amount'],
-                    'payment_mode_id' => $paymentData['payment_mode_id'],
-                    'payment_method' => $paymentMode ? $paymentMode->name : null,
-                    'payment_type' => $paymentData['payment_type'],
-                    'payment_status' => $paymentData['payment_status'],
-                    'updated_by' => $user->id,
-                    'updated_at' => now(),
-                ]);
-            } else {
-                // Create new payment if none exists
-                $isLive = config('app.env') === 'production';
-                $paymentReference = $this->generatePaymentReference($isLive);
-                
-                BookingPayment::create([
-                    'booking_id' => $booking->id,
-                    'payment_date' => now(),
-                    'amount' => $paymentData['amount'],
-                    'payment_mode_id' => $paymentData['payment_mode_id'],
-                    'payment_method' => $paymentMode ? $paymentMode->name : null,
-                    'payment_reference' => $paymentReference,
-                    'payment_type' => $paymentData['payment_type'],
-                    'payment_status' => $paymentData['payment_status'],
-                    'created_by' => $user->id,
-                ]);
+            // Update meta records
+            if ($request->has('meta')) {
+                $metaData = $request->input('meta');
+                foreach ($metaData as $key => $value) {
+                    BookingMeta::updateOrCreate(
+                        ['booking_id' => $booking->id, 'meta_key' => $key],
+                        ['meta_value' => $value, 'meta_type' => 'STRING']
+                    );
+                }
             }
 
             DB::commit();
 
-            // Load relationships for response
-            $booking->load(['meta', 'payments', 'creator']);
-
-            // Format response data
-            $responseData = $this->formatBookingResponse($booking);
+            // Reload relationships
+            $booking->load(['meta', 'payments', 'items', 'creator']);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Buddha Lamp booking updated successfully',
-                'data' => $responseData
+                'message' => 'Booking updated successfully',
+                'data' => $this->formatBookingResponse($booking)
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
             
-            Log::error('Buddha Lamp booking update failed', [
+            Log::error('Failed to update Buddha Lamp booking', [
                 'id' => $id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'request' => $request->all()
+                'error' => $e->getMessage()
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update booking: ' . $e->getMessage(),
-                'error' => config('app.debug') ? $e->getMessage() : 'An error occurred'
+                'message' => 'Failed to update booking'
             ], 500);
         }
     }
@@ -494,13 +754,15 @@ class BuddhaLampController extends Controller
      * Cancel a Buddha Lamp booking
      *
      * @param string $id
-     * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function cancel($id, Request $request)
+    public function cancel($id)
     {
         try {
-            $booking = Booking::where('id', $id)
+            $booking = Booking::where(function($query) use ($id) {
+                    $query->where('id', $id)
+                          ->orWhere('booking_number', $id);
+                })
                 ->where('booking_type', self::BOOKING_TYPE)
                 ->first();
 
@@ -518,13 +780,6 @@ class BuddhaLampController extends Controller
                 ], 400);
             }
 
-            if ($booking->booking_status === 'COMPLETED') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Cannot cancel a completed booking'
-                ], 400);
-            }
-
             $booking->update([
                 'booking_status' => 'CANCELLED',
                 'updated_at' => now()
@@ -532,8 +787,7 @@ class BuddhaLampController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Booking cancelled successfully',
-                'data' => $this->formatBookingResponse($booking->fresh(['meta', 'payments']))
+                'message' => 'Booking cancelled successfully'
             ]);
 
         } catch (\Exception $e) {
@@ -545,138 +799,6 @@ class BuddhaLampController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to cancel booking'
-            ], 500);
-        }
-    }
-
-    /**
-     * Delete a Buddha Lamp booking (soft delete)
-     *
-     * @param string $id
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function destroy($id, Request $request)
-    {
-        try {
-            $booking = Booking::where('id', $id)
-                ->where('booking_type', self::BOOKING_TYPE)
-                ->first();
-
-            if (!$booking) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Booking not found'
-                ], 404);
-            }
-
-            // Only allow deletion of cancelled or pending bookings
-            if (!in_array($booking->booking_status, ['CANCELLED', 'PENDING'])) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Only cancelled or pending bookings can be deleted'
-                ], 400);
-            }
-
-            // Soft delete or hard delete based on configuration
-            $booking->delete();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Booking deleted successfully'
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Failed to delete Buddha Lamp booking', [
-                'id' => $id,
-                'error' => $e->getMessage()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to delete booking'
-            ], 500);
-        }
-    }
-
-    /**
-     * Get booking statistics
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function statistics(Request $request)
-    {
-        try {
-            $query = Booking::where('booking_type', self::BOOKING_TYPE);
-
-            // Apply date filters if provided
-            if ($request->has('from_date')) {
-                $query->whereDate('booking_date', '>=', $request->from_date);
-            }
-
-            if ($request->has('to_date')) {
-                $query->whereDate('booking_date', '<=', $request->to_date);
-            }
-
-            // Get statistics
-            $totalBookings = (clone $query)->count();
-            $totalAmount = (clone $query)->sum('total_amount');
-            $paidAmount = (clone $query)->sum('paid_amount');
-            
-            $confirmedBookings = (clone $query)->where('booking_status', 'CONFIRMED')->count();
-            $completedBookings = (clone $query)->where('booking_status', 'COMPLETED')->count();
-            $cancelledBookings = (clone $query)->where('booking_status', 'CANCELLED')->count();
-            $pendingBookings = (clone $query)->where('booking_status', 'PENDING')->count();
-            
-            $fullyPaid = (clone $query)->where('payment_status', 'FULL')->count();
-            $partiallyPaid = (clone $query)->where('payment_status', 'PARTIAL')->count();
-            $unpaid = (clone $query)->where('payment_status', 'PENDING')->count();
-
-            // This month statistics
-            $thisMonthQuery = Booking::where('booking_type', self::BOOKING_TYPE)
-                ->whereMonth('booking_date', Carbon::now()->month)
-                ->whereYear('booking_date', Carbon::now()->year);
-            
-            $thisMonthBookings = $thisMonthQuery->count();
-            $thisMonthAmount = $thisMonthQuery->sum('total_amount');
-
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'total_bookings' => $totalBookings,
-                    'total_amount' => (float) $totalAmount,
-                    'paid_amount' => (float) $paidAmount,
-                    'outstanding_amount' => (float) ($totalAmount - $paidAmount),
-                    
-                    'by_status' => [
-                        'confirmed' => $confirmedBookings,
-                        'completed' => $completedBookings,
-                        'cancelled' => $cancelledBookings,
-                        'pending' => $pendingBookings,
-                    ],
-                    
-                    'by_payment' => [
-                        'fully_paid' => $fullyPaid,
-                        'partially_paid' => $partiallyPaid,
-                        'unpaid' => $unpaid,
-                    ],
-                    
-                    'this_month' => [
-                        'bookings' => $thisMonthBookings,
-                        'amount' => (float) $thisMonthAmount,
-                    ]
-                ]
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Failed to fetch Buddha Lamp statistics', [
-                'error' => $e->getMessage()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to fetch statistics'
             ], 500);
         }
     }
@@ -770,6 +892,9 @@ class BuddhaLampController extends Controller
 
         // Get latest payment info
         $latestPayment = $booking->payments ? $booking->payments->first() : null;
+        
+        // Get booking item info
+        $bookingItem = $booking->items ? $booking->items->first() : null;
 
         return [
             'id' => $booking->id,
@@ -778,10 +903,17 @@ class BuddhaLampController extends Controller
             'booking_date' => $booking->booking_date ? $booking->booking_date->format('Y-m-d') : null,
             'booking_status' => $booking->booking_status,
             'payment_status' => $booking->payment_status,
+            'subtotal' => (float) $booking->subtotal,
+            'discount_amount' => (float) $booking->discount_amount,
             'total_amount' => (float) $booking->total_amount,
             'paid_amount' => (float) $booking->paid_amount,
             'print_option' => $booking->print_option,
             'special_instructions' => $booking->special_instructions,
+            
+            // Buddha Lamp Master info
+            'buddha_lamp_master_id' => $metaData['buddha_lamp_master_id'] ?? null,
+            'buddha_lamp_name' => $metaData['buddha_lamp_name'] ?? null,
+            'is_custom_amount' => ($metaData['is_custom_amount'] ?? 'false') === 'true',
             
             // Meta data
             'nric' => $metaData['nric'] ?? null,
@@ -790,6 +922,19 @@ class BuddhaLampController extends Controller
             'email' => $metaData['email'] ?? null,
             'phone_no' => $metaData['phone_no'] ?? null,
             'additional_notes' => $metaData['additional_notes'] ?? null,
+            
+            // Booking Item info
+            'item' => $bookingItem ? [
+                'id' => $bookingItem->id,
+                'item_id' => $bookingItem->item_id,
+                'item_name' => $bookingItem->item_name,
+                'item_description' => $bookingItem->item_description,
+                'quantity' => $bookingItem->quantity,
+                'unit_price' => (float) $bookingItem->unit_price,
+                'discount_amount' => (float) ($bookingItem->discount_amount ?? 0),
+                'total_price' => (float) ($bookingItem->total_price ?? $bookingItem->total_amount),
+                'status' => $bookingItem->status,
+            ] : null,
             
             // Payment info
             'payment' => $latestPayment ? [
@@ -810,5 +955,67 @@ class BuddhaLampController extends Controller
                 'name' => $booking->creator->name ?? $booking->creator->username,
             ] : null,
         ];
+    }
+	
+	/**
+     * Get or create Discount ledger
+     * Creates under Expenses group (7000) if not exists
+     *
+     * @return int
+     */
+    private function getOrCreateDiscountLedger()
+    {
+        // Get or create "Expenses" group
+        $expensesGroup = DB::table('groups')->where('code', '7000')->first();
+
+        if (!$expensesGroup) {
+            // Create Expenses group if it doesn't exist
+            $expensesGroupId = DB::table('groups')->insertGetId([
+                'parent_id' => 0,
+                'name' => 'Expenses',
+                'code' => '7000',
+                'added_by' => auth()->id(),
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+        } else {
+            $expensesGroupId = $expensesGroup->id;
+        }
+
+        // Get or create "Discount Given" ledger
+        $discountLedger = DB::table('ledgers')
+            ->where('name', 'Discount Given')
+            ->where('group_id', $expensesGroupId)
+            ->first();
+
+        if (!$discountLedger) {
+            // Get the next right_code for this group
+            $lastRightCode = DB::table('ledgers')
+                ->where('group_id', $expensesGroupId)
+                ->where('left_code', '7000')
+                ->orderBy('right_code', 'desc')
+                ->value('right_code');
+
+            $newRightCode = $lastRightCode ? str_pad(((int)$lastRightCode + 1), 4, '0', STR_PAD_LEFT) : '0001';
+
+            $discountLedgerId = DB::table('ledgers')->insertGetId([
+                'group_id' => $expensesGroupId,
+                'name' => 'Discount Given',
+                'left_code' => '7000',
+                'right_code' => $newRightCode,
+                'type' => 0,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            Log::info('Created Discount Given ledger', [
+                'ledger_id' => $discountLedgerId,
+                'group_id' => $expensesGroupId
+            ]);
+        } else {
+            $discountLedgerId = $discountLedger->id;
+        }
+
+        return $discountLedgerId;
     }
 }

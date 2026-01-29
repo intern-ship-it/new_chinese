@@ -25,11 +25,16 @@ class PagodaTowerController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = PagodaTower::with(['blocks', 'creator', 'updater']);
+            $query = PagodaTower::with(['blocks', 'category', 'deity', 'creator', 'updater']);
             
             // Filter by status
             if ($request->has('status')) {
                 $query->where('status', $request->status);
+            }
+            
+            // Filter by category
+            if ($request->has('category_id')) {
+                $query->where('category_id', $request->category_id);
             }
             
             // Search
@@ -46,6 +51,10 @@ class PagodaTowerController extends Controller
                     'id' => $tower->id,
                     'tower_name' => $tower->tower_name,
                     'tower_code' => $tower->tower_code,
+                    'category_id' => $tower->category_id,
+                    'category_name' => $tower->category ? $tower->category->full_name : null,
+                    'deity_id' => $tower->deity_id,
+                    'deity_name' => $tower->deity ? $tower->deity->name : null,
                     'description' => $tower->description,
                     'location' => $tower->location,
                     'status' => $tower->status,
@@ -53,6 +62,7 @@ class PagodaTowerController extends Controller
                     'total_capacity' => $tower->total_capacity,
                     'available_lights' => $tower->available_lights,
                     'booked_lights' => $tower->booked_lights,
+                    'total_lights' => $tower->total_capacity,
                     'occupancy_rate' => $tower->total_capacity > 0 
                         ? round(($tower->booked_lights / $tower->total_capacity) * 100, 2) 
                         : 0,
@@ -75,7 +85,7 @@ class PagodaTowerController extends Controller
     public function show($id)
     {
         try {
-            $tower = PagodaTower::with(['blocks.lightSlots'])->findOrFail($id);
+            $tower = PagodaTower::with(['blocks.lightSlots', 'category', 'deity'])->findOrFail($id);
             
             // Get statistics
             $stats = $this->lightService->getLightStatistics($tower->id);
@@ -85,6 +95,10 @@ class PagodaTowerController extends Controller
                     'id' => $tower->id,
                     'tower_name' => $tower->tower_name,
                     'tower_code' => $tower->tower_code,
+                    'category_id' => $tower->category_id,
+                    'category_name' => $tower->category ? $tower->category->full_name : null,
+                    'deity_id' => $tower->deity_id,
+                    'deity_name' => $tower->deity ? $tower->deity->name : null,
                     'description' => $tower->description,
                     'location' => $tower->location,
                     'status' => $tower->status,
@@ -123,6 +137,8 @@ class PagodaTowerController extends Controller
         $validator = Validator::make($request->all(), [
             'tower_name' => 'required|string|max:100',
             'tower_code' => 'required|string|max:10|unique:pagoda_towers,tower_code',
+            'category_id' => 'required|uuid|exists:tower_categories,id',
+            'deity_id' => 'nullable|exists:deities,id',
             'description' => 'nullable|string',
             'location' => 'nullable|string|max:255',
             'status' => 'in:active,inactive,maintenance'
@@ -136,6 +152,8 @@ class PagodaTowerController extends Controller
             $tower = PagodaTower::create([
                 'tower_name' => $request->tower_name,
                 'tower_code' => strtoupper($request->tower_code),
+                'category_id' => $request->category_id,
+                'deity_id' => $request->deity_id,
                 'description' => $request->description,
                 'location' => $request->location,
                 'status' => $request->status ?? 'active',
@@ -161,6 +179,8 @@ class PagodaTowerController extends Controller
         $validator = Validator::make($request->all(), [
             'tower_name' => 'required|string|max:100',
             'tower_code' => 'required|string|max:10|unique:pagoda_towers,tower_code,' . $id,
+            'category_id' => 'required|uuid|exists:tower_categories,id',
+            'deity_id' => 'nullable|exists:deities,id',
             'description' => 'nullable|string',
             'location' => 'nullable|string|max:255',
             'status' => 'in:active,inactive,maintenance'
@@ -176,6 +196,8 @@ class PagodaTowerController extends Controller
             $tower->update([
                 'tower_name' => $request->tower_name,
                 'tower_code' => strtoupper($request->tower_code),
+                'category_id' => $request->category_id,
+                'deity_id' => $request->deity_id,
                 'description' => $request->description,
                 'location' => $request->location,
                 'status' => $request->status,

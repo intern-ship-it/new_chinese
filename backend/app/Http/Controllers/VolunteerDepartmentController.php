@@ -116,7 +116,7 @@ class VolunteerDepartmentController extends Controller
             $department = VolunteerDepartment::where('id', $id)
                 ->whereNull('deleted_at')
                 ->with([
-                    'coordinatorUser:id,name,email,mobile',
+                    'coordinatorUser:id,name,email,mobile_no',
                     'tasks' => function($query) {
                         $query->whereNull('deleted_at')
                               ->select('id', 'department_id', 'task_name', 'task_code', 'status');
@@ -167,6 +167,7 @@ class VolunteerDepartmentController extends Controller
         try {
             $validator = Validator::make($request->all(), [
                 'department_name' => 'required|string|max:100',
+                  'department_name_en' => 'nullable|string|max:100',
                 'department_code' => 'required|string|max:20',
                 'description' => 'nullable|string',
                 'coordinator_user_id' => 'nullable|uuid|exists:users,id',
@@ -217,6 +218,7 @@ class VolunteerDepartmentController extends Controller
             // Create department
             $department = VolunteerDepartment::create([
                 'department_name' => $request->department_name,
+                          'department_name_en' => $request->department_name_en,
                 'department_code' => strtoupper($request->department_code),
                 'description' => $request->description,
                 'coordinator_user_id' => $request->coordinator_user_id,
@@ -263,6 +265,7 @@ class VolunteerDepartmentController extends Controller
         try {
             $validator = Validator::make($request->all(), [
                 'department_name' => 'required|string|max:100',
+                       'department_name_en' => 'nullable|string|max:100',
                 'department_code' => 'required|string|max:20',
                 'description' => 'nullable|string',
                 'coordinator_user_id' => 'nullable|uuid|exists:users,id',
@@ -327,6 +330,7 @@ class VolunteerDepartmentController extends Controller
             // Update department
             $department->update([
                 'department_name' => $request->department_name,
+                          'department_name_en' => $request->department_name_en,
                 'department_code' => strtoupper($request->department_code),
                 'description' => $request->description,
                 'coordinator_user_id' => $request->coordinator_user_id,

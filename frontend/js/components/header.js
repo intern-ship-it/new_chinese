@@ -32,13 +32,6 @@
                         
                         <div class="collapse navbar-collapse" id="navbarNav">
                             <ul class="navbar-nav ms-auto">
-                                                    <!-- POS Button -->
-                        <li class="nav-item me-3">
-                            <a class="nav-link pos-button" href="#" id="posButton" title="Point of Sale">
-                                <i class="bi bi-cash-register"></i>
-                                <span class="d-none d-lg-inline ms-1">POS</span>
-                            </a>
-                        </li>
                                 <!-- Notifications -->
                                 <li class="nav-item dropdown me-3">
                                     <a class="nav-link position-relative" href="#" id="notificationDropdown" role="button" data-bs-toggle="dropdown">
@@ -335,6 +328,7 @@
         },
 
         // Change password
+        // Change password
         changePassword: function () {
             const currentPassword = $('#currentPassword').val();
             const newPassword = $('#newPassword').val();
@@ -363,24 +357,82 @@
 
             TempleAPI.post('/auth/change-password', {
                 current_password: currentPassword,
-                new_password: newPassword
+                new_password: newPassword,
+                new_password_confirmation: confirmPassword
             })
                 .done(function (response) {
                     if (response.success) {
+                        // Close modal
                         bootstrap.Modal.getInstance(document.getElementById('changePasswordModal')).hide();
                         $('#changePasswordForm')[0].reset();
-                        TempleCore.showToast('Password changed successfully', 'success');
+
+                        // Show success message
+                        TempleCore.showToast('Password changed successfully. Please login with your new password.', 'success');
+
+                        // ✅ Get temple code BEFORE clearing storage
+                        const temple = JSON.parse(localStorage.getItem(APP_CONFIG.STORAGE.TEMPLE) || '{}');
+                        const templeCode = temple.code || 'temple1'; // Default fallback
+
+                        // Wait 2 seconds then logout and redirect to login
+                        setTimeout(function () {
+                            // Clear storage
+                            localStorage.removeItem(APP_CONFIG.STORAGE.TOKEN);
+                            localStorage.removeItem(APP_CONFIG.STORAGE.REFRESH_TOKEN);
+                            localStorage.removeItem(APP_CONFIG.STORAGE.USER);
+                            localStorage.removeItem(APP_CONFIG.STORAGE.TEMPLE);
+                            TempleAPI.logout();
+
+                        }, 300);
                     } else {
-                        TempleCore.showToast(response.message || 'Failed to change password', 'error');
+                        // Handle validation errors properly
+                        let errorMessage = response.message || 'Failed to change password';
+
+                        if (response.errors) {
+                            const errors = [];
+                            $.each(response.errors, function (field, messages) {
+                                if (Array.isArray(messages)) {
+                                    errors.push(...messages);
+                                } else {
+                                    errors.push(messages);
+                                }
+                            });
+                            if (errors.length > 0) {
+                                errorMessage = errors.join('<br>');
+                            }
+                        }
+
+                        TempleCore.showToast(errorMessage, 'error');
+                        TempleCore.showLoading(false);
                     }
                 })
-                .fail(function () {
-                    TempleCore.showToast('An error occurred while changing password', 'error');
-                })
-                .always(function () {
+                .fail(function (xhr) {
+                    let errorMessage = 'An error occurred while changing password';
+
+                    if (xhr.responseJSON) {
+                        if (xhr.responseJSON.message) {
+                            errorMessage = xhr.responseJSON.message;
+                        }
+
+                        if (xhr.responseJSON.errors) {
+                            const errors = [];
+                            $.each(xhr.responseJSON.errors, function (field, messages) {
+                                if (Array.isArray(messages)) {
+                                    errors.push(...messages);
+                                } else {
+                                    errors.push(messages);
+                                }
+                            });
+                            if (errors.length > 0) {
+                                errorMessage = errors.join('<br>');
+                            }
+                        }
+                    }
+
+                    TempleCore.showToast(errorMessage, 'error');
                     TempleCore.showLoading(false);
                 });
         },
+
 
         // Toggle mobile sidebar
         toggleMobileSidebar: function () {

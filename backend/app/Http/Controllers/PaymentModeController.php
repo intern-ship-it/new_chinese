@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use App\Models\User;
-
+use App\Models\PaymentModeMeta; 
 class PaymentModeController extends Controller
 {
     protected $s3UploadService;
@@ -139,44 +139,53 @@ class PaymentModeController extends Controller
     /**
      * Get single payment mode with decrypted fields for editing
      */
-    public function show($id)
-    {
-      	$user = Auth::user();
-		$permissions = $this->assignPermissions($user);
-        try {
-            $paymentMode = PaymentMode::with(['roles:id,name,display_name', 'modules:id,name,display_name'])->find($id);
+public function show($id)
+{
+    $user = Auth::user();
+    $permissions = $this->assignPermissions($user);
+    
+    try {
+        $paymentMode = PaymentMode::with([
+            'roles:id,name,display_name', 
+            'modules:id,name,display_name',
+            'meta' // NEW: Load meta relationship
+        ])->find($id);
 
-            if (!$paymentMode) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Payment mode not found'
-                ], 404);
-            }
-
-            $response = $paymentMode->toArray();
-            $response['role_ids'] = $paymentMode->roles->pluck('id')->toArray();
-            $response['module_ids'] = $paymentMode->modules->pluck('id')->toArray();
-            $response['icon_display_url'] = $this->getIconDisplayUrl($paymentMode);
-
-
-            if (Auth::user()->hasRole('super_admin') && $paymentMode->is_payment_gateway) {
-                $response['merchant_key'] = $paymentMode->merchant_key;
-                $response['password'] = $paymentMode->password;
-            }
-
-            return response()->json([
-                'success' => true,
-                'data' => $response,
-                'permissions'=>$permissions
-            ]);
-        } catch (\Exception $e) {
+        if (!$paymentMode) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to fetch payment mode',
-                'error' => $e->getMessage()
-            ], 500);
+                'message' => 'Payment mode not found'
+            ], 404);
         }
+
+        $response = $paymentMode->toArray();
+        $response['role_ids'] = $paymentMode->roles->pluck('id')->toArray();
+        $response['module_ids'] = $paymentMode->modules->pluck('id')->toArray();
+        $response['icon_display_url'] = $this->getIconDisplayUrl($paymentMode);
+
+        // NEW: Add formatted gateway meta
+        if ($paymentMode->is_payment_gateway) {
+            $response['gateway_meta'] = $paymentMode->getMetaWithTypes();
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $response,
+            'permissions' => $permissions
+        ]);
+    } catch (\Exception $e) {
+        Log::error('Failed to fetch payment mode', [
+            'id' => $id,
+            'error' => $e->getMessage()
+        ]);
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to fetch payment mode',
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
 
     /**
      * Create new payment mode with role and module assignments
@@ -189,6 +198,7 @@ class PaymentModeController extends Controller
                 'message' => 'You do not have permission to create payment modes'
             ], 403);
         }
+
         try {
             $rules = [
                 'name' => 'required|string|max:100|unique:payment_modes,name',
@@ -206,11 +216,9 @@ class PaymentModeController extends Controller
                 'icon' => 'required_if:icon_type,upload|file|mimes:png,jpg,jpeg,svg|max:2048'
             ];
 
+            // NEW: Add gateway meta validation
             if ($request->is_payment_gateway) {
-                $rules['merchant_code'] = 'nullable|string|max:255';
-                $rules['merchant_key'] = 'nullable|string|max:255';
-                $rules['password'] = 'nullable|string|max:255';
-                $rules['url'] = 'nullable|url|max:255';
+                $rules['gateway_meta'] = 'required|json';
             }
 
             $validator = Validator::make($request->all(), $rules);
@@ -232,13 +240,6 @@ class PaymentModeController extends Controller
             $paymentMode->status = $request->get('status', 1);
             $paymentMode->is_payment_gateway = $request->get('is_payment_gateway', false);
             $paymentMode->is_live = $request->get('is_live', false);
-
-            if ($request->is_payment_gateway) {
-                $paymentMode->merchant_code = $request->merchant_code;
-                $paymentMode->merchant_key = $request->merchant_key;
-                $paymentMode->password = $request->password;
-                $paymentMode->url = $request->url;
-            }
 
             // Handle icon
             if ($request->icon_type === 'bootstrap') {
@@ -263,12 +264,31 @@ class PaymentModeController extends Controller
             $paymentMode->created_by = Auth::id();
             $paymentMode->save();
 
+            // Attach roles and modules
             $paymentMode->roles()->attach($request->role_ids);
             $paymentMode->modules()->attach($request->module_ids);
 
+            // NEW: Save gateway meta data
+            if ($request->is_payment_gateway && $request->has('gateway_meta')) {
+                $gatewayMeta = json_decode($request->gateway_meta, true);
+
+                if (is_array($gatewayMeta)) {
+                    foreach ($gatewayMeta as $meta) {
+                        if (!empty($meta['key'])) {
+                            PaymentModeMeta::create([
+                                'payment_mode_id' => $paymentMode->id,
+                                'meta_key' => $meta['key'],
+                                'meta_value' => $meta['value'] ?? '',
+                                'meta_type' => $meta['type'] ?? 'text'
+                            ]);
+                        }
+                    }
+                }
+            }
+
             DB::commit();
 
-            $paymentMode->load('roles:id,name,display_name', 'modules:id,name,display_name');
+            $paymentMode->load('roles:id,name,display_name', 'modules:id,name,display_name', 'meta');
 
             return response()->json([
                 'success' => true,
@@ -277,6 +297,11 @@ class PaymentModeController extends Controller
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Payment mode creation failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create payment mode',
@@ -296,6 +321,7 @@ class PaymentModeController extends Controller
                 'message' => 'You do not have permission to edit payment modes'
             ], 403);
         }
+
         try {
             $paymentMode = PaymentMode::find($id);
 
@@ -319,15 +345,13 @@ class PaymentModeController extends Controller
                 'module_ids.*' => 'exists:modules,id',
                 'icon_type' => 'in:bootstrap,upload',
                 'icon_bootstrap' => 'required_if:icon_type,bootstrap|string|max:100',
-                'icon' => 'required_if:icon_type,upload|file|mimes:png,jpg,jpeg,svg|max:2048',
+                'icon' => 'file|mimes:png,jpg,jpeg,svg|max:2048',
                 'remove_icon' => 'boolean'
             ];
 
+            // NEW: Add gateway meta validation
             if ($request->get('is_payment_gateway', $paymentMode->is_payment_gateway)) {
-                $rules['merchant_code'] = 'nullable|string|max:255';
-                $rules['merchant_key'] = 'nullable|string|max:255';
-                $rules['password'] = 'nullable|string|max:255';
-                $rules['url'] = 'nullable|url|max:255';
+                $rules['gateway_meta'] = 'json';
             }
 
             $validator = Validator::make($request->all(), $rules);
@@ -349,26 +373,17 @@ class PaymentModeController extends Controller
 
             if ($request->has('is_payment_gateway')) {
                 $paymentMode->is_payment_gateway = $request->is_payment_gateway;
+
+                // NEW: Clear meta if gateway is disabled
                 if (!$request->is_payment_gateway) {
-                    $paymentMode->merchant_code = null;
-                    $paymentMode->merchant_key = null;
-                    $paymentMode->password = null;
-                    $paymentMode->url = null;
+                    $paymentMode->meta()->delete();
                 }
             }
 
             if ($request->has('is_live')) $paymentMode->is_live = $request->is_live;
 
-            if ($paymentMode->is_payment_gateway) {
-                if ($request->has('merchant_code')) $paymentMode->merchant_code = $request->merchant_code;
-                if ($request->has('merchant_key')) $paymentMode->merchant_key = $request->merchant_key;
-                if ($request->has('password')) $paymentMode->password = $request->password;
-                if ($request->has('url')) $paymentMode->url = $request->url;
-            }
-
             // Handle icon updates
             if ($request->has('remove_icon') && $request->remove_icon) {
-                // Remove uploaded icon if exists
                 if ($paymentMode->icon_type === 'upload' && $paymentMode->icon_path) {
                     $this->s3UploadService->deleteSignature($paymentMode->icon_path);
                 }
@@ -378,7 +393,6 @@ class PaymentModeController extends Controller
                 $paymentMode->icon_url = null;
             } elseif ($request->has('icon_type')) {
                 if ($request->icon_type === 'bootstrap') {
-                    // Remove old uploaded icon if switching to bootstrap
                     if ($paymentMode->icon_type === 'upload' && $paymentMode->icon_path) {
                         $this->s3UploadService->deleteSignature($paymentMode->icon_path);
                     }
@@ -387,7 +401,6 @@ class PaymentModeController extends Controller
                     $paymentMode->icon_path = null;
                     $paymentMode->icon_url = null;
                 } elseif ($request->icon_type === 'upload' && $request->hasFile('icon')) {
-                    // Remove old uploaded icon
                     if ($paymentMode->icon_type === 'upload' && $paymentMode->icon_path) {
                         $this->s3UploadService->deleteSignature($paymentMode->icon_path);
                     }
@@ -418,9 +431,31 @@ class PaymentModeController extends Controller
                 $paymentMode->modules()->sync($request->module_ids);
             }
 
+            // NEW: Update gateway meta data
+            if ($paymentMode->is_payment_gateway && $request->has('gateway_meta')) {
+                // Delete existing meta
+                $paymentMode->meta()->delete();
+
+                // Add new meta
+                $gatewayMeta = json_decode($request->gateway_meta, true);
+
+                if (is_array($gatewayMeta)) {
+                    foreach ($gatewayMeta as $meta) {
+                        if (!empty($meta['key'])) {
+                            PaymentModeMeta::create([
+                                'payment_mode_id' => $paymentMode->id,
+                                'meta_key' => $meta['key'],
+                                'meta_value' => $meta['value'] ?? '',
+                                'meta_type' => $meta['type'] ?? 'text'
+                            ]);
+                        }
+                    }
+                }
+            }
+
             DB::commit();
 
-            $paymentMode->load('roles:id,name,display_name', 'modules:id,name,display_name');
+            $paymentMode->load('roles:id,name,display_name', 'modules:id,name,display_name', 'meta');
 
             return response()->json([
                 'success' => true,
@@ -429,6 +464,12 @@ class PaymentModeController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Payment mode update failed', [
+                'id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update payment mode',
@@ -436,183 +477,287 @@ class PaymentModeController extends Controller
             ], 500);
         }
     }
-
     /**
      * Delete payment mode
      */
-    public function destroy($id)
-    {
-        		if (!Auth::user()->can('payment_modes.delete')) {
-			return response()->json([
-				'success' => false,
-				'message' => 'You do not have permission to delete payment modes'
-			], 403);
-		}
-        try {
-            $paymentMode = PaymentMode::find($id);
+public function destroy($id)
+{
+    if (!Auth::user()->can('payment_modes.delete')) {
+        return response()->json([
+            'success' => false,
+            'message' => 'You do not have permission to delete payment modes'
+        ], 403);
+    }
+    
+    try {
+        $paymentMode = PaymentMode::find($id);
 
-            if (!$paymentMode) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Payment mode not found'
-                ], 404);
-            }
+        if (!$paymentMode) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Payment mode not found'
+            ], 404);
+        }
 
-            $inUse = DB::table('purchase_payments')
-                ->where('payment_mode_id', $id)
-                ->exists();
+        $inUse = DB::table('purchase_payments')
+            ->where('payment_mode_id', $id)
+            ->exists();
 
-            if ($inUse) {
-                $paymentMode->status = 0;
-                $paymentMode->save();
-
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Payment mode deactivated as it is being used in transactions'
-                ]);
-            }
-
-            DB::beginTransaction();
-
-            // Delete uploaded icon if exists
-            if ($paymentMode->icon_type === 'upload' && $paymentMode->icon_path) {
-                $this->s3UploadService->deleteSignature($paymentMode->icon_path);
-            }
-
-            $paymentMode->roles()->detach();
-            $paymentMode->modules()->detach();
-            $paymentMode->delete();
-
-            DB::commit();
+        if ($inUse) {
+            $paymentMode->status = 0;
+            $paymentMode->save();
 
             return response()->json([
                 'success' => true,
-                'message' => 'Payment mode deleted successfully'
+                'message' => 'Payment mode deactivated as it is being used in transactions'
             ]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to delete payment mode',
-                'error' => $e->getMessage()
-            ], 500);
         }
+
+        DB::beginTransaction();
+
+        // Delete uploaded icon if exists
+        if ($paymentMode->icon_type === 'upload' && $paymentMode->icon_path) {
+            $this->s3UploadService->deleteSignature($paymentMode->icon_path);
+        }
+
+        // NEW: Delete meta data
+        $paymentMode->meta()->delete();
+        
+        $paymentMode->roles()->detach();
+        $paymentMode->modules()->detach();
+        $paymentMode->delete();
+
+        DB::commit();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Payment mode deleted successfully'
+        ]);
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Payment mode deletion failed', [
+            'id' => $id,
+            'error' => $e->getMessage()
+        ]);
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to delete payment mode',
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
 
     /**
      * Get active payment modes for current user's role and specific module
      */
-public function getActivePaymentModes(Request $request)
-{
-    try {
-        $user = Auth::user();
-        $moduleId = $request->get('module_id');
+    // public function getActivePaymentModes(Request $request)
+    // {
+    //     try {
+    //         $user = Auth::user();
+    //         $moduleId = $request->get('module_id');
 
-        $userRoleIds = $user->roles->pluck('id')->toArray();
-        $query = PaymentMode::where('status', 1);
+    //         $userRoleIds = $user->roles->pluck('id')->toArray();
+    //         $query = PaymentMode::where('status', 1);
 
-        if ($moduleId) {
-            $query->whereHas('modules', function ($q) use ($moduleId) {
-                $q->where('modules.id', $moduleId);
-            });
-        }
+    //         if ($moduleId) {
+    //             $query->whereHas('modules', function ($q) use ($moduleId) {
+    //                 $q->where('modules.id', $moduleId);
+    //             });
+    //         }
 
-        if ($user->hasRole('super_admin')) {
+    //         if ($user->hasRole('super_admin')) {
+    //             $paymentModes = $query->orderBy('name')
+    //                 ->get(['id', 'name', 'description', 'is_payment_gateway', 'is_live', 'icon_type', 'icon_value', 'icon_path', 'icon_url']);
+    //         } else {
+    //             $paymentModes = $query->whereHas('roles', function ($q) use ($userRoleIds) {
+    //                 $q->whereIn('roles.id', $userRoleIds);
+    //             })
+    //                 ->orderBy('name')
+    //                 ->get(['id', 'name', 'description', 'is_payment_gateway', 'is_live', 'icon_type', 'icon_value', 'icon_path', 'icon_url']);
+    //         }
+
+    //         // Add icon display URLs - FIX: Remove getCollection()
+    //         $paymentModes->transform(function ($mode) {
+    //             // Map roles & modules
+    //             $mode->assigned_roles = $mode->roles->map(fn($role) => [
+    //                 'id' => $role->id,
+    //                 'name' => $role->name,
+    //                 'display_name' => $role->display_name
+    //             ]);
+
+    //             $mode->assigned_modules = $mode->modules->map(fn($module) => [
+    //                 'id' => $module->id,
+    //                 'name' => $module->name,
+    //                 'display_name' => $module->display_name
+    //             ]);
+
+    //             try {
+    //                 if ($mode->icon_type === 'bootstrap' && $mode->icon_value) {
+    //                     $mode->icon_display_url_data = [
+    //                         'type' => 'bootstrap',
+    //                         'value' => $mode->icon_value
+    //                     ];
+    //                 } elseif ($mode->icon_type === 'upload' && $mode->icon_path) {
+    //                     $iconPath = $mode->icon_path;
+
+    //                     // Handle JSON encoded path
+    //                     if (is_string($iconPath)) {
+    //                         $photoData = json_decode($iconPath, true);
+    //                         if (json_last_error() === JSON_ERROR_NONE && isset($photoData['path'])) {
+    //                             $iconPath = $photoData['path'];
+    //                         } elseif (json_last_error() === JSON_ERROR_NONE && isset($photoData['url'])) {
+    //                             $iconPath = $photoData['url'];
+    //                         }
+    //                     }
+
+    //                     // Generate signed URL for S3
+    //                     $signedUrl = $this->s3UploadService->getSignedUrl($iconPath);
+
+    //                     $mode->icon_display_url_data = [
+    //                         'type' => 'upload',
+    //                         'value' => $signedUrl
+    //                     ];
+    //                 } else {
+    //                     // Default fallback icon
+    //                     $mode->icon_display_url_data = [
+    //                         'type' => 'bootstrap',
+    //                         'value' => 'bi-currency-dollar'
+    //                     ];
+    //                 }
+    //             } catch (\Exception $e) {
+    //                 Log::error('Failed to generate Payment Mode icon', [
+    //                     'payment_mode_id' => $mode->id,
+    //                     'icon_path' => $mode->icon_path ?? null,
+    //                     'error' => $e->getMessage()
+    //                 ]);
+
+    //                 // Fallback to default icon on error
+    //                 $mode->icon_display_url_data = [
+    //                     'type' => 'bootstrap',
+    //                     'value' => 'bi-currency-dollar'
+    //                 ];
+    //             }
+
+    //             // Remove raw relations to reduce payload
+    //             unset($mode->roles, $mode->modules, $mode->icon_path, $mode->icon_url);
+
+    //             return $mode;
+    //         });
+
+    //         return response()->json([
+    //             'success' => true,
+    //             'data' => $paymentModes
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         Log::error('Failed to fetch active payment modes', [
+    //             'error' => $e->getMessage(),
+    //             'trace' => $e->getTraceAsString()
+    //         ]);
+
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'Failed to fetch active payment modes',
+    //             'error' => $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
+    public function getActivePaymentModes(Request $request)
+    {
+        try {
+            $user = Auth::user();
+            $moduleId = $request->get('module_id');
+
+            $query = PaymentMode::where('status', 1);
+
+            if ($moduleId) {
+                $query->whereHas('modules', function ($q) use ($moduleId) {
+                    $q->where('modules.id', $moduleId);
+                });
+            }
+
             $paymentModes = $query->orderBy('name')
                 ->get(['id', 'name', 'description', 'is_payment_gateway', 'is_live', 'icon_type', 'icon_value', 'icon_path', 'icon_url']);
-        } else {
-            $paymentModes = $query->whereHas('roles', function ($q) use ($userRoleIds) {
-                $q->whereIn('roles.id', $userRoleIds);
-            })
-                ->orderBy('name')
-                ->get(['id', 'name', 'description', 'is_payment_gateway', 'is_live', 'icon_type', 'icon_value', 'icon_path', 'icon_url']);
-        }
-        
-        // Add icon display URLs - FIX: Remove getCollection()
-        $paymentModes->transform(function ($mode) {
-            // Map roles & modules
-            $mode->assigned_roles = $mode->roles->map(fn($role) => [
-                'id' => $role->id,
-                'name' => $role->name,
-                'display_name' => $role->display_name
-            ]);
 
-            $mode->assigned_modules = $mode->modules->map(fn($module) => [
-                'id' => $module->id,
-                'name' => $module->name,
-                'display_name' => $module->display_name
-            ]);
-            
-            try {
-                if ($mode->icon_type === 'bootstrap' && $mode->icon_value) {
-                    $mode->icon_display_url_data = [
-                        'type' => 'bootstrap',
-                        'value' => $mode->icon_value
-                    ];
-                } elseif ($mode->icon_type === 'upload' && $mode->icon_path) {
-                    $iconPath = $mode->icon_path;
+            // Add icon display URLs
+            $paymentModes->transform(function ($mode) {
+                // Map modules
+                $mode->assigned_modules = $mode->modules->map(fn($module) => [
+                    'id' => $module->id,
+                    'name' => $module->name,
+                    'display_name' => $module->display_name
+                ]);
 
-                    // Handle JSON encoded path
-                    if (is_string($iconPath)) {
-                        $photoData = json_decode($iconPath, true);
-                        if (json_last_error() === JSON_ERROR_NONE && isset($photoData['path'])) {
-                            $iconPath = $photoData['path'];
-                        } elseif (json_last_error() === JSON_ERROR_NONE && isset($photoData['url'])) {
-                            $iconPath = $photoData['url'];
+                try {
+                    if ($mode->icon_type === 'bootstrap' && $mode->icon_value) {
+                        $mode->icon_display_url_data = [
+                            'type' => 'bootstrap',
+                            'value' => $mode->icon_value
+                        ];
+                    } elseif ($mode->icon_type === 'upload' && $mode->icon_path) {
+                        $iconPath = $mode->icon_path;
+
+                        // Handle JSON encoded path
+                        if (is_string($iconPath)) {
+                            $photoData = json_decode($iconPath, true);
+                            if (json_last_error() === JSON_ERROR_NONE && isset($photoData['path'])) {
+                                $iconPath = $photoData['path'];
+                            } elseif (json_last_error() === JSON_ERROR_NONE && isset($photoData['url'])) {
+                                $iconPath = $photoData['url'];
+                            }
                         }
+
+                        // Generate signed URL for S3
+                        $signedUrl = $this->s3UploadService->getSignedUrl($iconPath);
+
+                        $mode->icon_display_url_data = [
+                            'type' => 'upload',
+                            'value' => $signedUrl
+                        ];
+                    } else {
+                        // Default fallback icon
+                        $mode->icon_display_url_data = [
+                            'type' => 'bootstrap',
+                            'value' => 'bi-currency-dollar'
+                        ];
                     }
+                } catch (\Exception $e) {
+                    Log::error('Failed to generate Payment Mode icon', [
+                        'payment_mode_id' => $mode->id,
+                        'icon_path' => $mode->icon_path ?? null,
+                        'error' => $e->getMessage()
+                    ]);
 
-                    // Generate signed URL for S3
-                    $signedUrl = $this->s3UploadService->getSignedUrl($iconPath);
-
-                    $mode->icon_display_url_data = [
-                        'type' => 'upload',
-                        'value' => $signedUrl
-                    ];
-                } else {
-                    // Default fallback icon
+                    // Fallback to default icon on error
                     $mode->icon_display_url_data = [
                         'type' => 'bootstrap',
                         'value' => 'bi-currency-dollar'
                     ];
                 }
-            } catch (\Exception $e) {
-                Log::error('Failed to generate Payment Mode icon', [
-                    'payment_mode_id' => $mode->id,
-                    'icon_path' => $mode->icon_path ?? null,
-                    'error' => $e->getMessage()
-                ]);
 
-                // Fallback to default icon on error
-                $mode->icon_display_url_data = [
-                    'type' => 'bootstrap',
-                    'value' => 'bi-currency-dollar'
-                ];
-            }
+                // Remove raw relations to reduce payload
+                unset($mode->modules, $mode->icon_path, $mode->icon_url);
 
-            // Remove raw relations to reduce payload
-            unset($mode->roles, $mode->modules, $mode->icon_path, $mode->icon_url);
+                return $mode;
+            });
 
-            return $mode;
-        });
+            return response()->json([
+                'success' => true,
+                'data' => $paymentModes
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch active payment modes', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
 
-        return response()->json([
-            'success' => true,
-            'data' => $paymentModes
-        ]);
-    } catch (\Exception $e) {
-        Log::error('Failed to fetch active payment modes', [
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString()
-        ]);
-        
-        return response()->json([
-            'success' => false,
-            'message' => 'Failed to fetch active payment modes',
-            'error' => $e->getMessage()
-        ], 500);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch active payment modes',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
-}
     /**
      * Get available Bootstrap icons for payment modes
      */

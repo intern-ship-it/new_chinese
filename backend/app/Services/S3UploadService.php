@@ -407,4 +407,76 @@ class S3UploadService
             ];
         }
     }
+    /**
+ * Upload donation image
+ */
+public function uploadDonationImage($file, $donationId, $templeId, $type = 'upload')
+{
+    try {
+        $folder = "temples/{$templeId}/donations/{$donationId}";
+        
+        if ($type === 'upload') {
+            // Regular file upload
+            $extension = $file->getClientOriginalExtension();
+            $filename = 'donation_' . time() . '_' . uniqid() . '.' . $extension;
+            $path = $folder . '/' . $filename;
+            
+            $result = $this->s3->putObject([
+                'Bucket' => $this->bucket,
+                'Key' => $path,
+                'Body' => fopen($file->getRealPath(), 'r'),
+                'ContentType' => $file->getMimeType(),
+                'ACL' => 'private'
+            ]);
+        } else {
+            // Base64 image data (drawn/captured)
+            $imageData = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $file));
+            $filename = 'donation_' . time() . '_' . uniqid() . '.png';
+            $path = $folder . '/' . $filename;
+            
+            $result = $this->s3->putObject([
+                'Bucket' => $this->bucket,
+                'Key' => $path,
+                'Body' => $imageData,
+                'ContentType' => 'image/png',
+                'ACL' => 'private'
+            ]);
+        }
+
+        return [
+            'success' => true,
+            'path' => $path,
+            'size' => $type === 'upload' ? $file->getSize() : strlen($imageData),
+            'mime_type' => $type === 'upload' ? $file->getMimeType() : 'image/png',
+            'uploaded_at' => now()
+        ];
+    } catch (Exception $e) {
+        \Log::error('S3 donation image upload failed: ' . $e->getMessage());
+        return [
+            'success' => false,
+            'message' => 'Failed to upload image: ' . $e->getMessage()
+        ];
+    }
+}
+
+/**
+ * Delete donation image
+ */
+public function deleteDonationImage($path)
+{
+    try {
+        $this->s3->deleteObject([
+            'Bucket' => $this->bucket,
+            'Key' => $path
+        ]);
+
+        return ['success' => true];
+    } catch (Exception $e) {
+        \Log::error('S3 donation image deletion failed: ' . $e->getMessage());
+        return [
+            'success' => false,
+            'message' => 'Failed to delete image: ' . $e->getMessage()
+        ];
+    }
+}
 }

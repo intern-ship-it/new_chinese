@@ -110,7 +110,7 @@ class TaxMasterController extends Controller
             // Validate request
             $validator = Validator::make($request->all(), [
                 'name' => 'required|string|max:300',
-                'applicable_for' => 'required|in:product,service,both',
+                'applicable_for' => 'required|in:product,service,both,package',
                 'percent' => 'required|numeric|min:0|max:100',
                 'ledger_id' => 'required|exists:ledgers,id',
                 'status' => 'integer|in:0,1'
@@ -188,7 +188,7 @@ class TaxMasterController extends Controller
             // Validate request
             $validator = Validator::make($request->all(), [
                 'name' => 'string|max:300',
-                'applicable_for' => 'in:product,service,both',
+                'applicable_for' => 'in:product,service,both,package',
                 'percent' => 'numeric|min:0|max:100',
                 'ledger_id' => 'required|exists:ledgers,id',
                 'status' => 'integer|in:0,1'

@@ -554,3 +554,12 @@
 .occasion-card:hover {
     animation: cardFloat 2s ease-in-out infinite;
 }
+
+
+.occasion-info-icon {
+    color: var(--primary-color, #b91c1c) !important;
+}
+.occasion-info-icon i {
+    color: var(--primary-color, #b91c1c) !important;
+    font-size: 2.5rem;
+}

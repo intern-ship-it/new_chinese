@@ -1,5 +1,5 @@
 // js/pages/special-occasions/report/print.js
-// Special Occasions Report Print Page
+// Special Occasions Report Print Page - DYNAMIC VERSION
 
 (function($, window) {
     'use strict';
@@ -11,10 +11,14 @@
             from: null,
             to: null
         },
+        occasionFilter: null,
         
         init: function(params) {
-            this.dateRange.from = params?.from || null;
-            this.dateRange.to = params?.to || null;
+            console.log('Initializing Special Occasions Report with params:', params);
+            
+            this.dateRange.from = params?.from || params?.from_date || null;
+            this.dateRange.to = params?.to || params?.to_date || null;
+            this.occasionFilter = params?.occasion_id || null;
             
             this.loadAndPrint();
         },
@@ -23,120 +27,141 @@
             const self = this;
             TempleCore.showLoading(true);
             
-            // Load both report data and temple settings
             Promise.all([
                 this.loadReportData(),
                 this.loadTempleSettings()
             ])
             .then(function() {
+                TempleCore.showLoading(false);
                 self.openPrintWindow();
             })
             .catch(function(error) {
-                TempleCore.showToast(error.message || 'Error loading data', 'error');
-                TempleRouter.navigate('special-occasions');
-            })
-            .finally(function() {
+                console.error('Error loading report:', error);
                 TempleCore.showLoading(false);
+                TempleCore.showToast(error.message || 'Error loading report data', 'error');
+                TempleRouter.navigate('special-occasions');
             });
         },
         
         loadReportData: function() {
             const self = this;
             return new Promise((resolve, reject) => {
-                // Simulate loading report data (replace with actual API call)
-                setTimeout(() => {
-                    self.reportData = self.generateSampleReportData();
-                    resolve();
-                }, 500);
-                
-                // Actual API implementation:
-                /*
+                // Build API parameters
                 const params = {};
                 if (self.dateRange.from) params.from_date = self.dateRange.from;
                 if (self.dateRange.to) params.to_date = self.dateRange.to;
+                if (self.occasionFilter) params.occasion_id = self.occasionFilter;
                 
-                TempleAPI.get('/special-occasions/bookings/report', params)
+                console.log('Loading report with params:', params);
+                
+                // Call actual API endpoint
+                TempleAPI.get('/special-occasions/bookings', params)
                     .done(function(response) {
+                        console.log('API Response:', response);
+                        
                         if (response.success) {
-                            self.reportData = response.data;
+                            // Process the raw booking data into report format
+                            self.reportData = self.processBookingData(response.data);
                             resolve();
                         } else {
-                            reject(new Error('Failed to load report'));
+                            reject(new Error(response.message || 'Failed to load report'));
                         }
                     })
-                    .fail(function() {
-                        reject(new Error('Error loading report'));
+                    .fail(function(xhr) {
+                        console.error('API Error:', xhr);
+                        const errorMsg = xhr.responseJSON?.message || 'Error loading report data';
+                        reject(new Error(errorMsg));
                     });
-                */
             });
         },
         
-        generateSampleReportData: function() {
-            const today = new Date();
-            const fromDate = this.dateRange.from ? new Date(this.dateRange.from) : new Date(today.getFullYear(), today.getMonth(), 1);
-            const toDate = this.dateRange.to ? new Date(this.dateRange.to) : today;
+        processBookingData: function(bookings) {
+            console.log('Processing booking data:', bookings);
             
-            // Generate sample bookings
-            const occasions = {
-                1: { name: 'Birthday Celebration', count: 0, amount: 0 },
-                2: { name: 'Guanyin Bodhisattva', count: 0, amount: 0 },
-                3: { name: 'Guan Gong', count: 0, amount: 0 },
-                4: { name: 'Tu Di Gong', count: 0, amount: 0 },
-                5: { name: 'Jade Emperor', count: 0, amount: 0 },
-                6: { name: 'Ancestors', count: 0, amount: 0 }
-            };
+            // If bookings is paginated, extract the data array
+            const bookingsList = Array.isArray(bookings) ? bookings : (bookings.data || []);
             
-            const bookings = [];
-            const statuses = ['pending', 'confirmed', 'cancelled', 'completed'];
+            // Initialize statistics
+            const occasions = {};
             let totalAmount = 0;
             let totalConfirmed = 0;
             let totalPending = 0;
             let totalCancelled = 0;
             let totalCompleted = 0;
             
-            // Generate 50 sample bookings
-            for (let i = 1; i <= 50; i++) {
-                const randomDays = Math.floor(Math.random() * (toDate - fromDate) / (1000 * 60 * 60 * 24));
-                const bookingDate = new Date(fromDate);
-                bookingDate.setDate(bookingDate.getDate() + randomDays);
+            // Process each booking
+            const processedBookings = bookingsList.map(booking => {
+                // Normalize booking data
+                const bookingCode = booking.booking_number || booking.booking_code || `SO${booking.id}`;
+                const bookingDate = booking.booking_date || booking.event_date || booking.created_at;
+                const occasionName = booking.occasion_name || 'Unknown Occasion';
+                const occasionId = booking.occasion_id || booking.special_occasion_id || 'unknown';
+                const optionName = booking.occasion_option || booking.option_name || 'N/A';
+                const amount = parseFloat(booking.occasion_amount || booking.total_amount || 0);
+                const status = (booking.booking_status || booking.status || 'pending').toLowerCase();
+                const nameChinese = booking.name_chinese || booking.devotee_name_chinese || '-';
+                const nameEnglish = booking.name_english || booking.devotee_name || booking.name || '-';
                 
-                const occasionId = Math.floor(Math.random() * 6) + 1;
-                const status = statuses[Math.floor(Math.random() * statuses.length)];
-                const amount = parseFloat((Math.random() * 500 + 50).toFixed(2));
-                
-                bookings.push({
-                    id: i,
-                    booking_code: `SO${today.getFullYear()}${String(i).padStart(4, '0')}`,
-                    booking_date: bookingDate.toISOString().split('T')[0],
-                    occasion_id: occasionId,
-                    occasion_name: occasions[occasionId].name,
-                    occasion_option: `Option ${Math.floor(Math.random() * 3) + 1}`,
-                    occasion_amount: amount,
-                    name_chinese: `${i}`,
-                    name_english: `Li Ming ${i}`,
-                    status: status
-                });
-                
-                // Update statistics
+                // Update occasion statistics
+                if (!occasions[occasionId]) {
+                    occasions[occasionId] = {
+                        name: occasionName,
+                        count: 0,
+                        amount: 0
+                    };
+                }
                 occasions[occasionId].count++;
                 occasions[occasionId].amount += amount;
+                
+                // Update totals
                 totalAmount += amount;
                 
+                // Update status counts
                 switch(status) {
                     case 'confirmed':
+                    case 'booked':
                         totalConfirmed++;
                         break;
                     case 'pending':
+                    case 'waiting':
                         totalPending++;
                         break;
                     case 'cancelled':
+                    case 'failed':
                         totalCancelled++;
                         break;
                     case 'completed':
                         totalCompleted++;
                         break;
                 }
-            }
+                
+                return {
+                    id: booking.id,
+                    booking_code: bookingCode,
+                    booking_date: bookingDate,
+                    occasion_id: occasionId,
+                    occasion_name: occasionName,
+                    occasion_option: optionName,
+                    occasion_amount: amount,
+                    name_chinese: nameChinese,
+                    name_english: nameEnglish,
+                    status: status
+                };
+            });
+            
+            // Sort bookings by date
+            processedBookings.sort((a, b) => {
+                const dateA = new Date(a.booking_date);
+                const dateB = new Date(b.booking_date);
+                return dateA - dateB;
+            });
+            
+            // Determine period
+            const today = new Date();
+            const fromDate = this.dateRange.from ? new Date(this.dateRange.from) : 
+                            (processedBookings.length > 0 ? new Date(processedBookings[0].booking_date) : 
+                             new Date(today.getFullYear(), today.getMonth(), 1));
+            const toDate = this.dateRange.to ? new Date(this.dateRange.to) : today;
             
             return {
                 period: {
@@ -144,7 +169,7 @@
                     to: toDate.toISOString().split('T')[0]
                 },
                 summary: {
-                    total_bookings: bookings.length,
+                    total_bookings: processedBookings.length,
                     total_amount: totalAmount,
                     confirmed: totalConfirmed,
                     pending: totalPending,
@@ -152,21 +177,20 @@
                     completed: totalCompleted
                 },
                 occasions: occasions,
-                bookings: bookings.sort((a, b) => new Date(a.booking_date) - new Date(b.booking_date))
+                bookings: processedBookings
             };
         },
         
         loadTempleSettings: function() {
             const self = this;
-            return new Promise((resolve, reject) => {
-                // Try to fetch fresh settings from server first
+            return new Promise((resolve) => {
                 if (typeof TempleAPI !== 'undefined') {
                     TempleAPI.get('/settings?type=SYSTEM')
                         .done(function(response) {
                             if (response.success && response.data && response.data.values) {
                                 self.templeSettings = response.data.values;
                                 
-                                // Update localStorage for future use
+                                // Update localStorage
                                 localStorage.setItem(APP_CONFIG.STORAGE.TEMPLE, JSON.stringify({
                                     name: self.templeSettings.temple_name || '',
                                     address: self.templeSettings.temple_address || '',
@@ -197,17 +221,16 @@
         },
         
         fallbackToLocalStorage: function() {
-            // Fallback to localStorage or default values
             const stored = JSON.parse(localStorage.getItem(APP_CONFIG?.STORAGE?.TEMPLE) || '{}');
             this.templeSettings = {
-                temple_name: stored.name || 'Persatuan Hainan Selangor & Wilayah Persekutuan',
-                temple_address: stored.address || '65, Persiaran Endah, Off Jalan Syed Putra',
-                temple_city: stored.city || '50460 Kuala Lumpur',
+                temple_name: stored.name || 'Temple Name',
+                temple_address: stored.address || 'Temple Address',
+                temple_city: stored.city || '',
                 temple_state: stored.state || '',
                 temple_pincode: stored.pincode || '',
                 temple_country: stored.country || 'Malaysia',
-                temple_phone: stored.phone || '03-2273 7088',
-                temple_email: stored.email || 'hainan@hainannet.com.my',
+                temple_phone: stored.phone || '',
+                temple_email: stored.email || '',
                 temple_logo: stored.logo || ''
             };
         },
@@ -281,7 +304,7 @@
                         .temple-name {
                             font-size: 22px;
                             font-weight: bold;
-                            color: #333;
+                            color: #ff00ff;
                             margin-bottom: 8px;
                         }
                         .report-title {
@@ -392,8 +415,11 @@
                             text-transform: uppercase;
                         }
                         .status-pending { background: #fff3cd; color: #856404; }
+                        .status-waiting { background: #fff3cd; color: #856404; }
                         .status-confirmed { background: #d4edda; color: #155724; }
+                        .status-booked { background: #d4edda; color: #155724; }
                         .status-cancelled { background: #f8d7da; color: #721c24; }
+                        .status-failed { background: #f8d7da; color: #721c24; }
                         .status-completed { background: #d1ecf1; color: #0c5460; }
                         .footer-section {
                             margin-top: 40px;
@@ -402,6 +428,12 @@
                             text-align: center;
                             color: #666;
                             font-size: 12px;
+                        }
+                        .no-data {
+                            text-align: center;
+                            color: #999;
+                            padding: 40px 20px;
+                            font-size: 16px;
                         }
                         @media print {
                             .btn, #controlButtons { display: none !important; }
@@ -445,6 +477,7 @@
                             Period: ${this.formatDate(report.period.from)} to ${this.formatDate(report.period.to)}
                         </div>
                         
+                        ${report.summary.total_bookings > 0 ? `
                         <!-- Summary Section -->
                         <div class="summary-section">
                             <div class="summary-title">Summary Statistics</div>
@@ -515,6 +548,14 @@
                                 </tbody>
                             </table>
                         </div>
+                        ` : `
+                        <!-- No Data Message -->
+                        <div class="no-data">
+                            <i class="bi bi-inbox" style="font-size: 48px; display: block; margin-bottom: 10px; color: #ccc;"></i>
+                            <strong>No Bookings Found</strong><br>
+                            <span style="font-size: 14px;">There are no bookings for the selected period.</span>
+                        </div>
+                        `}
                         
                         <!-- Footer -->
                         <div class="footer-section">
@@ -528,61 +569,45 @@
                             <p>${temple.temple_name || 'Temple Name'} - Special Occasions Management System</p>
                         </div>
                     </div>
-                    
-                    <script>
-                        // Auto focus print dialog (optional - commented out)
-                        window.onload = function() {
-                            // Uncomment to auto-print on load
-                            // setTimeout(() => {
-                            //     window.print();
-                            // }, 500);
-                        };
-                    </script>
                 </body>
                 </html>
             `;
         },
         
         getTempleLogoHTML: function() {
-            let logoHTML = '';
-            
             if (this.templeSettings.temple_logo) {
-                logoHTML = `
+                return `
                     <div class="temple-logo">
                         <img src="${this.templeSettings.temple_logo}" 
-                             style="width: 205px; height: 120px; object-fit: contain;" 
+                             style="width: 120px; height: 100px; object-fit: contain; padding-top: 14px;" 
                              alt="Temple Logo" />
                     </div>
                 `;
             } else {
-                logoHTML = `
+                return `
                     <div class="temple-logo" style="
                         width: 120px; 
-                        height: 120px; 
-                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                        border-radius: 12px; 
+                        height: 100px; 
+                        border: 1px solid #ddd;
                         display: flex; 
                         align-items: center; 
                         justify-content: center; 
-                        color: white; 
-                        font-size: 14px;
-                        font-weight: bold;
-                        text-align: center;
-                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                        background: #f5f5f5;
                     ">
-                        TEMPLE<br>LOGO
+                        <span style="font-size:12px;color:#666;">TEMPLE<br>LOGO</span>
                     </div>
                 `;
             }
-            
-            return logoHTML;
         },
         
         generateOccasionsBreakdown: function(occasions) {
             let html = '';
             let index = 1;
             
-            for (const [id, data] of Object.entries(occasions)) {
+            // Sort occasions by count (descending)
+            const sortedOccasions = Object.entries(occasions).sort((a, b) => b[1].count - a[1].count);
+            
+            sortedOccasions.forEach(([id, data]) => {
                 if (data.count > 0) {
                     html += `
                         <tr>
@@ -594,7 +619,7 @@
                     `;
                     index++;
                 }
-            }
+            });
             
             if (!html) {
                 html = `

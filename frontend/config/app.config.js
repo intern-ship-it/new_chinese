@@ -4,7 +4,7 @@
 window.APP_CONFIG = {
     // API Configuration
     API: {
-        BASE_URL: 'http://temple3.chinesetemplesystems.xyz/api/v1',
+        BASE_URL: 'https://temple3.chinesetemplesystems.xyz/api/v1',
         TIMEOUT: 30000,
         RETRY_ATTEMPTS: 3
     },

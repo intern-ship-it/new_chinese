@@ -567,59 +567,114 @@ class StockMovementController extends Controller
 
 
 
-    public function getRecentStockIn(Request $request)
-    {
-        $limit = $request->get('limit', 20);
+    // public function getRecentStockIn(Request $request)
+    // {
+    //     $limit = $request->get('limit', 20);
 
-        $movements = StockMovement::with([
-            'product.uom.baseUnit',           // Load product with UOM
-            'warehouse',
-            'creator'
-        ])
-            ->where('movement_type', 'IN')
-            ->whereIn('movement_subtype', ['OPENING_STOCK', 'PURCHASE', 'DONATION_RECEIVED', 'ADJUSTMENT'])
-            ->orderBy('created_at', 'desc')
-            ->limit($limit)
-            ->get()
-            ->map(function ($movement) {
-                // Get the UOM information
-                $uom = $movement->product->uom;
-				// FIXED: Use baseUnit (relationship) instead of base_unit (ID)
-				$uomShort = $uom && $uom->baseUnit 
-					? $uom->baseUnit->uom_short 
-					: ($uom ? $uom->uom_short : '');
+    //     $movements = StockMovement::with([
+    //         'product.uom.baseUnit',           // Load product with UOM
+    //         'warehouse',
+    //         'creator'
+    //     ])
+    //         ->where('movement_type', 'IN')
+    //         ->whereIn('movement_subtype', ['OPENING_STOCK', 'PURCHASE', 'DONATION_RECEIVED', 'ADJUSTMENT'])
+    //         ->orderBy('created_at', 'desc')
+    //         ->limit($limit)
+    //         ->get()
+    //         ->map(function ($movement) {
+    //             // Get the UOM information
+    //             $uom = $movement->product->uom;
+	// 			// FIXED: Use baseUnit (relationship) instead of base_unit (ID)
+	// 			$uomShort = $uom && $uom->baseUnit 
+	// 				? $uom->baseUnit->uom_short 
+	// 				: ($uom ? $uom->uom_short : '');
 				
-				// For UOM name, use base unit name if available
-				$uomName = $uom && $uom->baseUnit 
-					? $uom->baseUnit->name 
-					: ($uom ? $uom->name : '');
+	// 			// For UOM name, use base unit name if available
+	// 			$uomName = $uom && $uom->baseUnit 
+	// 				? $uom->baseUnit->name 
+	// 				: ($uom ? $uom->name : '');
 				
-				return [
-					'movement_date' => $movement->created_at,
-					'item_name' => $movement->product->name,
-					'item_type' => $movement->product->product_type,
-					'item_code' => $movement->product->code,
-					'location_name' => $movement->warehouse->name,
-					'quantity' => $movement->quantity,
-					'uom_short' => $uomShort,
-					'uom_name' => $uomName,
-					'unit_cost' => $movement->unit_cost,
-					'total_cost' => $movement->total_cost,
-					'batch_number' => $movement->batch_number,
-					'expiry_date' => $movement->expiry_date,
-					'notes' => $movement->notes,
-					'created_by' => optional($movement->creator)->name
-				];
-            });
+	// 			return [
+	// 				'movement_date' => $movement->created_at,
+	// 				'item_name' => $movement->product->name,
+	// 				'item_type' => $movement->product->product_type,
+	// 				'item_code' => $movement->product->code,
+	// 				'location_name' => $movement->warehouse->name,
+	// 				'quantity' => $movement->quantity,
+	// 				'uom_short' => $uomShort,
+	// 				'uom_name' => $uomName,
+	// 				'unit_cost' => $movement->unit_cost,
+	// 				'total_cost' => $movement->total_cost,
+	// 				'batch_number' => $movement->batch_number,
+	// 				'expiry_date' => $movement->expiry_date,
+	// 				'notes' => $movement->notes,
+	// 				'created_by' => optional($movement->creator)->name
+	// 			];
+    //         });
 
-        return response()->json([
-            'success' => true,
-            'data' => $movements
-        ]);
-    }
+    //     return response()->json([
+    //         'success' => true,
+    //         'data' => $movements
+    //     ]);
+    // }
 
 
+public function getRecentStockIn(Request $request)
+{
+    $limit = $request->get('limit', 20);
 
+    $movements = StockMovement::with([
+        'product.uom.baseUnit',
+        'warehouse',
+        'creator'
+    ])
+        ->where('movement_type', 'IN')
+        ->whereIn('movement_subtype', ['OPENING_STOCK', 'PURCHASE', 'DONATION_RECEIVED', 'ADJUSTMENT'])
+        ->orderBy('created_at', 'desc')
+        ->limit($limit)
+        ->get()
+        ->filter(function ($movement) {
+            // Filter out movements where product is null (deleted products)
+            return $movement->product !== null;
+        })
+        ->map(function ($movement) {
+            // Get the UOM information safely
+            $uom = optional($movement->product)->uom;
+            
+            // FIXED: Use baseUnit (relationship) instead of base_unit (ID)
+            $uomShort = $uom && $uom->baseUnit 
+                ? $uom->baseUnit->uom_short 
+                : ($uom ? $uom->uom_short : '');
+            
+            // For UOM name, use base unit name if available
+            $uomName = $uom && $uom->baseUnit 
+                ? $uom->baseUnit->name 
+                : ($uom ? $uom->name : '');
+            
+            return [
+                'movement_date' => $movement->created_at,
+                'item_name' => optional($movement->product)->name ?? 'Deleted Product',
+                'item_type' => optional($movement->product)->product_type ?? '-',
+                'item_code' => optional($movement->product)->code ?? '-',
+                'location_name' => optional($movement->warehouse)->name ?? '-',
+                'quantity' => $movement->quantity,
+                'uom_short' => $uomShort,
+                'uom_name' => $uomName,
+                'unit_cost' => $movement->unit_cost,
+                'total_cost' => $movement->total_cost,
+                'batch_number' => $movement->batch_number,
+                'expiry_date' => $movement->expiry_date,
+                'notes' => $movement->notes,
+                'created_by' => optional($movement->creator)->name
+            ];
+        })
+        ->values(); // Re-index the array after filtering
+
+    return response()->json([
+        'success' => true,
+        'data' => $movements
+    ]);
+}
 
 
 

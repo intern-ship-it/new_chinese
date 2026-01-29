@@ -13,7 +13,7 @@ class CheckUserActive
                 'success' => false,
                 'message' => 'Account is inactive'
             ], 403);
-        }
+		}
 
         return $next($request);
     }

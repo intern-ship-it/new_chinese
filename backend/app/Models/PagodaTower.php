@@ -14,6 +14,8 @@ class PagodaTower extends Model
     protected $fillable = [
         'tower_name',
         'tower_code',
+        'category_id',
+        'deity_id',
         'description',
         'location',
         'status',
@@ -30,6 +32,16 @@ class PagodaTower extends Model
     public function blocks()
     {
         return $this->hasMany(PagodaBlock::class, 'tower_id');
+    }
+
+    public function category()
+    {
+        return $this->belongsTo(TowerCategory::class, 'category_id');
+    }
+
+    public function deity()
+    {
+        return $this->belongsTo(Deity::class, 'deity_id');
     }
 
     public function creator()

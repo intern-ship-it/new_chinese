@@ -4,6 +4,10 @@
 (function ($, window) {
   "use strict";
 
+  // UUID pattern: 8-4-4-4-12 characters
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+
   window.TempleRouter = {
     currentPage: null,
     pageCache: {},
@@ -36,6 +40,21 @@
       if (pathParts.length === 0) {
         return APP_CONFIG.ROUTES.DEFAULT_PAGE;
       }
+
+      // Check for volunteers registration edit page with UUID
+      // Pattern: volunteers/registration/edit/uuid
+      if (pathParts.length === 4 &&
+        pathParts[0] === 'volunteers' &&
+        pathParts[1] === 'registration' &&
+        pathParts[2] === 'edit') {
+        const possibleUuid = pathParts[3];
+
+
+        if (uuidPattern.test(possibleUuid)) {
+          // It's a volunteer edit page with UUID
+          return 'volunteers/registration/edit';
+        }
+      }
       if (pathParts[0] === "reconciliation") {
         // Handle reconciliation/process/27
         if (pathParts[1] === "process" && pathParts[2]) {
@@ -60,6 +79,7 @@
         if (pathParts[1] === "report" && pathParts[2]) {
           return "reconciliation/report";
         }
+
       }
 
 
@@ -89,9 +109,7 @@
       // Pattern: members/uuid (where uuid is 36 characters with dashes)
       if (pathParts.length === 2 && pathParts[0] === "members") {
         const possibleUuid = pathParts[1];
-        // UUID pattern: 8-4-4-4-12 characters
-        const uuidPattern =
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 
         if (uuidPattern.test(possibleUuid)) {
           // It's a member edit page with UUID
@@ -104,10 +122,11 @@
         const lastPart = pathParts[pathParts.length - 1];
         const secondLastPart = pathParts[pathParts.length - 2];
 
-        // Check if last part is a number (ID) and second last is edit/view/copy
+
+        // Check if last part is a number (ID) or UUID and second last is edit/view/copy/print
         if (
-          /^\d+$/.test(lastPart) &&
-          ["edit", "view", "copy"].includes(secondLastPart)
+          (/^\d+$/.test(lastPart) || uuidPattern.test(lastPart)) &&
+          ["edit", "view", "copy", "print"].includes(secondLastPart)
         ) {
           // Return path without the ID
           return pathParts.slice(0, -1).join("/");
@@ -119,8 +138,6 @@
         const lastPart = pathParts[2];
         const secondPart = pathParts[1];
 
-        // UUID pattern: 8-4-4-4-12 characters
-        const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         const isNumericId = /^\d+$/.test(lastPart);
         const isUuid = uuidPattern.test(lastPart);
 
@@ -176,9 +193,25 @@
       const pathParts = window.location.pathname.split('/').filter(Boolean);
       const params = {};
 
+
       // Remove temple ID
       if (pathParts.length > 0) {
         pathParts.shift();
+      }
+
+
+      // Check for volunteers registration edit UUID
+      if (pathParts.length === 4 &&
+        pathParts[0] === 'volunteers' &&
+        pathParts[1] === 'registration' &&
+        pathParts[2] === 'edit') {
+        const possibleUuid = pathParts[3];
+
+        if (uuidPattern.test(possibleUuid)) {
+          params.id = possibleUuid;
+          params.volunteerId = possibleUuid; // Also add as volunteerId for convenience
+          return params; // Return early
+        }
       }
       if (pathParts[0] === 'reconciliation') {
         // Handle reconciliation/process/27
@@ -201,6 +234,9 @@
         else if (pathParts[1] === 'report' && pathParts[2]) {
           params.id = pathParts[2];
         }
+
+
+
       }
 
 
@@ -226,7 +262,6 @@
       // Check for member UUID
       if (pathParts.length === 2 && pathParts[0] === 'members') {
         const possibleUuid = pathParts[1];
-        const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
         if (uuidPattern.test(possibleUuid)) {
           params.id = possibleUuid;
@@ -250,8 +285,6 @@
         const lastPart = pathParts[2];
         const secondPart = pathParts[1];
 
-        // UUID pattern: 8-4-4-4-12 characters
-        const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         const isNumericId = /^\d+$/.test(lastPart);
         const isUuid = uuidPattern.test(lastPart);
 

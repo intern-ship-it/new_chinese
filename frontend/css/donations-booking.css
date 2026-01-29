@@ -1,0 +1,1018 @@
+/* css/donations-booking.css - Donation Booking Page Styles */
+
+/* ========================================
+   Full Width Mode (Sidebar Hidden)
+   ======================================== */
+.pos-sidebar-hidden {
+    display: none !important;
+}
+
+.pos-main-expanded {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+}
+
+body.pos-fullwidth-mode #sidebar-container {
+    display: none !important;
+}
+
+body.pos-fullwidth-mode #page-container {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+}
+
+/* ========================================
+   Page Common Styles
+   ======================================== */
+.donation-booking-page {
+    padding: 0;
+    animation: fadeIn 0.5s ease-in-out;
+    min-height: 100vh;
+    background: #f8f9fa;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ========================================
+   Page Header
+   ======================================== */
+.donation-header {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    padding: 15px 20px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    z-index: 100;
+    flex-shrink: 0;
+}
+
+.donation-header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+}
+
+.donation-header-left {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.donation-sidebar-toggle {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.donation-sidebar-toggle:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.05);
+}
+
+.donation-sidebar-toggle i {
+    font-size: 1.5rem;
+}
+
+.donation-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: white;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.donation-title i {
+    font-size: 1.75rem;
+}
+
+.donation-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.donation-date-input {
+    padding: 8px 12px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    font-weight: 500;
+    backdrop-filter: blur(10px);
+}
+
+.donation-date-input:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.btn-clear-all {
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #f44336, #d32f2f);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(244, 67, 54, 0.3);
+}
+
+.btn-clear-all:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4);
+}
+
+/* ========================================
+   Main Layout
+   ======================================== */
+.donation-main-container {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.donation-types-section {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    background: #f8f9fa;
+}
+
+.donation-form-section {
+    width: 35%;
+    min-width: 420px;
+    background: white;
+    border-left: 1px solid #e9ecef;
+    display: flex;
+    flex-direction: column;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.08);
+    overflow-y: auto;
+}
+
+/* ========================================
+   Donation Group Tabs (Similar to POS Categories)
+   ======================================== */
+.donation-group-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    padding: 5px;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+}
+
+.donation-group-tab {
+    padding: 12px 24px;
+    border: none;
+    background: transparent;
+    color: #666;
+    font-weight: 600;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    position: relative;
+    overflow: hidden;
+}
+
+.donation-group-tab::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 0;
+}
+
+.donation-group-tab span {
+    position: relative;
+    z-index: 1;
+}
+
+.donation-group-tab:hover {
+    color: var(--primary-color);
+    transform: translateY(-2px);
+}
+
+.donation-group-tab:hover::before {
+    opacity: 0.1;
+}
+
+.donation-group-tab.active {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(var(--primary-color-rgb, 255, 0, 255), 0.3);
+}
+
+.donation-group-tab.active::before {
+    opacity: 0;
+}
+
+/* ========================================
+   Donation Type Cards Grid
+   ======================================== */
+.donation-types-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 15px;
+}
+
+.donation-type-card {
+    background: white;
+    border-radius: 15px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    border: 2px solid transparent;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    position: relative;
+    text-align: center;
+    overflow: hidden;
+}
+
+.donation-type-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    border-color: var(--primary-color);
+}
+
+.donation-type-card.selected {
+    border-color: var(--primary-color);
+    background: linear-gradient(135deg, rgba(var(--primary-color-rgb, 255, 0, 255), 0.08) 0%, rgba(var(--secondary-color-rgb, 128, 128, 0), 0.08) 100%);
+    box-shadow: 0 4px 15px rgba(var(--primary-color-rgb, 255, 0, 255), 0.3);
+}
+
+.donation-type-card.selected::after {
+    content: '✓';
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 24px;
+    height: 24px;
+    background: var(--primary-color);
+    border-radius: 50%;
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* NEW: Image support for donation cards */
+.donation-type-image {
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 10px;
+    margin-bottom: 15px;
+}
+
+.donation-type-icon {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 15px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.donation-type-icon i {
+    font-size: 1.8rem;
+    color: var(--primary-color);
+}
+
+.donation-type-name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 5px;
+}
+
+.donation-type-name-secondary {
+    font-size: 0.8rem;
+    color: #888;
+    margin-bottom: 10px;
+}
+
+.donation-type-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+    color: #666;
+}
+
+/* ========================================
+   No Items Display
+   ======================================== */
+.donation-no-items {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px 20px;
+    color: #999;
+}
+
+.donation-no-items i {
+    font-size: 4rem;
+    margin-bottom: 20px;
+    display: block;
+    color: #ccc;
+}
+
+.donation-no-items h4 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #666;
+    margin-bottom: 10px;
+}
+
+.donation-no-items p {
+    font-size: 0.95rem;
+    color: #999;
+}
+
+/* ========================================
+   Form Section
+   ======================================== */
+.donation-form-header {
+    padding: 20px;
+    border-bottom: 1px solid #e9ecef;
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+}
+
+.donation-form-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #333;
+    margin: 0;
+}
+
+.donation-form-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.donation-form-section-card {
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.section-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+}
+
+.section-title i {
+    color: var(--primary-color);
+}
+
+.selected-donation-display {
+    margin-bottom: 20px;
+}
+
+.selected-donation-badge {
+    background: linear-gradient(135deg, rgba(var(--primary-color-rgb, 255, 0, 255), 0.1) 0%, rgba(var(--secondary-color-rgb, 128, 128, 0), 0.1) 100%);
+    border: 2px solid var(--primary-color);
+    border-radius: 12px;
+    padding: 15px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.selected-donation-badge i {
+    font-size: 2rem;
+}
+
+.selected-donation-badge strong {
+    display: block;
+    font-size: 1.1rem;
+    color: #333;
+}
+
+.selected-donation-badge small {
+    display: block;
+    font-size: 0.85rem;
+}
+
+/* Form Controls */
+.form-control, .form-select {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(var(--primary-color-rgb, 255, 0, 255), 0.1);
+}
+
+.form-label {
+    font-weight: 600;
+    color: #333;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+}
+
+.input-group-text {
+    background: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    border-right: none;
+    font-weight: 600;
+}
+
+.form-check-input:checked {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.form-check-label {
+    font-size: 0.95rem;
+}
+
+/* Payment Methods */
+.donation-payment-methods {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.donation-payment-option {
+    position: relative;
+}
+
+.donation-payment-option .form-check-input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.donation-payment-option .form-check-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 18px;
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    background: #fff;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    min-width: 90px;
+    text-align: center;
+}
+
+.donation-payment-option .form-check-label i {
+    font-size: 1.5rem;
+    margin-bottom: 5px;
+    color: #6c757d;
+    transition: all 0.3s ease;
+}
+
+.donation-payment-option .form-check-label img {
+    margin-bottom: 5px;
+}
+
+.donation-payment-option .form-check-label span {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #495057;
+}
+
+.donation-payment-option:hover .form-check-label {
+    border-color: var(--primary-color);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.donation-payment-option .form-check-input:checked ~ .form-check-label {
+    border-color: var(--primary-color);
+    background: linear-gradient(135deg, rgba(var(--primary-color-rgb, 255, 0, 255), 0.08) 0%, rgba(var(--secondary-color-rgb, 128, 128, 0), 0.08) 100%);
+    box-shadow: 0 4px 15px rgba(var(--primary-color-rgb, 255, 0, 255), 0.2);
+}
+
+.donation-payment-option .form-check-input:checked ~ .form-check-label i {
+    color: var(--primary-color);
+}
+
+.donation-payment-option .form-check-input:checked ~ .form-check-label span {
+    color: var(--primary-color);
+}
+
+/* ========================================
+   Form Footer
+   ======================================== */
+.donation-form-footer {
+    padding: 20px;
+    border-top: 1px solid #e9ecef;
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+}
+
+.donation-submit-btn {
+    width: 100%;
+    padding: 15px;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(var(--primary-color-rgb, 255, 0, 255), 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.donation-submit-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(var(--primary-color-rgb, 255, 0, 255), 0.4);
+}
+
+.donation-submit-btn:disabled {
+    background: #adb5bd;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* ========================================
+   Responsive Styles
+   ======================================== */
+@media (max-width: 1200px) {
+    .donation-form-section {
+        width: 40%;
+        min-width: 380px;
+    }
+}
+
+@media (max-width: 992px) {
+    .donation-main-container {
+        flex-direction: column;
+    }
+    
+    .donation-types-section,
+    .donation-form-section {
+        width: 100%;
+        min-width: 0;
+    }
+    
+    .donation-form-section {
+        border-left: none;
+        border-top: 1px solid #e9ecef;
+    }
+    
+    .donation-types-grid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .donation-header-content {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .donation-header-left {
+        justify-content: center;
+    }
+    
+    .donation-title {
+        justify-content: center;
+    }
+    
+    .donation-header-actions {
+        justify-content: center;
+    }
+    
+    .donation-types-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
+}
+
+@media (max-width: 576px) {
+    .donation-types-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .donation-group-tabs {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .donation-group-tab {
+        flex: 1 1 auto;
+        min-width: 100px;
+    }
+}
+
+/* ========================================
+   Utility Classes
+   ======================================== */
+.text-danger {
+    color: #dc3545 !important;
+}
+
+.text-muted {
+    color: #6c757d !important;
+}
+
+.text-success {
+    color: #28a745 !important;
+}
+
+.text-warning {
+    color: #ffc107 !important;
+}
+/* Payment Method Validation */
+.donation-payment-methods.border-warning {
+    animation: shake 0.5s;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+    20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+/* Selected payment mode highlight */
+.donation-payment-option .form-check-input:checked ~ .form-check-label {
+    border-color: var(--primary-color);
+    background: linear-gradient(135deg, 
+        rgba(var(--primary-color-rgb, 255, 0, 255), 0.08) 0%, 
+        rgba(var(--secondary-color-rgb, 128, 128, 0), 0.08) 100%);
+    box-shadow: 0 4px 15px rgba(var(--primary-color-rgb, 255, 0, 255), 0.2);
+    position: relative;
+}
+
+/* Add checkmark to selected payment */
+.donation-payment-option .form-check-input:checked ~ .form-check-label::after {
+    content: '✓';
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 20px;
+    height: 20px;
+    background: var(--primary-color);
+    border-radius: 50%;
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}/* ============================================================================
+   REPRINT BUTTON STYLES
+   Add this CSS to: css/donations-booking.css
+   ============================================================================ */
+
+/* Reprint Button */
+.btn-reprint {
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-reprint:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+}
+
+.btn-reprint:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+}
+
+.btn-reprint i {
+    font-size: 16px;
+}
+
+/* Reprint Modal Overlay */
+.reprint-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.reprint-modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Reprint Modal Content */
+.reprint-modal-content {
+    background: white;
+    border-radius: 16px;
+    width: 95%;
+    max-width: 1200px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    transform: scale(0.9);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.reprint-modal-content.active {
+    transform: scale(1);
+    opacity: 1;
+}
+
+/* Reprint Modal Header */
+.reprint-modal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 24px 32px;
+    border-radius: 16px 16px 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.reprint-modal-header h3 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.reprint-modal-header h3 i {
+    font-size: 28px;
+}
+
+.reprint-modal-close {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.reprint-modal-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: rotate(90deg);
+}
+
+.reprint-modal-close i {
+    font-size: 20px;
+}
+
+/* Reprint Modal Body */
+.reprint-modal-body {
+    padding: 24px 32px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+/* Reprint Table Container */
+.reprint-table-container {
+    overflow-x: auto;
+}
+
+/* Reprint Table */
+.reprint-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.reprint-table thead {
+    background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.reprint-table thead th {
+    padding: 16px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #4a5568;
+    border-bottom: 2px solid #e2e8f0;
+    white-space: nowrap;
+}
+
+.reprint-table tbody tr {
+    border-bottom: 1px solid #e2e8f0;
+    transition: all 0.2s ease;
+}
+
+.reprint-table tbody tr:hover {
+    background: #f7fafc;
+    transform: translateX(4px);
+    box-shadow: -4px 0 0 #667eea;
+}
+
+.reprint-table tbody td {
+    padding: 16px 12px;
+    color: #2d3748;
+}
+
+.reprint-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+/* Reprint Action Button */
+.reprint-action-btn {
+    background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 2px 4px rgba(72, 187, 120, 0.3);
+}
+
+.reprint-action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(72, 187, 120, 0.4);
+    background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
+}
+
+.reprint-action-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(72, 187, 120, 0.3);
+}
+
+.reprint-action-btn i {
+    font-size: 14px;
+}
+
+/* Reprint Modal Footer */
+.reprint-modal-footer {
+    padding: 20px 32px;
+    background: #f7fafc;
+    border-radius: 0 0 16px 16px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.reprint-modal-footer p {
+    margin: 0;
+    color: #718096;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.reprint-modal-footer i {
+    color: #4299e1;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .btn-reprint {
+        padding: 8px 12px;
+        font-size: 14px;
+    }
+    
+    .btn-reprint span {
+        display: none;
+    }
+    
+    .reprint-modal-content {
+        width: 98%;
+        max-height: 95vh;
+    }
+    
+    .reprint-modal-header {
+        padding: 16px 20px;
+    }
+    
+    .reprint-modal-header h3 {
+        font-size: 18px;
+    }
+    
+    .reprint-modal-body {
+        padding: 16px 20px;
+    }
+    
+    .reprint-table {
+        font-size: 14px;
+    }
+    
+    .reprint-table thead th,
+    .reprint-table tbody td {
+        padding: 12px 8px;
+    }
+    
+    .reprint-action-btn {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+}
+
+/* Custom Scrollbar for Modal */
+.reprint-modal-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.reprint-modal-body::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.reprint-modal-body::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 4px;
+}
+
+.reprint-modal-body::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+}
+
+/* Empty State */
+.reprint-table tbody tr td i.bi-inbox {
+    color: #cbd5e0;
+}

@@ -15,7 +15,7 @@ class Booking extends Model
 
     protected $fillable = [
         'booking_number',
-        'booking_type',      // NEW FIELD - Added for different booking types (BUDDHA_LAMP, etc.)
+        'booking_type',      // SALES, BUDDHA_LAMP, DONATION, HALL, ROM, DHARMA_ASSEMBLY, EVENT
         'devotee_id',
         'booking_date',
         'booking_status',
@@ -30,7 +30,12 @@ class Booking extends Model
         'payment_method',
         'print_option',
         'special_instructions',
-        'created_by'
+        'booking_through',
+        'commission_migration',  // NEW: 0=pending, 1=completed
+        'inventory_migration',   // NEW: 0=pending, 1=completed
+        'account_migration',     // 0=pending, 1=completed
+        'created_by',
+        'user_id'
     ];
 
     protected $casts = [
@@ -40,7 +45,10 @@ class Booking extends Model
         'discount_amount' => 'decimal:2',
         'deposit_amount' => 'decimal:2',
         'total_amount' => 'decimal:2',
-        'paid_amount' => 'decimal:2'
+        'paid_amount' => 'decimal:2',
+        'commission_migration' => 'integer',
+        'inventory_migration' => 'integer',
+        'account_migration' => 'integer'
     ];
 
     /**
@@ -69,12 +77,28 @@ class Booking extends Model
     /**
      * Booking Type Constants
      */
+    const TYPE_SALES = 'SALES';
     const TYPE_BUDDHA_LAMP = 'BUDDHA_LAMP';
     const TYPE_DONATION = 'DONATION';
     const TYPE_HALL = 'HALL';
     const TYPE_ROM = 'ROM';
     const TYPE_DHARMA_ASSEMBLY = 'DHARMA_ASSEMBLY';
     const TYPE_EVENT = 'EVENT';
+	
+	/**
+     * Booking Through Constants
+     */
+    const THROUGH_ADMIN = 'ADMIN';
+    const THROUGH_COUNTER = 'COUNTER';
+    const THROUGH_APP = 'APP';
+    const THROUGH_KIOSK = 'KIOSK';
+    const THROUGH_ONLINE = 'ONLINE';
+
+    /**
+     * Migration Status Constants
+     */
+    const MIGRATION_PENDING = 0;
+    const MIGRATION_COMPLETED = 1;
 
     protected static function boot()
     {
@@ -100,7 +124,14 @@ class Booking extends Model
     {
         return $this->hasMany(BookingPayment::class);
     }
-
+	public function payment()
+    {
+        return $this->hasOne(BookingPayment::class)->latestOfMany();
+    }
+	public function commissions()
+    {
+        return $this->hasMany(BookingCommission::class, 'booking_id');
+    }
     public function devotee()
     {
         return $this->belongsTo(User::class, 'devotee_id');
@@ -119,6 +150,10 @@ class Booking extends Model
     public function vehicles()
     {
         return $this->hasMany(BookingVehicle::class, 'booking_id', 'id');
+    }
+        public function rasi()
+    {
+        return $this->hasMany(BookingRasi::class, 'booking_id');
     }
 
     public function deity()
@@ -212,6 +247,52 @@ class Booking extends Model
     }
 
     /**
+     * Scope: Filter by commission migration status
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param int $status
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeCommissionMigration($query, $status)
+    {
+        return $query->where('commission_migration', $status);
+    }
+
+    /**
+     * Scope: Filter by inventory migration status
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param int $status
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeInventoryMigration($query, $status)
+    {
+        return $query->where('inventory_migration', $status);
+    }
+
+    /**
+     * Scope: Pending commission migration
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopePendingCommissionMigration($query)
+    {
+        return $query->where('commission_migration', self::MIGRATION_PENDING);
+    }
+
+    /**
+     * Scope: Pending inventory migration
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopePendingInventoryMigration($query)
+    {
+        return $query->where('inventory_migration', self::MIGRATION_PENDING);
+    }
+
+    /**
      * Get meta value by key
      *
      * @param string $key
@@ -274,6 +355,46 @@ class Booking extends Model
         return max(0, (float) $this->total_amount - (float) $this->paid_amount);
     }
 
+    /**
+     * Check if commission migration is pending
+     *
+     * @return bool
+     */
+    public function isCommissionMigrationPending()
+    {
+        return $this->commission_migration === self::MIGRATION_PENDING;
+    }
+
+    /**
+     * Check if inventory migration is pending
+     *
+     * @return bool
+     */
+    public function isInventoryMigrationPending()
+    {
+        return $this->inventory_migration === self::MIGRATION_PENDING;
+    }
+
+    /**
+     * Mark commission migration as completed
+     *
+     * @return bool
+     */
+    public function markCommissionMigrated()
+    {
+        return $this->update(['commission_migration' => self::MIGRATION_COMPLETED]);
+    }
+
+    /**
+     * Mark inventory migration as completed
+     *
+     * @return bool
+     */
+    public function markInventoryMigrated()
+    {
+        return $this->update(['inventory_migration' => self::MIGRATION_COMPLETED]);
+    }
+
      // Relationships
     public function bookingItems(): HasMany
     {
@@ -309,4 +430,102 @@ class Booking extends Model
             ['meta_value' => $value, 'meta_type' => $type]
         );
     }
+
+
+     /**
+     * Get all meta as key-value array
+     */
+    public function getMetaArray()
+    {
+        $metaArray = [];
+        foreach ($this->meta as $meta) {
+            $metaArray[$meta->meta_key] = $meta->meta_value;
+        }
+        return $metaArray;
+    }
+
+    /**
+     * Check if booking is paid in full
+     */
+    public function isPaidInFull()
+    {
+        return $this->payment_status === 'FULL' || 
+               ($this->paid_amount >= $this->total_amount && $this->total_amount > 0);
+    }
+
+    /**
+     * Check if booking is cancelled
+     */
+    public function isCancelled()
+    {
+        return $this->booking_status === 'CANCELLED';
+    }
+public function user()
+{
+    return $this->belongsTo(User::class, 'user_id');
+}
+    /**
+     * Check if booking is confirmed
+     */
+    public function isConfirmed()
+    {
+        return $this->booking_status === 'CONFIRMED';
+    }
+
+    /**
+     * Check if booking is completed
+     */
+    public function isCompleted()
+    {
+        return $this->booking_status === 'COMPLETED';
+    }
+
+    /**
+     * Scope to filter by booking status
+     */
+    public function scopeWithStatus($query, $status)
+    {
+        return $query->where('booking_status', $status);
+    }
+
+    /**
+     * Scope to filter by payment status
+     */
+    public function scopeWithPaymentStatus($query, $status)
+    {
+        return $query->where('payment_status', $status);
+    }
+
+    /**
+     * Scope to filter by booking channel
+     */
+    public function scopeThroughChannel($query, $channel)
+    {
+        return $query->where('booking_through', $channel);
+    }
+
+    /**
+     * Scope to get bookings for a specific date
+     */
+    public function scopeForDate($query, $date)
+    {
+        return $query->whereDate('booking_date', $date);
+    }
+
+    /**
+     * Scope to get bookings within date range
+     */
+    public function scopeDateRange($query, $startDate, $endDate)
+    {
+        return $query->whereBetween('booking_date', [$startDate, $endDate]);
+    }
+
+    /**
+     * Scope to get recent bookings
+     */
+    public function scopeRecent($query, $days = 7)
+    {
+        return $query->where('created_at', '>=', now()->subDays($days));
+    }
+
 }

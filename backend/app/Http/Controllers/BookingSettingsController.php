@@ -185,14 +185,14 @@ class BookingSettingsController extends Controller
                     'description' => 'Ledger for deposit entries'
                 ]
             ],
-            'ARCHANAI' => [
+            'SALES' => [
                 'slogan' => [
                     'value' => '',
                     'description' => 'Slogan to print on receipts'
                 ],
                     'minimum_deposit_amount' => [
                 'value' => '0',
-                'description' => 'Minimum deposit amount required for archanai bookings'
+                'description' => 'Minimum deposit amount required for sales'
             ],
                 'printer_mappings' => [
                     'value' => '[]',

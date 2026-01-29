@@ -1,6 +1,5 @@
 // js/pages/special-occasions/create.js
-// Special Occasions Booking Module - Improved Version
-// With better layout, confirmation step, and proper modal handling
+// Special Occasions Booking Module - Enhanced with Addon Services Support
 
 (function ($, window) {
     'use strict';
@@ -56,6 +55,12 @@
         timeSlots: [],
         availableDates: [],
         includedServices: [],
+        paymentModes: [],
+        addonServices: [], // NEW: Store addon services
+        bookingSettings: {
+            is_discount_enabled: false,
+            is_deposit_enabled: false
+        },
 
         // Selected values
         selectedOccasion: null,
@@ -65,15 +70,7 @@
         selectedDate: null,
         selectedSlot: null,
         selectedSlotData: null,
-
-        // Payment methods
-        paymentMethods: [
-            { value: 'cash', label: 'Cash', labelCn: '现款', icon: 'cash-coin' },
-            { value: 'cheque', label: 'Cheque', labelCn: '支票', icon: 'file-earmark-check' },
-            { value: 'ebanking', label: 'E-Banking', labelCn: '银行转账', icon: 'bank' },
-            { value: 'card', label: 'Credit/Debit Card', labelCn: '信用卡', icon: 'credit-card' },
-            { value: 'duitnow', label: 'DuitNow (E-wallet)', labelCn: '电子钱包', icon: 'phone' }
-        ],
+        selectedAddonService: null, // NEW: Selected addon service
 
         // Modal instance
         confirmationModal: null,
@@ -88,10 +85,16 @@
             this.render();
             this.initAnimations();
 
-            this.loadOccasions().then(function () {
+            // Load occasions, payment modes, settings, and addon services
+            Promise.all([
+                this.loadOccasions(),
+                this.loadPaymentModes(),
+                this.loadBookingSettings(),
+                this.loadAddonServices() // NEW: Load addon services
+            ]).then(function () {
                 self.bindEvents();
-            }).fail(function () {
-                TempleCore.showToast('Failed to load special occasions', 'error');
+            }).catch(function () {
+                TempleCore.showToast('Failed to load required data', 'error');
             });
         },
 
@@ -112,7 +115,7 @@
         },
 
         // ========================================
-        // RENDER PAGE HTML - IMPROVED LAYOUT
+        // RENDER PAGE HTML - WITH ADDON SERVICES
         // ========================================
         render: function () {
             const html = `
@@ -163,7 +166,7 @@
                                 <div class="occasion-info-card mb-4" id="occasionInfoCard" style="display: none;">
                                     <div class="occasion-info-content">
                                         <div class="occasion-info-icon" id="occasionIcon">
-                                            <i class="bi bi-star-fill"></i>
+                                            <i class="bi bi-calendar-event"></i>
                                         </div>
                                         <div>
                                             <h3 class="occasion-info-title mb-0" id="occasionName"></h3>
@@ -265,19 +268,66 @@
                                                     </div>
                                                 </div>
 
-                                                <!-- Step 5: Payment Method -->
+                                                <!-- Step 5: Payment & Additional -->
                                                 <div class="occasion-card mb-4">
                                                     <div class="card-header-custom">
                                                         <span class="step-badge">5</span>
                                                         <i class="bi bi-credit-card"></i>
-                                                        <span>Payment Method <small class="text-light opacity-75">付款方式</small></span>
+                                                        <span>Payment & Additional <small class="text-light opacity-75">付款和附加</small></span>
                                                     </div>
                                                     <div class="card-body-custom">
-                                                        <div class="row g-2" id="paymentMethodsGrid">
-                                                            ${this.renderPaymentMethods()}
+                                                        <!-- Payment Method -->
+                                                        <label class="form-label fw-semibold">Payment Method <span class="text-danger">*</span></label>
+                                                        <div class="row g-2 mb-3" id="paymentMethodsGrid">
+                                                            <div class="col-12 text-center py-3">
+                                                                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                                                    <span class="visually-hidden">Loading payment methods...</span>
+                                                                </div>
+                                                                <p class="mt-2 text-muted small">Loading payment methods...</p>
+                                                            </div>
                                                         </div>
                                                         <div class="text-danger small mt-2" id="paymentError" style="display: none;">
                                                             <i class="bi bi-exclamation-circle"></i> Please select a payment method
+                                                        </div>
+                                                        
+                                                        <!-- Add-on Service (NEW) -->
+                                                        <div class="mt-3 pt-3 border-top">
+                                                            <label class="form-label">
+                                                                <i class="bi bi-puzzle text-info"></i> Add-on Service 
+                                                                <small class="text-muted">(Optional)</small>
+                                                            </label>
+                                                            <select class="form-select" id="addonServiceSelect">
+                                                                <option value="">-- No Add-on Service --</option>
+                                                            </select>
+                                                            <small class="text-muted d-block mt-1">Select an optional add-on service</small>
+                                                        </div>
+                                                        
+                                                        <!-- Discount Field (conditional) -->
+                                                        <div id="discountFieldContainer" style="display: none;" class="mt-3">
+                                                            <label class="form-label">
+                                                                <i class="bi bi-tag text-success"></i> Discount Amount 
+                                                                <small class="text-muted">(Optional)</small>
+                                                            </label>
+                                                            <div class="input-group">
+                                                                <span class="input-group-text">RM</span>
+                                                                <input type="number" class="form-control" id="discountAmount" 
+                                                                       placeholder="0.00" min="0" step="0.01">
+                                                            </div>
+                                                            <small class="text-muted d-block mt-1">Enter discount amount to be deducted</small>
+                                                        </div>
+                                                        
+                                                        <!-- Deposit Field (conditional) -->
+                                                        <div id="depositFieldContainer" style="display: none;" class="mt-3">
+                                                            <label class="form-label">
+                                                                <i class="bi bi-cash-coin text-info"></i> Deposit Amount 
+                                                                <small class="text-muted">(Optional)</small>
+                                                            </label>
+                                                            <div class="input-group">
+                                                                <span class="input-group-text">RM</span>
+                                                                <input type="number" class="form-control" id="depositAmount" 
+                                                                       placeholder="0.00" min="0" step="0.01">
+                                                            </div>
+                                                            <small class="text-muted d-block mt-1">Enter partial payment amount (leave empty for full payment)</small>
                                                         </div>
                                                         
                                                         <!-- Remarks -->
@@ -329,7 +379,7 @@
                 <!-- Summary Preview Modal -->
                 ${this.renderSummaryModal()}
                 
-                    <!-- Additional CSS for step badges and AOS fix -->
+                <!-- Additional CSS -->
                 <style>
                     /* Override AOS opacity issues */
                     .special-occasions-page [data-aos] {
@@ -365,6 +415,17 @@
                         color: white;
                         font-size: 3rem;
                     }
+                    
+                    /* FIX: Icon color in occasion info card */
+                    .occasion-info-icon {
+                        color: var(--primary-color, #b91c1c) !important;
+                    }
+                    .occasion-info-icon i {
+                        color: var(--primary-color, #b91c1c) !important;
+                        font-size: 2.5rem;
+                    }
+                    
+                    /* Package option styling with images */
                     .package-option {
                         cursor: pointer;
                         transition: all 0.2s ease;
@@ -375,10 +436,141 @@
                     .package-option .form-check-input:checked ~ * {
                         font-weight: 600;
                     }
+                    .list-group-item.package-option input:checked + .package-content + span,
                     .list-group-item.package-option input:checked + div + span {
                         background-color: #198754 !important;
                         color: white !important;
                     }
+                    
+                    /* Package with image styling */
+                    .package-with-image {
+                        border: 2px solid #e9ecef;
+                        border-radius: 12px;
+                        overflow: hidden;
+                        transition: all 0.3s ease;
+                        cursor: pointer;
+                        background: white;
+                    }
+                    .package-with-image:hover {
+                        border-color: #b91c1c;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                        transform: translateY(-2px);
+                    }
+                    .package-with-image.selected {
+                        border-color: #198754;
+                        box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.2);
+                    }
+                    .package-image-container {
+                        height: 120px;
+                        overflow: hidden;
+                        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+                    .package-image-container img {
+                        width: 100%;
+                        height: 100%;
+                        object-fit: cover;
+                    }
+                    .package-image-placeholder {
+                        font-size: 2.5rem;
+                        color: #adb5bd;
+                    }
+                    .package-details {
+                        padding: 15px;
+                    }
+                    .package-name {
+                        font-weight: 600;
+                        font-size: 1rem;
+                        color: #333;
+                        margin-bottom: 3px;
+                    }
+                    .package-name-secondary {
+                        font-size: 0.85rem;
+                        color: #6c757d;
+                        margin-bottom: 8px;
+                    }
+                    .package-price {
+                        font-size: 1.1rem;
+                        font-weight: 700;
+                        color: #198754;
+                    }
+                    .package-select-indicator {
+                        position: absolute;
+                        top: 10px;
+                        right: 10px;
+                        width: 24px;
+                        height: 24px;
+                        border: 2px solid #dee2e6;
+                        border-radius: 50%;
+                        background: white;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        transition: all 0.2s ease;
+                    }
+                    .package-with-image.selected .package-select-indicator {
+                        border-color: #198754;
+                        background: #198754;
+                        color: white;
+                    }
+                    
+                    /* Payment Method Styling */
+                    .payment-option {
+                        height: 100%;
+                    }
+                    .payment-option label {
+                        transition: all 0.3s ease;
+                        min-height: 110px;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        cursor: pointer;
+                        border: 2px solid #dee2e6;
+                        border-radius: 8px;
+                        background: white;
+                        padding: 12px;
+                    }
+                    
+                    .payment-option label:hover {
+                        transform: translateY(-2px);
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                        border-color: #adb5bd;
+                    }
+                    
+                    .payment-option .btn-check:checked + label {
+                        background-color: #198754;
+                        border-color: #198754;
+                        color: white;
+                        box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.2);
+                    }
+                    
+                    .payment-option label img {
+                        filter: grayscale(0);
+                        transition: filter 0.3s ease;
+                        max-width: 100%;
+                        height: auto;
+                    }
+                    
+                    .payment-option .btn-check:checked + label img {
+                        filter: brightness(0) invert(1);
+                    }
+                    
+                    .payment-option label i {
+                        transition: color 0.3s ease;
+                    }
+                    
+                    .payment-option .btn-check:checked + label i {
+                        color: white;
+                    }
+                    
+                    .payment-option label .small {
+                        margin-top: 4px;
+                        font-weight: 500;
+                    }
+                    
                     .btn-check:checked + .btn-outline-primary,
                     .btn-check:checked + .btn-outline-info,
                     .btn-check:checked + .btn-outline-secondary {
@@ -394,16 +586,38 @@
         // RENDER HELPERS
         // ========================================
         renderPaymentMethods: function () {
+            if (!this.paymentModes || this.paymentModes.length === 0) {
+                return '<div class="col-12"><p class="text-warning">No payment methods available</p></div>';
+            }
+
             let html = '';
-            this.paymentMethods.forEach(method => {
+            this.paymentModes.forEach((mode, index) => {
+                // Get icon display data
+                const iconDisplay = mode.icon_display_url_data || { 
+                    type: 'bootstrap', 
+                    value: 'bi-currency-dollar' 
+                };
+                
+                // Render icon or image
+                const iconHtml = iconDisplay.type === 'bootstrap'
+                    ? `<i class="bi ${iconDisplay.value} d-block mb-2" style="font-size: 1.8rem;"></i>`
+                    : `<img src="${iconDisplay.value}" alt="${mode.name}" 
+                            style="width: ${iconDisplay.width || 62}px; 
+                                   height: ${iconDisplay.height || 28}px; 
+                                   object-fit: contain; 
+                                   display: block; 
+                                   margin: 0 auto 8px;">`;
+
                 html += `
                     <div class="col-6 col-md-4">
                         <div class="payment-option">
-                            <input type="radio" class="btn-check" name="paymentMethod" id="payment-${method.value}" value="${method.value}" autocomplete="off">
-                            <label class="btn btn-outline-secondary w-100 py-3" for="payment-${method.value}">
-                                <i class="bi bi-${method.icon} d-block mb-1" style="font-size: 1.5rem;"></i>
-                                <span class="d-block small">${method.label}</span>
-                                <span class="d-block small text-muted">${method.labelCn}</span>
+                            <input type="radio" class="btn-check" name="paymentMethod" 
+                                   id="payment-${mode.id}" value="${mode.id}" 
+                                   ${index === 0 ? 'checked' : ''} autocomplete="off">
+                            <label class="btn btn-outline-secondary w-100" for="payment-${mode.id}">
+                                ${iconHtml}
+                                <span class="d-block small fw-semibold">${mode.name}</span>
+                                ${mode.name_secondary ? `<span class="d-block small text-muted">${mode.name_secondary}</span>` : ''}
                             </label>
                         </div>
                     </div>
@@ -520,6 +734,110 @@
             return deferred.promise();
         },
 
+        loadPaymentModes: function () {
+            const self = this;
+            const deferred = $.Deferred();
+
+            TempleAPI.get('/masters/payment-modes/active')
+                .done(function (response) {
+                    if (response.success && response.data && response.data.length > 0) {
+                        self.paymentModes = response.data;
+                        // Render payment methods after loading
+                        self.renderPaymentMethodsToDOM();
+                        deferred.resolve();
+                    } else {
+                        self.paymentModes = [];
+                        $('#paymentMethodsGrid').html('<div class="col-12"><p class="text-warning">No payment methods available</p></div>');
+                        deferred.reject();
+                    }
+                })
+                .fail(function () {
+                    self.paymentModes = [];
+                    $('#paymentMethodsGrid').html('<div class="col-12"><p class="text-danger">Failed to load payment methods</p></div>');
+                    deferred.reject();
+                });
+
+            return deferred.promise();
+        },
+
+        loadBookingSettings: function () {
+            const self = this;
+            const deferred = $.Deferred();
+
+            TempleAPI.get('/special-occasions/bookings/settings')
+                .done(function (response) {
+                    if (response.success && response.data) {
+                        self.bookingSettings = response.data;
+                        
+                        // Show/hide discount and deposit fields based on settings
+                        if (self.bookingSettings.is_discount_enabled) {
+                            $('#discountFieldContainer').show();
+                        }
+                        if (self.bookingSettings.is_deposit_enabled) {
+                            $('#depositFieldContainer').show();
+                        }
+                        
+                        deferred.resolve();
+                    } else {
+                        deferred.reject();
+                    }
+                })
+                .fail(function () {
+                    console.warn('Failed to load booking settings - using defaults');
+                    deferred.resolve(); // Don't fail the entire initialization
+                });
+
+            return deferred.promise();
+        },
+
+        // NEW: Load active addon services
+        loadAddonServices: function () {
+            const self = this;
+            const deferred = $.Deferred();
+
+            TempleAPI.get('/occasion-services-master/active-addons')
+                .done(function (response) {
+                    if (response.success && response.data) {
+                        self.addonServices = response.data;
+                        self.renderAddonServicesDropdown();
+                        deferred.resolve();
+                    } else {
+                        self.addonServices = [];
+                        deferred.resolve();
+                    }
+                })
+                .fail(function () {
+                    console.warn('Failed to load addon services');
+                    self.addonServices = [];
+                    deferred.resolve();
+                });
+
+            return deferred.promise();
+        },
+
+        // NEW: Render addon services dropdown
+        renderAddonServicesDropdown: function () {
+            let html = '<option value="">-- No Add-on Service --</option>';
+            
+            if (this.addonServices && this.addonServices.length > 0) {
+                this.addonServices.forEach(service => {
+                    const amount = parseFloat(service.amount || 0).toFixed(2);
+                    const displayName = service.name_secondary 
+                        ? `${service.name} (${service.name_secondary}) - RM ${amount}`
+                        : `${service.name} - RM ${amount}`;
+                    
+                    html += `<option value="${service.id}" data-amount="${amount}">${displayName}</option>`;
+                });
+            }
+            
+            $('#addonServiceSelect').html(html);
+        },
+
+        renderPaymentMethodsToDOM: function() {
+            const html = this.renderPaymentMethods();
+            $('#paymentMethodsGrid').html(html);
+        },
+
         loadPackages: function (occasionId) {
             const self = this;
 
@@ -537,7 +855,11 @@
                 });
         },
 
+        // ========================================
+        // RENDER PACKAGE OPTIONS WITH IMAGES
+        // ========================================
         renderPackageOptions: function () {
+            const self = this;
             const $container = $('#packageOptionsGroup');
             $container.empty();
 
@@ -546,28 +868,90 @@
                 return;
             }
 
-            let html = '<div class="list-group">';
-            this.packages.forEach((pkg, index) => {
-                const price = parseFloat(pkg.amount || 0).toFixed(2);
-                const secondaryName = pkg.name_secondary ? `<small class="text-muted">${pkg.name_secondary}</small>` : '';
+            // Check if any package has an image
+            const hasAnyImage = this.packages.some(pkg => pkg.image_url || pkg.image_path);
 
-                html += `
-                    <label class="list-group-item list-group-item-action d-flex justify-content-between align-items-center package-option">
-                        <div class="d-flex align-items-center">
-                            <input class="form-check-input me-3" type="radio" name="packageOption" 
-                                   value="${pkg.id}" data-index="${index}" required>
-                            <div>
-                                <div class="fw-semibold">${pkg.name}</div>
-                                ${secondaryName}
+            if (hasAnyImage) {
+                // Render as cards with images
+                let html = '<div class="row g-3">';
+                this.packages.forEach((pkg, index) => {
+                    const price = parseFloat(pkg.amount || 0).toFixed(2);
+                    const secondaryName = pkg.name_secondary || '';
+                    
+                    let imageUrl = null;
+                    if (pkg.image_url) {
+                        imageUrl = pkg.image_url;
+                    } else if (pkg.image_path) {
+                        imageUrl = `/storage/${pkg.image_path}`;
+                    }
+
+                    html += `
+                        <div class="col-md-6 col-lg-4">
+                            <div class="package-with-image position-relative" data-package-id="${pkg.id}" data-index="${index}">
+                                <input type="radio" class="d-none" name="packageOption" 
+                                       value="${pkg.id}" data-index="${index}" required>
+                                <div class="package-select-indicator">
+                                    <i class="bi bi-check"></i>
+                                </div>
+                                <div class="package-image-container">
+                                    ${imageUrl 
+                                        ? `<img src="${imageUrl}" alt="${pkg.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                           <i class="bi bi-box-seam package-image-placeholder" style="display:none;"></i>` 
+                                        : '<i class="bi bi-box-seam package-image-placeholder"></i>'
+                                    }
+                                </div>
+                                <div class="package-details">
+                                    <div class="package-name">${pkg.name}</div>
+                                    ${secondaryName ? `<div class="package-name-secondary">${secondaryName}</div>` : ''}
+                                    <div class="package-price">RM ${price}</div>
+                                </div>
                             </div>
                         </div>
-                        <span class="badge bg-warning text-dark fs-6">RM ${price}</span>
-                    </label>
-                `;
-            });
-            html += '</div>';
+                    `;
+                });
+                html += '</div>';
+                $container.html(html);
 
-            $container.html(html);
+                // Bind click events for card-style packages
+                $container.find('.package-with-image').on('click', function() {
+                    const $this = $(this);
+                    const packageId = $this.data('package-id');
+                    const packageIndex = $this.data('index');
+                    
+                    $this.find('input[name="packageOption"]').prop('checked', true);
+                    $container.find('.package-with-image').removeClass('selected');
+                    $this.addClass('selected');
+                    
+                    self.selectedPackage = packageId;
+                    self.selectedPackageData = self.packages[packageIndex];
+                    self.loadDates(packageId);
+                    self.updateSummaryPreview();
+                });
+            } else {
+                // Render as list (original style)
+                let html = '<div class="list-group">';
+                this.packages.forEach((pkg, index) => {
+                    const price = parseFloat(pkg.amount || 0).toFixed(2);
+                    const secondaryName = pkg.name_secondary ? `<small class="text-muted d-block">${pkg.name_secondary}</small>` : '';
+
+                    html += `
+                        <label class="list-group-item list-group-item-action d-flex justify-content-between align-items-center package-option">
+                            <div class="d-flex align-items-center">
+                                <input class="form-check-input me-3" type="radio" name="packageOption" 
+                                       value="${pkg.id}" data-index="${index}" required>
+                                <div>
+                                    <div class="fw-semibold">${pkg.name}</div>
+                                    ${secondaryName}
+                                </div>
+                            </div>
+                            <span class="badge bg-warning text-dark fs-6">RM ${price}</span>
+                        </label>
+                    `;
+                });
+                html += '</div>';
+
+                $container.html(html);
+            }
         },
 
         loadDates: function (packageId) {
@@ -577,6 +961,11 @@
             $container.html('<div class="text-center py-3"><span class="spinner-border spinner-border-sm"></span> Loading dates...</div>');
             $('#dateTimeCard').slideDown();
             $('#slotSelectionContainer').hide();
+            
+            // Clear previous date and slot selections
+            self.selectedDate = null;
+            self.selectedSlot = null;
+            self.selectedSlotData = null;
 
             TempleAPI.get(`/special-occasions/bookings/dates/${packageId}`)
                 .done(function (response) {
@@ -597,6 +986,8 @@
                 const minDate = dates.start || new Date().toISOString().split('T')[0];
                 const maxDate = dates.end || '';
 
+                console.log('Rendering date picker:', { minDate, maxDate }); // Debug log
+
                 $container.html(`
                     <input type="date" class="form-control form-control-lg" id="eventDate" 
                            min="${minDate}" max="${maxDate}" required>
@@ -609,6 +1000,8 @@
                     $container.html('<p class="text-warning"><i class="bi bi-exclamation-triangle"></i> No dates available for this package</p>');
                     return;
                 }
+
+                console.log('Rendering date radio buttons:', dates.length); // Debug log
 
                 let html = '<div class="row g-2">';
                 dates.forEach((dateItem, index) => {
@@ -636,6 +1029,8 @@
             const self = this;
             const $container = $('#slotSelectionGroup');
 
+            console.log('loadTimeSlots called:', { packageId, eventDate }); // Debug log
+
             $container.html('<div class="text-center py-3"><span class="spinner-border spinner-border-sm"></span> Loading time slots...</div>');
             $('#slotSelectionContainer').slideDown();
 
@@ -644,12 +1039,14 @@
                 event_date: eventDate
             })
                 .done(function (response) {
+                    console.log('Slots loaded:', response); // Debug log
                     if (response.success) {
                         self.timeSlots = response.data || [];
                         self.renderTimeSlots(response.package_mode);
                     }
                 })
-                .fail(function () {
+                .fail(function (xhr, status, error) {
+                    console.error('Failed to load slots:', { xhr, status, error }); // Debug log
                     $container.html('<p class="text-danger">Failed to load time slots</p>');
                 });
         },
@@ -709,7 +1106,7 @@
                 }
             });
 
-            // Package selection
+            // Package selection (for list-style without images)
             $(document).on('change.' + this.eventNamespace, 'input[name="packageOption"]', function () {
                 const packageId = $(this).val();
                 const packageIndex = $(this).data('index');
@@ -722,6 +1119,7 @@
             // Date selection (radio buttons)
             $(document).on('change.' + this.eventNamespace, 'input[name="eventDate"]', function () {
                 self.selectedDate = $(this).val();
+                console.log('Date radio changed:', self.selectedDate); // Debug log
                 if (self.selectedPackage && self.selectedDate) {
                     self.loadTimeSlots(self.selectedPackage, self.selectedDate);
                 }
@@ -731,6 +1129,7 @@
             // Date selection (date picker)
             $(document).on('change.' + this.eventNamespace, '#eventDate', function () {
                 self.selectedDate = $(this).val();
+                console.log('Date picker changed:', self.selectedDate); // Debug log
                 if (self.selectedPackage && self.selectedDate) {
                     self.loadTimeSlots(self.selectedPackage, self.selectedDate);
                 }
@@ -752,8 +1151,50 @@
                 self.checkFormComplete();
             });
 
+            // NEW: Addon service selection
+            $(document).on('change.' + this.eventNamespace, '#addonServiceSelect', function () {
+                const selectedId = $(this).val();
+                if (selectedId) {
+                    const selectedService = self.addonServices.find(s => s.id == selectedId);
+                    self.selectedAddonService = selectedService;
+                } else {
+                    self.selectedAddonService = null;
+                }
+                self.updateSummaryPreview();
+                self.checkFormComplete();
+            });
+
             // Personal info changes
             $(document).on('input.' + this.eventNamespace, '#nameChinese, #nameEnglish, #nric, #email, #contactNo', function () {
+                self.updateSummaryPreview();
+                self.checkFormComplete();
+            });
+
+            // Discount and Deposit changes with validation
+            $(document).on('input.' + this.eventNamespace, '#discountAmount', function () {
+                const totals = self.calculateTotals();
+                let discountValue = parseFloat($(this).val() || 0);
+                
+                // Auto-correct if discount exceeds subtotal
+                if (discountValue > totals.subtotal) {
+                    $(this).val(totals.subtotal.toFixed(2));
+                    TempleCore.showToast('Discount cannot exceed subtotal amount', 'warning');
+                }
+                
+                self.updateSummaryPreview();
+                self.checkFormComplete();
+            });
+            
+            $(document).on('input.' + this.eventNamespace, '#depositAmount', function () {
+                const totals = self.calculateTotals();
+                let depositValue = parseFloat($(this).val() || 0);
+                
+                // Auto-correct if deposit exceeds total
+                if (depositValue > totals.total) {
+                    $(this).val(totals.total.toFixed(2));
+                    TempleCore.showToast('Deposit cannot exceed total amount', 'warning');
+                }
+                
                 self.updateSummaryPreview();
                 self.checkFormComplete();
             });
@@ -802,29 +1243,24 @@
                 TempleRouter.navigate('special-occasions');
             });
 
-
-            // Print receipt - use router navigation
+            // Print receipt
             $(document).on('click.' + this.eventNamespace, '#btnPrintReceipt', function () {
                 const bookingId = $(this).data('booking-id');
                 if (bookingId) {
-                    // Close the modal first
                     if (self.confirmationModal) {
                         self.confirmationModal.hide();
                     }
-                    // Use router to navigate to print page with params
                     setTimeout(() => {
                         TempleRouter.navigate('special-occasions/print', { id: bookingId });
                     }, 300);
                 }
             });
 
-            // New booking button - FIXED
+            // New booking button
             $(document).on('click.' + this.eventNamespace, '#btnNewBooking', function () {
-                // Hide confirmation modal properly
                 if (self.confirmationModal) {
                     self.confirmationModal.hide();
                 }
-                // Reset form after modal hides
                 setTimeout(() => {
                     self.resetForm();
                 }, 300);
@@ -842,10 +1278,7 @@
             $('#occasionName').text(occasion.name);
             $('#occasionNameChinese').text(occasion.nameSecondary || '');
 
-            // Show info card
             $infoCard.show();
-
-            // Load packages
             this.loadPackages(occasion.id);
 
             // Reset selections
@@ -854,15 +1287,15 @@
             this.selectedDate = null;
             this.selectedSlot = null;
             this.selectedSlotData = null;
+            this.selectedAddonService = null;
+            $('#addonServiceSelect').val('');
             $('#dateTimeCard').hide();
             $('#slotSelectionContainer').hide();
             $('#summaryPreviewCard').hide();
             $('#btnSubmit').prop('disabled', true);
 
-            // Show form
             $formContainer.show();
 
-            // Scroll to form
             setTimeout(() => {
                 $('html, body').animate({
                     scrollTop: $formContainer.offset().top - 100
@@ -887,15 +1320,94 @@
             }
         },
 
+        // UPDATED: Calculate totals with addon service
+        calculateTotals: function() {
+            const pkg = this.selectedPackageData;
+            if (!pkg) return { subtotal: 0, addonAmount: 0, discount: 0, total: 0, deposit: 0, balance: 0 };
+
+            const packageAmount = parseFloat(pkg.amount || 0);
+            const addonAmount = this.selectedAddonService ? parseFloat(this.selectedAddonService.amount || 0) : 0;
+            const subtotal = packageAmount + addonAmount;
+            
+            let discountAmount = parseFloat($('#discountAmount').val() || 0);
+            
+            // Prevent discount from exceeding subtotal
+            if (discountAmount > subtotal) {
+                discountAmount = subtotal;
+                $('#discountAmount').val(discountAmount.toFixed(2));
+            }
+            
+            const total = Math.max(0, subtotal - discountAmount);
+            let depositAmount = parseFloat($('#depositAmount').val() || 0);
+            
+            // Prevent deposit from exceeding total
+            if (depositAmount > total) {
+                depositAmount = total;
+                $('#depositAmount').val(depositAmount.toFixed(2));
+            }
+            
+            const balance = Math.max(0, total - depositAmount);
+
+            return {
+                packageAmount: packageAmount,
+                addonAmount: addonAmount,
+                subtotal: subtotal,
+                discount: discountAmount,
+                total: total,
+                deposit: depositAmount,
+                balance: balance
+            };
+        },
+
+        // UPDATED: Update summary preview with addon service
         updateSummaryPreview: function () {
             const pkg = this.selectedPackageData;
             const slot = this.selectedSlotData;
-            const payment = $('input[name="paymentMethod"]:checked').val();
-            const paymentLabel = this.paymentMethods.find(p => p.value === payment)?.label || '-';
+            const paymentModeId = $('input[name="paymentMethod"]:checked').val();
+            
+            const selectedPaymentMode = this.paymentModes.find(pm => pm.id == paymentModeId);
+            const paymentLabel = selectedPaymentMode ? selectedPaymentMode.name : '-';
 
             if (!pkg) return;
 
+            const totals = this.calculateTotals();
             const slotInfo = slot ? `${slot.slot_name} (${slot.start_time} - ${slot.end_time})` : 'Not required';
+
+            let amountSection = `
+                <tr><td class="text-muted">Package:</td><td>RM ${totals.packageAmount.toFixed(2)}</td></tr>
+            `;
+
+            // Show addon service if selected
+            if (this.selectedAddonService) {
+                const addonDisplay = this.selectedAddonService.name_secondary 
+                    ? `${this.selectedAddonService.name} (${this.selectedAddonService.name_secondary})`
+                    : this.selectedAddonService.name;
+                amountSection += `
+                    <tr><td class="text-muted">Add-on Service:</td><td class="text-info">RM ${totals.addonAmount.toFixed(2)}</td></tr>
+                    <tr><td colspan="2" class="small text-muted ps-4">└ ${addonDisplay}</td></tr>
+                `;
+            }
+
+            amountSection += `
+                <tr><td class="text-muted">Subtotal:</td><td class="fw-semibold">RM ${totals.subtotal.toFixed(2)}</td></tr>
+            `;
+
+            if (totals.discount > 0) {
+                amountSection += `
+                    <tr><td class="text-muted">Discount:</td><td class="text-danger">- RM ${totals.discount.toFixed(2)}</td></tr>
+                `;
+            }
+
+            amountSection += `
+                <tr><td class="text-muted">Total:</td><td class="text-success fw-bold">RM ${totals.total.toFixed(2)}</td></tr>
+            `;
+
+            if (totals.deposit > 0) {
+                amountSection += `
+                    <tr><td class="text-muted">Deposit:</td><td class="text-info">RM ${totals.deposit.toFixed(2)}</td></tr>
+                    <tr><td class="text-muted">Balance Due:</td><td class="text-warning fw-bold">RM ${totals.balance.toFixed(2)}</td></tr>
+                `;
+            }
 
             const html = `
                 <div class="row">
@@ -905,7 +1417,7 @@
                             <tr><td class="text-muted">Package:</td><td>${pkg.name}</td></tr>
                             <tr><td class="text-muted">Date:</td><td>${this.formatDate(this.selectedDate) || '-'}</td></tr>
                             <tr><td class="text-muted">Time Slot:</td><td>${slotInfo}</td></tr>
-                            <tr><td class="text-muted">Amount:</td><td class="text-success fw-bold">RM ${parseFloat(pkg.amount || 0).toFixed(2)}</td></tr>
+                            ${amountSection}
                         </table>
                     </div>
                     <div class="col-md-6">
@@ -940,32 +1452,40 @@
             let isValid = true;
             const errors = [];
 
-            // Package
             if (!this.selectedPackage) {
                 errors.push('Please select a package');
                 isValid = false;
             }
 
-            // Date
             if (!this.selectedDate) {
                 errors.push('Please select a date');
                 isValid = false;
             }
 
-            // Time slot (if required)
             if (this.timeSlots.length > 0 && !this.selectedSlot) {
                 errors.push('Please select a time slot');
                 isValid = false;
             }
 
-            // Payment
             if (!$('input[name="paymentMethod"]:checked').length) {
                 $('#paymentError').show();
                 errors.push('Please select a payment method');
                 isValid = false;
             }
 
-            // Personal info
+            // Validate discount and deposit amounts
+            const totals = this.calculateTotals();
+            
+            if (totals.discount > totals.subtotal) {
+                errors.push('Discount cannot exceed subtotal amount');
+                isValid = false;
+            }
+
+            if (totals.deposit > totals.total) {
+                errors.push('Deposit cannot exceed total amount');
+                isValid = false;
+            }
+
             const form = document.getElementById('bookingForm');
             if (!form.checkValidity()) {
                 form.classList.add('was-validated');
@@ -981,14 +1501,16 @@
         },
 
         // ========================================
-        // SUBMIT FORM
+        // SUBMIT FORM - UPDATED WITH ADDON SERVICE
         // ========================================
         submitForm: function () {
             const self = this;
             const $submitBtn = $('#btnSubmit, #btnConfirmSubmit');
             const originalText = $submitBtn.html();
 
-            const paymentMethod = $('input[name="paymentMethod"]:checked').val();
+            const paymentModeId = $('input[name="paymentMethod"]:checked').val();
+            const discountAmount = parseFloat($('#discountAmount').val() || 0);
+            const depositAmount = parseFloat($('#depositAmount').val() || 0);
 
             const apiData = {
                 special_occasion_id: this.selectedOccasionData.id,
@@ -1000,9 +1522,22 @@
                 nric: $('#nric').val().trim(),
                 email: $('#email').val().trim(),
                 contact_no: $('#contactNo').val().trim(),
-                payment_methods: paymentMethod,
+                payment_methods: paymentModeId,
                 remark: $('#remark').val().trim() || null
             };
+
+            // Add addon service if selected
+            if (this.selectedAddonService) {
+                apiData.addon_service_id = parseInt(this.selectedAddonService.id);
+            }
+
+            // Add optional fields only if they have values
+            if (discountAmount > 0) {
+                apiData.discount_amount = discountAmount;
+            }
+            if (depositAmount > 0) {
+                apiData.deposit_amount = depositAmount;
+            }
 
             $submitBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2"></span>Processing...');
 
@@ -1024,11 +1559,49 @@
         },
 
         // ========================================
-        // SUCCESS MODAL
+        // SUCCESS MODAL - UPDATED WITH ADDON SERVICE
         // ========================================
         showSuccessModal: function (booking) {
             const slot = this.selectedSlotData;
             const slotName = slot ? `${slot.slot_name} (${slot.start_time} - ${slot.end_time})` : 'N/A';
+
+            // Build amount display with addon service
+            let amountDisplay = '';
+            
+            // Show package amount
+            if (booking.occasion_amount) {
+                amountDisplay += `<small class="text-muted">Package: RM ${parseFloat(booking.occasion_amount).toFixed(2)}</small><br>`;
+            }
+            
+            // Show addon service if present
+            if (booking.addon_services && booking.addon_services.length > 0) {
+                const addon = booking.addon_services[0];
+                const addonName = addon.name_secondary ? `${addon.name} (${addon.name_secondary})` : addon.name;
+                amountDisplay += `<small class="text-info">Add-on: ${addonName} - RM ${parseFloat(addon.total).toFixed(2)}</small><br>`;
+            }
+            
+            // Show subtotal if different from total
+            if (booking.subtotal && booking.discount_amount > 0) {
+                amountDisplay += `<small class="text-muted">Subtotal: RM ${parseFloat(booking.subtotal).toFixed(2)}</small><br>`;
+            }
+            
+            // Show discount if present
+            if (booking.discount_amount > 0) {
+                amountDisplay += `<small class="text-danger">Discount: - RM ${parseFloat(booking.discount_amount).toFixed(2)}</small><br>`;
+            }
+            
+            // Show total
+            amountDisplay += `<strong>Total: RM ${parseFloat(booking.total_amount).toFixed(2)}</strong>`;
+
+            // Show deposit and balance if present
+            if (booking.deposit_amount > 0) {
+                amountDisplay += `
+                    <div class="mt-2">
+                        <small class="text-info">Deposit Paid: RM ${parseFloat(booking.deposit_amount).toFixed(2)}</small><br>
+                        <small class="text-warning fw-bold">Balance Due: RM ${parseFloat(booking.balance_due).toFixed(2)}</small>
+                    </div>
+                `;
+            }
 
             $('#confirmBookingCode').html(`
                 <span class="text-muted">Booking Code:</span><br>
@@ -1042,13 +1615,12 @@
                     <tr><td class="text-muted">Date:</td><td>${this.formatDate(booking.event_date)}</td></tr>
                     <tr><td class="text-muted">Time Slot:</td><td>${slotName}</td></tr>
                     <tr><td class="text-muted">Devotee:</td><td>${booking.name_chinese} / ${booking.name_english}</td></tr>
-                    <tr><td class="text-muted">Amount:</td><td class="text-success fw-bold fs-5">RM ${parseFloat(booking.occasion_amount).toFixed(2)}</td></tr>
+                    <tr><td class="text-muted">Amount:</td><td class="fs-6">${amountDisplay}</td></tr>
                 </table>
             `);
 
             $('#btnPrintReceipt').data('booking-id', booking.id);
 
-            // Create and show modal
             if (!this.confirmationModal) {
                 this.confirmationModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
             }
@@ -1079,6 +1651,7 @@
             $('#summaryPreviewCard').hide();
             $('#paymentError').hide();
             $('#btnSubmit').prop('disabled', true);
+            $('#addonServiceSelect').val('');
 
             this.selectedOccasion = null;
             this.selectedOccasionData = null;
@@ -1087,10 +1660,10 @@
             this.selectedDate = null;
             this.selectedSlot = null;
             this.selectedSlotData = null;
+            this.selectedAddonService = null;
             this.packages = [];
             this.timeSlots = [];
 
-            // Scroll to top
             $('html, body').animate({ scrollTop: 0 }, 400);
         },
 
@@ -1101,7 +1674,6 @@
 
         initAnimations: function () {
             // No animations - show everything immediately
-            // This prevents any opacity/visibility issues
         }
     };
 

@@ -735,4 +735,50 @@ class SaleItemController extends Controller
             ], 500);
         }
     }
+
+
+    /**
+ * Generate next available short code
+ */
+public function generateShortCode(Request $request)
+{
+    try {
+        $prefix = $request->input('prefix', 'SI'); // SI = Sale Item
+        
+        // Get the last short code with this prefix
+        $lastItem = SaleItem::where('short_code', 'LIKE', $prefix . '%')
+            ->orderBy('short_code', 'desc')
+            ->first();
+        
+        if ($lastItem) {
+            // Extract the numeric part
+            $lastNumber = (int) preg_replace('/[^0-9]/', '', $lastItem->short_code);
+            $nextNumber = $lastNumber + 1;
+        } else {
+            $nextNumber = 1;
+        }
+        
+        // Format with leading zeros (e.g., SI0001, SI0002)
+        $shortCode = $prefix . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+        
+        // Ensure uniqueness
+        while (SaleItem::where('short_code', $shortCode)->exists()) {
+            $nextNumber++;
+            $shortCode = $prefix . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+        }
+        
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'short_code' => $shortCode
+            ]
+        ]);
+    } catch (Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to generate short code',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
 }

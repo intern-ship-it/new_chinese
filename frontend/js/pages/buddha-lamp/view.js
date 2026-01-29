@@ -325,34 +325,45 @@
                         </div>
                         
                         <!-- Booking Details -->
-                        <div class="col-lg-6 mb-4" data-aos="fade-up" data-aos-duration="800" data-aos-delay="200">
-                            <div class="card shadow-sm h-100">
-                                <div class="card-header bg-gradient-success">
-                                    <h5 class="mb-0">
-                                        <i class="bi bi-brightness-high me-2"></i>
-                                        Booking Details
-                                    </h5>
-                                </div>
-                                <div class="card-body">
-                                    <table class="table table-borderless mb-0">
-                                        <tbody>
-                                            <tr>
-                                                <td class="fw-bold text-muted" style="width: 40%;">Booking Number</td>
-                                                <td><span class="badge bg-primary fs-6">${data.booking_number}</span></td>
-                                            </tr>
-                                            <tr>
-                                                <td class="fw-bold text-muted">Booking Date</td>
-                                                <td>${this.formatDate(data.booking_date)}</td>
-                                            </tr>
-                                            <tr>
-                                                <td class="fw-bold text-muted">Amount</td>
-                                                <td class="fs-5 fw-bold text-success">${currency} ${this.formatAmount(data.total_amount)}</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
+<div class="col-lg-6 mb-4" data-aos="fade-up" data-aos-duration="800" data-aos-delay="200">
+    <div class="card shadow-sm h-100">
+        <div class="card-header bg-gradient-success">
+            <h5 class="mb-0">
+                <i class="bi bi-brightness-high me-2"></i>
+                Booking Details
+            </h5>
+        </div>
+        <div class="card-body">
+            <table class="table table-borderless mb-0">
+                <tbody>
+                    <tr>
+                        <td class="fw-bold text-muted" style="width: 40%;">Booking Number</td>
+                        <td><span class="badge bg-primary fs-6">${data.booking_number}</span></td>
+                    </tr>
+                    <tr>
+                        <td class="fw-bold text-muted">Booking Date</td>
+                        <td>${this.formatDate(data.booking_date)}</td>
+                    </tr>
+                    <tr>
+                        <td class="fw-bold text-muted">Buddha Lamp Type</td>
+                        <td>
+                            ${data.is_custom_amount === true || data.is_custom_amount === 'true' ? 
+                                `<span class="badge bg-info">Custom Amount</span>` : 
+                                data.buddha_lamp_name ? 
+                                    `<span class="badge bg-warning text-dark">${data.buddha_lamp_name}</span>` : 
+                                    `<span class="badge bg-secondary">Standard</span>`
+                            }
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="fw-bold text-muted">Amount</td>
+                        <td class="fs-5 fw-bold text-success">${currency} ${this.formatAmount(data.total_amount)}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
                         
                         <!-- Payment Information -->
                         <div class="col-lg-6 mb-4" data-aos="fade-up" data-aos-duration="800" data-aos-delay="300">

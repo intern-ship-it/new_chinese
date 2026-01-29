@@ -45,7 +45,8 @@
             }, options);
             
             // Add data for POST/PUT requests
-            if (settings.data && (settings.method === 'POST' || settings.method === 'PUT')) {
+        if (settings.data && (settings.method === 'POST' || settings.method === 'PUT' || settings.method === 'PATCH')) {
+
                 settings.data = JSON.stringify(settings.data);
             }
             
@@ -153,6 +154,13 @@
                 data: data
             });
         },
+        patch: function(endpoint, data) {
+    return this.request({
+        method: 'PATCH',
+        endpoint: endpoint,
+        data: data
+    });
+},
 		postFormData: function(endpoint, formData) {
 			return $.ajax({
 				url: this.getBaseUrl() + endpoint,

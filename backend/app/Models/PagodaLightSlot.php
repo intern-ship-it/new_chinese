@@ -18,13 +18,19 @@ class PagodaLightSlot extends Model
         'floor_number',
         'rag_position',
         'status',
-        'current_registration_id'
+        'current_registration_id',
+        'is_blocked',
+        'block_reason',
+        'blocked_by',
+        'blocked_at'
     ];
 
     protected $casts = [
         'light_number' => 'integer',
         'floor_number' => 'integer',
         'rag_position' => 'integer',
+        'is_blocked' => 'boolean',
+        'blocked_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime'
     ];
@@ -71,15 +77,45 @@ class PagodaLightSlot extends Model
         return $query->where('light_code', $lightCode);
     }
 
+    public function scopeNotBlocked($query)
+    {
+        return $query->where('is_blocked', false);
+    }
+
     // Helper methods
     public function isAvailable()
     {
-        return $this->status === 'available';
+        return $this->status === 'available' && !$this->is_blocked;
     }
 
     public function isRegistered()
     {
         return $this->status === 'registered';
+    }
+
+    public function isBlocked()
+    {
+        return $this->is_blocked;
+    }
+
+    public function blockLight($reason = null, $userId = null)
+    {
+        $this->update([
+            'is_blocked' => true,
+            'block_reason' => $reason,
+            'blocked_by' => $userId ?? auth()->id(),
+            'blocked_at' => now()
+        ]);
+    }
+
+    public function unblockLight()
+    {
+        $this->update([
+            'is_blocked' => false,
+            'block_reason' => null,
+            'blocked_by' => null,
+            'blocked_at' => null
+        ]);
     }
 
     public function markAsAvailable()

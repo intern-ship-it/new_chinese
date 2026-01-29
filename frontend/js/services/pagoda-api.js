@@ -2,294 +2,361 @@
 // Pagoda Tower Auspicious Light System API Service
 
 (function (window) {
-    'use strict';
+  'use strict';
 
-    window.PagodaAPI = {
+  window.PagodaAPI = {
+    // ========================================
+    // TOWERS API
+    // ========================================
+    towers: {
+      getAll: function (params = {}) {
+        return TempleAPI.get("/pagoda/towers", params);
+      },
 
-        // ========================================
-        // TOWERS API
-        // ========================================
-        towers: {
-            getAll: function (params = {}) {
-                return TempleAPI.get('/pagoda/towers', params);
-            },
+      getById: function (id) {
+        return TempleAPI.get(`/pagoda/towers/${id}`);
+      },
 
-            getById: function (id) {
-                return TempleAPI.get(`/pagoda/towers/${id}`);
-            },
+      getStatistics: function (id) {
+        return TempleAPI.get(`/pagoda/towers/${id}/statistics`);
+      },
 
-            getStatistics: function (id) {
-                return TempleAPI.get(`/pagoda/towers/${id}/statistics`);
-            },
+      create: function (data) {
+        return TempleAPI.post("/pagoda/towers", data);
+      },
 
-            create: function (data) {
-                return TempleAPI.post('/pagoda/towers', data);
-            },
+      update: function (id, data) {
+        return TempleAPI.put(`/pagoda/towers/${id}`, data);
+      },
 
-            update: function (id, data) {
-                return TempleAPI.put(`/pagoda/towers/${id}`, data);
-            },
+      delete: function (id) {
+        return TempleAPI.delete(`/pagoda/towers/${id}`);
+      },
+    },
 
-            delete: function (id) {
-                return TempleAPI.delete(`/pagoda/towers/${id}`);
-            }
-        },
+    // ========================================
+    // TOWER CATEGORIES API
+    // ========================================
+    towerCategories: {
+      getAll: function (params = {}) {
+        return TempleAPI.get("/pagoda/tower-categories", params);
+      },
 
-        // ========================================
-        // BLOCKS API
-        // ========================================
-        blocks: {
-            getAll: function (params = {}) {
-                return TempleAPI.get('/pagoda/blocks', params);
-            },
+      getActive: function () {
+        return TempleAPI.get("/pagoda/tower-categories/active");
+      },
 
-            getByTower: function (towerId) {
-                return TempleAPI.get(`/pagoda/blocks/tower/${towerId}`);
-            },
+      getById: function (id) {
+        return TempleAPI.get(`/pagoda/tower-categories/${id}`);
+      },
 
-            getById: function (id) {
-                return TempleAPI.get(`/pagoda/blocks/${id}`);
-            },
+      create: function (data) {
+        return TempleAPI.post("/pagoda/tower-categories", data);
+      },
 
-            getLightMap: function (id, floor = 1) {
-                return TempleAPI.get(`/pagoda/blocks/${id}/light-map`, { floor });
-            },
+      update: function (id, data) {
+        return TempleAPI.put(`/pagoda/tower-categories/${id}`, data);
+      },
 
-            create: function (data) {
-                return TempleAPI.post('/pagoda/blocks', data);
-            },
+      delete: function (id) {
+        return TempleAPI.delete(`/pagoda/tower-categories/${id}`);
+      },
+    },
 
-            update: function (id, data) {
-                return TempleAPI.put(`/pagoda/blocks/${id}`, data);
-            },
+    // ========================================
+    // BLOCKS API
+    // ========================================
+    blocks: {
+      getAll: function (params = {}) {
+        return TempleAPI.get("/pagoda/blocks", params);
+      },
 
-            delete: function (id) {
-                return TempleAPI.delete(`/pagoda/blocks/${id}`);
-            },
+      getByTower: function (towerId) {
+        return TempleAPI.get(`/pagoda/blocks/tower/${towerId}`);
+      },
 
-            generateLights: function (id) {
-                return TempleAPI.post(`/pagoda/blocks/${id}/generate-lights`);
-            }
-        },
+      getById: function (id) {
+        return TempleAPI.get(`/pagoda/blocks/${id}`);
+      },
 
-        // ========================================
-        // LIGHTS API
-        // ========================================
-        lights: {
-            search: function (params = {}) {
-                return TempleAPI.get('/pagoda/lights', params);
-            },
+      getLightMap: function (id, floor = 1) {
+        return TempleAPI.get(`/pagoda/blocks/${id}/light-map`, { floor });
+      },
 
-            getById: function (id) {
-                return TempleAPI.get(`/pagoda/lights/${id}`);
-            },
+      create: function (data) {
+        return TempleAPI.post("/pagoda/blocks", data);
+      },
 
-            getNextAvailable: function (blockId = null) {
-                const params = blockId ? { block_id: blockId } : {};
-                return TempleAPI.get('/pagoda/lights/available/next', params);
-            },
+      update: function (id, data) {
+        return TempleAPI.put(`/pagoda/blocks/${id}`, data);
+      },
 
-            checkAvailability: function (lightNumber) {
-                return TempleAPI.get(`/pagoda/lights/check-availability/${lightNumber}`);
-            },
+      delete: function (id) {
+        return TempleAPI.delete(`/pagoda/blocks/${id}`);
+      },
 
-            // In PagodaAPI.registrations object
-            getStatistics: function (params = {}) {
-                return TempleAPI.get('/pagoda/registrations/statistics/overview', params);
-            },
-        },
+      generateLights: function (id) {
+        return TempleAPI.post(`/pagoda/blocks/${id}/generate-lights`);
+      },
+    },
 
-        // ========================================
-        // REGISTRATIONS API
-        // ========================================
-        registrations: {
-            getAll: function (params = {}) {
-                return TempleAPI.get('/pagoda/registrations', params);
-            },
+    // ========================================
+    // LIGHTS API
+    // ========================================
+    lights: {
+      search: function (params = {}) {
+        return TempleAPI.get("/pagoda/lights", params);
+      },
 
-            getById: function (id) {
-                return TempleAPI.get(`/pagoda/registrations/${id}`);
-            },
+      getById: function (id) {
+        return TempleAPI.get(`/pagoda/lights/${id}`);
+      },
 
-            searchByReceipt: function (receiptNumber) {
-                return TempleAPI.get(`/pagoda/registrations/search/receipt/${receiptNumber}`);
-            },
-
-            getExpiring: function (days = 30) {
-                return TempleAPI.get('/pagoda/registrations/expiring/list', { days });
-            },
-
-            getStatistics: function (params = {}) {
-                return TempleAPI.get('/pagoda/registrations/statistics/overview', params);
-            },
-
-            generateReceiptNumber: function () {
-                return TempleAPI.get('/pagoda/registrations/generate/receipt-number');
-            },
-
-            create: function (data) {
-                return TempleAPI.post('/pagoda/registrations', data);
-            },
-
-            update: function (id, data) {
-                return TempleAPI.put(`/pagoda/registrations/${id}`, data);
-            },
-
-            renew: function (id, data) {
-                return TempleAPI.post(`/pagoda/registrations/${id}/renew`, data);
-            },
-
-            terminate: function (id, reason) {
-                return TempleAPI.post(`/pagoda/registrations/${id}/terminate`, {
-                    termination_reason: reason
-                });
-            }
-        },
-
-        // ========================================
-        // DEVOTEES API
-        // ========================================
-        // In frontend/js/services/pagoda-api.js
-
-        devotees: {
-            // Get all devotees (with pagination)
-            getAll: function (params = {}) {
-                return TempleAPI.get('/pagoda/devotees', params);
-            },
-
-            // Get single devotee by ID
-            getById: function (id) {
-                return TempleAPI.get(`/pagoda/devotees/${id}`);
-            },
-
-            // Generic search - searches all fields (name, nric, contact, email)
-            search: function (query) {
-                return TempleAPI.get('/pagoda/devotees/search', { query: query });
-            },
-
-            // Quick lookup by NRIC - returns single devotee
-            findByNric: function (nric) {
-                return TempleAPI.get('/pagoda/devotees/search-by-nric-or-contact', { nric: nric });
-            },
-
-            // Quick lookup by Contact - returns single devotee
-            findByContact: function (contact) {
-                return TempleAPI.get('/pagoda/devotees/search-by-nric-or-contact', { contact_no: contact });
-            },
-
-            create: function (data) {
-                return TempleAPI.post('/pagoda/devotees', data);
-            },
-
-            update: function (id, data) {
-                return TempleAPI.put(`/pagoda/devotees/${id}`, data);
-            },
-
-            delete: function (id) {
-                return TempleAPI.delete(`/pagoda/devotees/${id}`);
-            }
-        },
-
-        // ========================================
-        // SETTINGS API
-        // ========================================
-        settings: {
-            getAll: function () {
-                return TempleAPI.get('/pagoda/settings');
-            },
-
-            getByKey: function (key) {
-                return TempleAPI.get(`/pagoda/settings/${key}`);
-            },
-
-            getBookingConfig: function () {
-                return TempleAPI.get('/pagoda/settings/config/booking');
-            },
-
-            save: function (data) {
-                return TempleAPI.post('/pagoda/settings', data);
-            },
-
-            bulkUpdate: function (settings) {
-                return TempleAPI.post('/pagoda/settings/bulk-update', { settings });
-            },
-
-            delete: function (key) {
-                return TempleAPI.delete(`/pagoda/settings/${key}`);
-            }
-        },
-
-        // ========================================
-        // REPORTS API
-        // ========================================
-        reports: {
-            getDashboard: function () {
-                return TempleAPI.get('/pagoda/reports/dashboard');
-            },
-
-            getRevenue: function (params = {}) {
-                return TempleAPI.get('/pagoda/reports/revenue', params);
-            },
-
-            getOccupancy: function () {
-                return TempleAPI.get('/pagoda/reports/occupancy');
-            },
-
-            getExpiryForecast: function (months = 6) {
-                return TempleAPI.get('/pagoda/reports/expiry-forecast', { months });
-            },
-
-            getDevoteeAnalytics: function (params = {}) {
-                return TempleAPI.get('/pagoda/reports/devotees', params);
-            },
-
-            exportRegistrations: function (params = {}) {
-                return TempleAPI.download('/pagoda/reports/export/registrations', params);
-            },
-
-            exportRevenue: function (params = {}) {
-                return TempleAPI.download('/pagoda/reports/export/revenue', params);
-            },
-
-            exportDevotees: function (params = {}) {
-                return TempleAPI.download('/pagoda/reports/export/devotees', params);
-            }
-        },
-
-        // ========================================
-        // UTILITY FUNCTIONS
-        // ========================================
-        utils: {
-            formatLightCode: function (towerCode, blockCode, floor, position) {
-                return `${towerCode}-${blockCode}-${String(floor).padStart(2, '0')}-${String(position).padStart(3, '0')}`;
-            },
-
-            calculateExpiryDate: function (offerDate, months = 12) {
-                const date = new Date(offerDate);
-                date.setMonth(date.getMonth() + months);
-                return date.toISOString().split('T')[0];
-            },
-
-            getDaysUntilExpiry: function (expiryDate) {
-                const today = new Date();
-                const expiry = new Date(expiryDate);
-                const diffTime = expiry - today;
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                return diffDays;
-            },
-
-            getStatusBadgeClass: function (status, type = 'light') {
-                const colors = type === 'light'
-                    ? APP_CONFIG.PAGODA.STATUS_COLORS
-                    : APP_CONFIG.PAGODA.REGISTRATION_STATUS_COLORS;
-                return `badge bg-${colors[status] || 'secondary'}`;
-            },
-
-            formatCurrency: function (amount, currency = 'MYR') {
-                const symbol = APP_CONFIG.CURRENCY_SYMBOLS[currency] || currency;
-                return `${symbol} ${parseFloat(amount).toFixed(2)}`;
-            }
+      // getNextAvailable: function (blockId = null) {
+      //     const params = blockId ? { block_id: blockId } : {};
+      //     return TempleAPI.get('/pagoda/lights/available/next', params);
+      // },
+      getNextAvailable: function (params = {}) {
+        // Backward compatibility: support old format getNextAvailable(blockId)
+        if (typeof params === "string") {
+          params = { block_id: params };
+        } else if (params === null || params === undefined) {
+          params = {};
         }
-    };
+
+        // Convert exclude_ids array to comma-separated string for URL
+        if (params.exclude_ids && Array.isArray(params.exclude_ids)) {
+          params.exclude_ids = params.exclude_ids.join(",");
+        }
+
+        return TempleAPI.get("/pagoda/lights/available/next", params);
+      },
+
+      checkAvailability: function (lightNumber) {
+        return TempleAPI.get(
+          `/pagoda/lights/check-availability/${lightNumber}`
+        );
+      },
+
+      // In PagodaAPI.registrations object
+      getStatistics: function (params = {}) {
+        return TempleAPI.get(
+          "/pagoda/registrations/statistics/overview",
+          params
+        );
+      },
+    },
+
+    // ========================================
+    // REGISTRATIONS API
+    // ========================================
+    registrations: {
+      getAll: function (params = {}) {
+        return TempleAPI.get("/pagoda/registrations", params);
+      },
+
+      getById: function (id) {
+        return TempleAPI.get(`/pagoda/registrations/${id}`);
+      },
+
+      searchByReceipt: function (receiptNumber) {
+        return TempleAPI.get(
+          `/pagoda/registrations/search/receipt/${receiptNumber}`
+        );
+      },
+
+      getExpiring: function (days = 30) {
+        return TempleAPI.get("/pagoda/registrations/expiring/list", { days });
+      },
+
+      getStatistics: function (params = {}) {
+        return TempleAPI.get(
+          "/pagoda/registrations/statistics/overview",
+          params
+        );
+      },
+
+      generateReceiptNumber: function () {
+        return TempleAPI.get("/pagoda/registrations/generate/receipt-number");
+      },
+
+      create: function (data) {
+        return TempleAPI.post("/pagoda/registrations", data);
+      },
+
+      update: function (id, data) {
+        return TempleAPI.put(`/pagoda/registrations/${id}`, data);
+      },
+
+      renew: function (id, data) {
+        return TempleAPI.post(`/pagoda/registrations/${id}/renew`, data);
+      },
+
+      terminate: function (id, reason) {
+        return TempleAPI.post(`/pagoda/registrations/${id}/terminate`, {
+          termination_reason: reason,
+        });
+      },
+    },
+
+    // ========================================
+    // DEVOTEES API
+    // ========================================
+    // In frontend/js/services/pagoda-api.js
+
+    devotees: {
+      // Get all devotees (with pagination)
+      getAll: function (params = {}) {
+        return TempleAPI.get("/pagoda/devotees", params);
+      },
+
+      // Get single devotee by ID
+      getById: function (id) {
+        return TempleAPI.get(`/pagoda/devotees/${id}`);
+      },
+
+      // Generic search - searches all fields (name, nric, contact, email)
+      search: function (query) {
+        return TempleAPI.get("/pagoda/devotees/search", { query: query });
+      },
+
+      // Quick lookup by NRIC - returns single devotee
+      findByNric: function (nric) {
+        return TempleAPI.get("/pagoda/devotees/search-by-nric-or-contact", {
+          nric: nric,
+        });
+      },
+
+      // Quick lookup by Contact - returns single devotee
+      findByContact: function (contact) {
+        return TempleAPI.get("/pagoda/devotees/search-by-nric-or-contact", {
+          contact_no: contact,
+        });
+      },
+
+      create: function (data) {
+        return TempleAPI.post("/pagoda/devotees", data);
+      },
+
+      update: function (id, data) {
+        return TempleAPI.put(`/pagoda/devotees/${id}`, data);
+      },
+
+      delete: function (id) {
+        return TempleAPI.delete(`/pagoda/devotees/${id}`);
+      },
+      getFamilyByNric: function (nric) {
+        return TempleAPI.get("/pagoda/devotees/family", { nric: nric });
+      },
+    },
+
+    // ========================================
+    // SETTINGS API
+    // ========================================
+    settings: {
+      getAll: function () {
+        return TempleAPI.get("/pagoda/settings");
+      },
+
+      getByKey: function (key) {
+        return TempleAPI.get(`/pagoda/settings/${key}`);
+      },
+
+      getBookingConfig: function () {
+        return TempleAPI.get("/pagoda/settings/config/booking");
+      },
+
+      save: function (data) {
+        return TempleAPI.post("/pagoda/settings", data);
+      },
+
+      bulkUpdate: function (settings) {
+        return TempleAPI.post("/pagoda/settings/bulk-update", { settings });
+      },
+
+      delete: function (key) {
+        return TempleAPI.delete(`/pagoda/settings/${key}`);
+      },
+    },
+
+    // ========================================
+    // REPORTS API
+    // ========================================
+    reports: {
+      getDashboard: function () {
+        return TempleAPI.get("/pagoda/reports/dashboard");
+      },
+
+      getRevenue: function (params = {}) {
+        return TempleAPI.get("/pagoda/reports/revenue", params);
+      },
+
+      getOccupancy: function () {
+        return TempleAPI.get("/pagoda/reports/occupancy");
+      },
+
+      getExpiryForecast: function (months = 6) {
+        return TempleAPI.get("/pagoda/reports/expiry-forecast", { months });
+      },
+
+      getDevoteeAnalytics: function (params = {}) {
+        return TempleAPI.get("/pagoda/reports/devotees", params);
+      },
+
+      exportRegistrations: function (params = {}) {
+        return TempleAPI.download(
+          "/pagoda/reports/export/registrations",
+          params
+        );
+      },
+
+      exportRevenue: function (params = {}) {
+        return TempleAPI.download("/pagoda/reports/export/revenue", params);
+      },
+
+      exportDevotees: function (params = {}) {
+        return TempleAPI.download("/pagoda/reports/export/devotees", params);
+      },
+    },
+
+    // ========================================
+    // UTILITY FUNCTIONS
+    // ========================================
+    utils: {
+      formatLightCode: function (towerCode, blockCode, floor, position) {
+        return `${towerCode}-${blockCode}-${String(floor).padStart(
+          2,
+          "0"
+        )}-${String(position).padStart(3, "0")}`;
+      },
+
+      calculateExpiryDate: function (offerDate, months = 12) {
+        const date = new Date(offerDate);
+        date.setMonth(date.getMonth() + months);
+        return date.toISOString().split("T")[0];
+      },
+
+      getDaysUntilExpiry: function (expiryDate) {
+        const today = new Date();
+        const expiry = new Date(expiryDate);
+        const diffTime = expiry - today;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays;
+      },
+
+      getStatusBadgeClass: function (status, type = "light") {
+        const colors =
+          type === "light"
+            ? APP_CONFIG.PAGODA.STATUS_COLORS
+            : APP_CONFIG.PAGODA.REGISTRATION_STATUS_COLORS;
+        return `badge bg-${colors[status] || "secondary"}`;
+      },
+
+      formatCurrency: function (amount, currency = "MYR") {
+        const symbol = APP_CONFIG.CURRENCY_SYMBOLS[currency] || currency;
+        return `${symbol} ${parseFloat(amount).toFixed(2)}`;
+      },
+    },
+  };
 
 })(window);

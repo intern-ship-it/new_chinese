@@ -1,9 +1,9 @@
 // js/pages/donations/list.js
 // Donations List Page with Buddha Lamp-style UI
 
-(function($, window) {
+(function ($, window) {
     'use strict';
-    
+
     if (!window.DonationsSharedModule) {
         window.DonationsSharedModule = {
             moduleId: 'donations',
@@ -11,8 +11,8 @@
             cssId: 'donations-css',
             cssPath: '/css/donations.css',
             activePages: new Set(),
-            
-            loadCSS: function() {
+
+            loadCSS: function () {
                 if (!document.getElementById(this.cssId)) {
                     const link = document.createElement('link');
                     link.id = this.cssId;
@@ -22,50 +22,50 @@
                     console.log('Donations CSS loaded');
                 }
             },
-            
-            registerPage: function(pageId) {
+
+            registerPage: function (pageId) {
                 this.activePages.add(pageId);
                 this.loadCSS();
                 console.log(`Donations page registered: ${pageId} (Total: ${this.activePages.size})`);
             },
-            
-            unregisterPage: function(pageId) {
+
+            unregisterPage: function (pageId) {
                 this.activePages.delete(pageId);
                 console.log(`Donations page unregistered: ${pageId} (Remaining: ${this.activePages.size})`);
-                
+
                 if (this.activePages.size === 0) {
                     this.cleanup();
                 }
             },
-            
-            hasActivePages: function() {
+
+            hasActivePages: function () {
                 return this.activePages.size > 0;
             },
-            
-            getActivePages: function() {
+
+            getActivePages: function () {
                 return Array.from(this.activePages);
             },
-            
-            cleanup: function() {
+
+            cleanup: function () {
                 const cssLink = document.getElementById(this.cssId);
                 if (cssLink) {
                     cssLink.remove();
                     console.log('Donations CSS removed');
                 }
-                
+
                 if (typeof gsap !== 'undefined') {
                     gsap.killTweensOf("*");
                 }
-                
+
                 $(document).off('.' + this.eventNamespace);
                 $(window).off('.' + this.eventNamespace);
-                
+
                 this.activePages.clear();
                 console.log('Donations module cleaned up');
             }
         };
     }
-    
+
     window.DonationsListPage = {
         dataTable: null,
         pageId: 'donations-list',
@@ -76,60 +76,66 @@
         perPage: 25,
         totalRecords: 0,
         currentSpiritMoneyData: null,
-        
-        init: function(params) {
+
+        init: function (params) {
             window.DonationsSharedModule.registerPage(this.pageId);
             this.render();
             this.initAnimations();
             this.loadFilterData();
             this.bindEvents();
         },
-        
-        cleanup: function() {
+
+        cleanup: function () {
             console.log(`Cleaning up ${this.pageId}...`);
-            
+
             window.DonationsSharedModule.unregisterPage(this.pageId);
-            
+
             $(document).off(`.${this.eventNamespace}`);
             $(window).off(`.${this.eventNamespace}`);
-            
+
             if (typeof gsap !== 'undefined') {
                 gsap.killTweensOf(`.${this.pageId}-page *`);
             }
-            
+
             if (this.dataTable) {
                 this.dataTable.destroy();
                 this.dataTable = null;
             }
-            
+
             console.log(`${this.pageId} cleanup completed`);
         },
-        
-        render: function() {
+
+        render: function () {
             const html = `
-                <div class="donations-list-page">
-                    <!-- Hero Header Banner - Buddha Lamp Style -->
-                    <div class="hero-banner" style="background: linear-gradient(135deg, #b8651b 0%, #d4782a 100%); border-radius: 12px; padding: 30px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(184, 101, 27, 0.3);">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div class="d-flex align-items-center">
-                                <div style="background: rgba(255,255,255,0.2); border-radius: 50%; width: 70px; height: 70px; display: flex; align-items: center; justify-content: center; margin-right: 20px;">
-                                    <i class="bi bi-gift-fill" style="font-size: 35px; color: white;"></i>
-                                </div>
+               <div class="donations-list-page">
+            <!-- Page Header with Animation -->
+            <div class="donations-header" data-aos="fade-down" data-aos-duration="1000">
+                <div class="donations-header-bg"></div>
+                <div class="container-fluid">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <div class="donations-title-wrapper">
+                                <i class="bi bi-gift-fill donations-header-icon"></i>
                                 <div>
-                                    <h1 class="mb-1" style="color: white; font-size: 32px; font-weight: 700;">Donations</h1>
-                                    <p class="mb-0" style="color: rgba(255,255,255,0.9); font-size: 15px;">捐款管理 • Temple Donation Management</p>
+                                    <h1 class="donations-title">Donations</h1>
+                                    <p class="donations-subtitle">捐款管理 • Temple Donation Management</p>
                                 </div>
                             </div>
-                            <div class="d-flex gap-2">
-                                <button class="btn btn-light" id="btnPrintReport" style="background: white; color: #b8651b; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600;">
+                        </div>
+                        <div class="col-md-4 text-md-end">
+                            <div class="d-flex gap-2 justify-content-end">
+                                <button class="btn btn-outline-light btn-lg" id="btnPrintReport">
                                     <i class="bi bi-printer-fill me-2"></i>Print Report
                                 </button>
-                                <button class="btn" id="btnNewDonation" style="background: rgba(255,255,255,0.2); color: white; border: 2px solid white; padding: 10px 20px; border-radius: 8px; font-weight: 600;">
+                                <button class="btn btn-light btn-lg" id="btnNewDonation">
                                     <i class="bi bi-plus-circle me-2"></i>New Donation
                                 </button>
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
 
                     <!-- Stats Cards - Buddha Lamp Style -->
                     <div class="row mb-4 g-3" id="statsContainer">
@@ -379,31 +385,51 @@
                     </div>
                 </div>
             `;
-            
+
             $('#page-container').html(html);
         },
-        
-        initAnimations: function() {
-            // Add hover animations to stat cards
-            $('[style*="border-left"]').each(function() {
-                $(this).hover(
-                    function() {
-                        $(this).css({
-                            'transform': 'translateY(-5px)',
-                            'box-shadow': '0 8px 20px rgba(0,0,0,0.12)'
-                        });
-                    },
-                    function() {
-                        $(this).css({
-                            'transform': 'translateY(0)',
-                            'box-shadow': '0 2px 8px rgba(0,0,0,0.08)'
-                        });
-                    }
-                );
+
+        initAnimations: function () {
+            if (typeof AOS !== 'undefined') {
+                AOS.init({
+                    duration: 800,
+                    easing: 'ease-in-out',
+                    once: true,
+                    offset: 50
+                });
+            }
+
+            gsap.to('.donations-header-icon', {
+                y: -10,
+                duration: 2,
+                repeat: -1,
+                yoyo: true,
+                ease: 'power1.inOut'
+            });
+
+            // Animate form cards on hover
+            $(document).on('mouseenter.' + this.eventNamespace, '.form-check-card', function () {
+                gsap.to(this, {
+                    scale: 1.05,
+                    boxShadow: '0 8px 20px rgba(255, 0, 255, 0.15)',
+                    duration: 0.3,
+                    ease: 'power2.out'
+                });
+            });
+
+            $(document).on('mouseleave.' + this.eventNamespace, '.form-check-card', function () {
+                if (!$(this).find('input').is(':checked')) {
+                    gsap.to(this, {
+                        scale: 1,
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                        duration: 0.3,
+                        ease: 'power2.out'
+                    });
+                }
             });
         },
 
-        loadFilterData: async function() {
+        loadFilterData: async function () {
             try {
                 const [donationsResponse, paymentModesResponse] = await Promise.all([
                     TempleAPI.get('/donations/types/active'),
@@ -431,7 +457,7 @@
             }
         },
 
-        renderDonationTypeFilter: function() {
+        renderDonationTypeFilter: function () {
             const $filterType = $('#filterType');
             this.donationTypes.forEach(donation => {
                 $filterType.append(`
@@ -442,7 +468,7 @@
             });
         },
 
-        renderPaymentModeFilter: function() {
+        renderPaymentModeFilter: function () {
             const $filterPayment = $('#filterPayment');
             this.paymentModes.forEach(mode => {
                 $filterPayment.append(`
@@ -450,11 +476,11 @@
                 `);
             });
         },
-        
-        loadStats: async function() {
+
+        loadStats: async function () {
             try {
                 const response = await TempleAPI.get('/donations/statistics');
-                
+
                 if (response.success) {
                     const stats = response.data;
                     this.animateCounter('#todayDonations', stats.today_donations);
@@ -466,16 +492,16 @@
                 console.error('Error loading statistics:', error);
             }
         },
-        
-        animateCounter: function(selector, endValue, isDecimal = false) {
+
+        animateCounter: function (selector, endValue, isDecimal = false) {
             const $element = $(selector);
             const obj = { value: 0 };
-            
+
             gsap.to(obj, {
                 value: endValue,
                 duration: 1.5,
                 ease: 'power2.out',
-                onUpdate: function() {
+                onUpdate: function () {
                     if (isDecimal) {
                         $element.text(obj.value.toFixed(2));
                     } else {
@@ -485,10 +511,10 @@
             });
         },
 
-        loadDonations: async function() {
+        loadDonations: async function () {
             try {
                 const filters = this.getFilters();
-                
+
                 const params = new URLSearchParams({
                     page: this.currentPage,
                     per_page: this.perPage,
@@ -496,7 +522,7 @@
                 });
 
                 const response = await TempleAPI.get(`/donations?${params.toString()}`);
-                
+
                 if (response.success) {
                     this.renderDonations(response.data);
                     this.renderPagination(response.pagination);
@@ -519,7 +545,7 @@
             }
         },
 
-        getFilters: function() {
+        getFilters: function () {
             const filters = {};
 
             const donationType = $('#filterType').val();
@@ -540,104 +566,98 @@
             return filters;
         },
 
-        renderDonations: function(donations) {
+        renderDonations: function (donations) {
             const $tbody = $('#donationsTableBody');
 
             if (!donations || donations.length === 0) {
                 $tbody.html(`
-                    <tr>
-                        <td colspan="8" class="text-center py-5">
-                            <i class="bi bi-inbox fs-1 text-muted"></i>
-                            <p class="mt-2 text-muted">No donations found</p>
-                        </td>
-                    </tr>
-                `);
+            <tr>
+                <td colspan="8" class="text-center py-5">
+                    <i class="bi bi-inbox fs-1 text-muted"></i>
+                    <p class="mt-2 text-muted">No donations found</p>
+                </td>
+            </tr>
+        `);
                 return;
             }
 
             const rows = donations.map((donation, index) => {
-                const donationType = this.getDonationTypeBadge(donation.donation_type);
+                // Use donation_name instead of donation_type badge
+                const donationType = donation.donation_name || donation.donation_type;
                 const paymentMethod = this.getPaymentMethodDisplay(donation.payment_method, donation.payment_mode_id);
                 const rowBg = index % 2 === 0 ? 'background: #fafafa;' : '';
 
                 return `
-                    <tr data-id="${donation.id}" style="${rowBg}">
-                        <td style="padding: 15px; border-bottom: 1px solid #eee;">
-                            <span class="fw-semibold">${donation.booking_number}</span>
-                        </td>
-                        <td style="padding: 15px; border-bottom: 1px solid #eee;">${moment(donation.date).format('DD MMM YYYY')}</td>
-                        <td style="padding: 15px; border-bottom: 1px solid #eee;">
-                            <div>
-                                <div class="fw-semibold">${donation.name_chinese}</div>
-                                <small class="text-muted">${donation.name_english}</small>
-                            </div>
-                        </td>
-                        <td style="padding: 15px; border-bottom: 1px solid #eee;">${donationType}</td>
-                        <td style="padding: 15px; border-bottom: 1px solid #eee;">
-                            <span class="fw-semibold">${parseFloat(donation.amount).toFixed(2)}</span>
-                        </td>
-                        <td style="padding: 15px; border-bottom: 1px solid #eee;">${paymentMethod}</td>
-                        <td style="padding: 15px; border-bottom: 1px solid #eee;">
-                            <div class="small">
-                                <div>${donation.email}</div>
-                                <div class="text-muted">${donation.contact_no}</div>
-                            </div>
-                        </td>
-                        <td style="padding: 15px; border-bottom: 1px solid #eee;">
-                            <div class="btn-group btn-group-sm">
-                                <button class="btn btn-outline-primary btn-view" data-id="${donation.id}" title="View" style="border-radius: 4px 0 0 4px;">
-                                    <i class="bi bi-eye"></i>
-                                </button>
-                                <button class="btn btn-outline-success btn-edit" data-id="${donation.id}" title="Edit">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                                <button class="btn btn-outline-warning btn-spirit-money" 
-                                        data-id="${donation.id}"
-                                        data-name-chinese="${donation.name_chinese}"
-                                        data-name-english="${donation.name_english}"
-                                        data-amount="${donation.amount}"
-                                        data-booking-number="${donation.booking_number}"
-                                        title="Spirit Money">
-                                    <i class="bi bi-file-earmark-image"></i>
-                                </button>
-                                <button class="btn btn-outline-info btn-print" data-id="${donation.id}" title="Print">
-                                    <i class="bi bi-printer"></i>
-                                </button>
-                                <button class="btn btn-outline-danger btn-delete" data-id="${donation.id}" title="Delete" style="border-radius: 0 4px 4px 0;">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
+            <tr data-id="${donation.id}" style="${rowBg}">
+                <td style="padding: 15px; border-bottom: 1px solid #eee;">
+                    <span class="fw-semibold">${donation.booking_number}</span>
+                </td>
+                <td style="padding: 15px; border-bottom: 1px solid #eee;">${moment(donation.date).format('DD MMM YYYY')}</td>
+                <td style="padding: 15px; border-bottom: 1px solid #eee;">
+                    <div>
+                        <div class="fw-semibold">${donation.name_chinese}</div>
+                        <small class="text-muted">${donation.name_english}</small>
+                    </div>
+                </td>
+                <td style="padding: 15px; border-bottom: 1px solid #eee;">
+                    ${donationType}
+                </td>
+                <td style="padding: 15px; border-bottom: 1px solid #eee;">
+                    <span class="fw-semibold">${parseFloat(donation.amount).toFixed(2)}</span>
+                </td>
+                <td style="padding: 15px; border-bottom: 1px solid #eee;">${paymentMethod}</td>
+                <td style="padding: 15px; border-bottom: 1px solid #eee;">
+                    <div class="small">
+                        <div>${donation.email}</div>
+                        <div class="text-muted">${donation.contact_no}</div>
+                    </div>
+                </td>
+                <td style="padding: 15px; border-bottom: 1px solid #eee;">
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary btn-view" data-id="${donation.id}" title="View" style="border-radius: 4px 0 0 4px;">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="btn btn-outline-success btn-edit" data-id="${donation.id}" title="Edit">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-outline-warning btn-spirit-money" 
+                                data-id="${donation.id}"
+                                data-name-chinese="${donation.name_chinese}"
+                                data-name-english="${donation.name_english}"
+                                data-amount="${donation.amount}"
+                                data-booking-number="${donation.booking_number}"
+                                title="Spirit Money">
+                            <i class="bi bi-file-earmark-image"></i>
+                        </button>
+                        <button class="btn btn-outline-info btn-print" data-id="${donation.id}" title="Print">
+                            <i class="bi bi-printer"></i>
+                        </button>
+                        <button class="btn btn-outline-danger btn-delete" data-id="${donation.id}" title="Delete" style="border-radius: 0 4px 4px 0;">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
             }).join('');
 
             $tbody.html(rows);
         },
-
-        getDonationTypeBadge: function(type) {
-            const badges = {
-                'general': '<span class="badge" style="background: #28a745; color: white; padding: 5px 10px; border-radius: 4px;">Meal</span>',
-                'voucher': '<span class="badge" style="background: #17a2b8; color: white; padding: 5px 10px; border-radius: 4px;">Voucher</span>',
-                'meal': '<span class="badge" style="background: #28a745; color: white; padding: 5px 10px; border-radius: 4px;">Meal</span>',
-                'maintenance': '<span class="badge" style="background: #ffc107; color: #333; padding: 5px 10px; border-radius: 4px;">Maintenance</span>',
-                'other': '<span class="badge" style="background: #6c757d; color: white; padding: 5px 10px; border-radius: 4px;">Other</span>'
-            };
-            return badges[type] || `<span class="badge" style="background: #6c757d; color: white; padding: 5px 10px; border-radius: 4px;">${type}</span>`;
+        getDonationTypeBadge: function (type) {
+            return type;
         },
-
-        getPaymentMethodDisplay: function(method, paymentModeId = null) {
+        getPaymentMethodDisplay: function (method, paymentModeId = null) {
             if (paymentModeId && this.paymentModes.length > 0) {
                 const mode = this.paymentModes.find(m => m.id === paymentModeId || m.name === method);
                 if (mode && mode.icon_display_url_data) {
                     const iconDisplay = mode.icon_display_url_data;
-                    const iconHtml = iconDisplay.type === 'bootstrap' 
+                    const iconHtml = iconDisplay.type === 'bootstrap'
                         ? `<i class="bi ${iconDisplay.value}"></i>`
                         : `<img src="${iconDisplay.value}" alt="${mode.name}" style="width: ${iconDisplay.width || 62}px; height: ${iconDisplay.height || 28}px; object-fit: contain; vertical-align: middle;">`;
                     return `<div style="background: #f8f9fa; padding: 5px 12px; border-radius: 6px; display: inline-block;">${iconHtml} <span style="margin-left: 5px;">${method}</span></div>`;
                 }
             }
-            
+
             const icons = {
                 'Cash': '<i class="bi bi-cash-stack text-success"></i>',
                 'Cheque': '<i class="bi bi-bank text-primary"></i>',
@@ -646,12 +666,12 @@
                 'Card': '<i class="bi bi-credit-card text-warning"></i>',
                 'DuitNow': '<i class="bi bi-wallet2 text-danger"></i>'
             };
-            
+
             const icon = icons[method] || '<i class="bi bi-cash"></i>';
             return `<div style="background: #f8f9fa; padding: 5px 12px; border-radius: 6px; display: inline-block;">${icon} <span style="margin-left: 5px;">${method}</span></div>`;
         },
 
-        renderPagination: function(pagination) {
+        renderPagination: function (pagination) {
             if (!pagination) return;
 
             this.totalRecords = pagination.total;
@@ -698,34 +718,34 @@
                 </li>
             `);
         },
-        
-        bindEvents: function() {
+
+        bindEvents: function () {
             const self = this;
-            
-            $('#btnNewDonation').on('click.' + this.eventNamespace, function() {
+
+            $('#btnNewDonation').on('click.' + this.eventNamespace, function () {
                 self.cleanup();
-                TempleRouter.navigate('donations/create');
+                TempleRouter.navigate('donations/create-donation');
             });
-            
-            $('#btnPrintReport').on('click.' + this.eventNamespace, function() {
+
+            $('#btnPrintReport').on('click.' + this.eventNamespace, function () {
                 const filters = self.getFilters();
                 self.cleanup();
                 TempleRouter.navigate('donations/report-print', filters);
             });
-            
-            $('#btnRefresh, #btnFilter').on('click.' + this.eventNamespace, function() {
+
+            $('#btnRefresh, #btnFilter').on('click.' + this.eventNamespace, function () {
                 self.loadStats();
                 self.loadDonations();
                 TempleCore.showToast('Data refreshed', 'success');
             });
-            
-            $('#filterType, #filterPayment, #filterFromDate, #filterToDate').on('change.' + this.eventNamespace, function() {
+
+            $('#filterType, #filterPayment, #filterFromDate, #filterToDate').on('change.' + this.eventNamespace, function () {
                 self.currentPage = 1;
                 self.loadDonations();
             });
 
             let searchTimeout;
-            $('#filterSearch').on('keyup.' + this.eventNamespace, function() {
+            $('#filterSearch').on('keyup.' + this.eventNamespace, function () {
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => {
                     self.currentPage = 1;
@@ -733,7 +753,7 @@
                 }, 500);
             });
 
-            $('#btnClearFilters').on('click.' + this.eventNamespace, function() {
+            $('#btnClearFilters').on('click.' + this.eventNamespace, function () {
                 $('#filterType').val('');
                 $('#filterPayment').val('');
                 $('#filterFromDate').val('');
@@ -743,7 +763,7 @@
                 self.loadDonations();
             });
 
-            $(document).on('click.' + this.eventNamespace, '#pagination a.page-link', function(e) {
+            $(document).on('click.' + this.eventNamespace, '#pagination a.page-link', function (e) {
                 e.preventDefault();
                 const page = parseInt($(this).data('page'));
                 if (page && page !== self.currentPage) {
@@ -752,18 +772,18 @@
                     $('html, body').animate({ scrollTop: 0 }, 300);
                 }
             });
-            
-            $(document).on('click.' + this.eventNamespace, '.btn-view', function() {
+
+            $(document).on('click.' + this.eventNamespace, '.btn-view', function () {
                 const id = $(this).data('id');
                 self.viewDonation(id);
             });
-            
-            $(document).on('click.' + this.eventNamespace, '.btn-edit', function() {
+
+            $(document).on('click.' + this.eventNamespace, '.btn-edit', function () {
                 const id = $(this).data('id');
                 self.editDonation(id);
             });
-            
-            $(document).on('click.' + this.eventNamespace, '.btn-spirit-money', function() {
+
+            $(document).on('click.' + this.eventNamespace, '.btn-spirit-money', function () {
                 const $btn = $(this);
                 const donorData = {
                     id: $btn.data('id'),
@@ -774,35 +794,35 @@
                 };
                 self.generateSpiritMoney(donorData);
             });
-            
-            $(document).on('click.' + this.eventNamespace, '.btn-print', function() {
+
+            $(document).on('click.' + this.eventNamespace, '.btn-print', function () {
                 const id = $(this).data('id');
                 self.printReceipt(id);
             });
-            
-            $(document).on('click.' + this.eventNamespace, '.btn-delete', function() {
+
+            $(document).on('click.' + this.eventNamespace, '.btn-delete', function () {
                 const id = $(this).data('id');
                 self.deleteDonation(id);
             });
-            
-            $('#btnPrintFromView').on('click.' + this.eventNamespace, function() {
+
+            $('#btnPrintFromView').on('click.' + this.eventNamespace, function () {
                 const id = $(this).data('id');
                 if (id) {
                     bootstrap.Modal.getInstance(document.getElementById('viewDonationModal')).hide();
                     self.printReceipt(id);
                 }
             });
-            
-            $('#btnDownloadSpiritMoney').on('click.' + this.eventNamespace, function() {
+
+            $('#btnDownloadSpiritMoney').on('click.' + this.eventNamespace, function () {
                 self.downloadCurrentSpiritMoney();
             });
         },
-        
-        viewDonation: async function(id) {
+
+        viewDonation: async function (id) {
             try {
                 const modal = new bootstrap.Modal(document.getElementById('viewDonationModal'));
                 modal.show();
-                
+
                 $('#viewDonationContent').html(`
                     <div class="text-center py-5">
                         <div class="spinner-border" style="color: #b8651b;" role="status">
@@ -811,13 +831,13 @@
                         <p class="mt-2">Loading donation details...</p>
                     </div>
                 `);
-                
+
                 const response = await TempleAPI.get(`/donations/${id}`);
-                
+
                 if (response.success) {
                     const donation = response.data;
                     $('#btnPrintFromView').data('id', id);
-                    
+
                     const html = `
                         <div class="donation-details">
                             <div class="row g-3">
@@ -937,7 +957,7 @@
                             </div>
                         </div>
                     `;
-                    
+
                     $('#viewDonationContent').html(html);
                 } else {
                     throw new Error(response.message || 'Failed to load donation details');
@@ -953,15 +973,15 @@
                 TempleCore.showToast('Failed to load donation details', 'error');
             }
         },
-        
-        editDonation: function(id) {
+
+        editDonation: function (id) {
             this.cleanup();
             TempleRouter.navigate('donations/edit', { id: id });
         },
-        
-        deleteDonation: function(id) {
+
+        deleteDonation: function (id) {
             const self = this;
-            
+
             Swal.fire({
                 title: 'Delete Donation?',
                 html: `
@@ -987,9 +1007,9 @@
                                 Swal.showLoading();
                             }
                         });
-                        
+
                         const response = await TempleAPI.delete(`/donations/${id}`);
-                        
+
                         if (response.success) {
                             Swal.fire({
                                 title: 'Deleted!',
@@ -998,7 +1018,7 @@
                                 timer: 2000,
                                 showConfirmButton: false
                             });
-                            
+
                             self.loadDonations();
                             self.loadStats();
                         } else {
@@ -1016,19 +1036,19 @@
                 }
             });
         },
-        
-        printReceipt: function(id) {
+
+        printReceipt: function (id) {
             TempleCore.showToast('Generating receipt...', 'info');
             this.cleanup();
             TempleRouter.navigate('donations/receipt-print', { id: id });
         },
-        
-        generateSpiritMoney: function(donorData) {
+
+        generateSpiritMoney: function (donorData) {
             const self = this;
-            
+
             const modal = new bootstrap.Modal(document.getElementById('spiritMoneyModal'));
             modal.show();
-            
+
             $('#spiritMoneyPreview').html(`
                 <div class="spinner-border text-warning" role="status">
                     <span class="visually-hidden">Generating...</span>
@@ -1037,12 +1057,12 @@
             `);
             $('#spiritMoneyInfo').hide();
             $('#btnDownloadSpiritMoney').prop('disabled', true);
-            
+
             $('#previewNameChinese').text(donorData.name_chinese);
             $('#previewNameEnglish').text(donorData.name_english);
             $('#previewAmount').text('RM ' + parseFloat(donorData.amount).toFixed(2));
             $('#previewDonationId').text(donorData.booking_number);
-            
+
             if (typeof window.SpiritMoneyGenerator === 'undefined') {
                 $('#spiritMoneyPreview').html(`
                     <div class="alert alert-danger">
@@ -1052,20 +1072,20 @@
                 `);
                 return;
             }
-            
+
             window.SpiritMoneyGenerator.generate(donorData)
                 .then(dataUrl => {
                     self.currentSpiritMoneyData = {
                         dataUrl: dataUrl,
                         filename: `spirit-money-${donorData.booking_number}.png`
                     };
-                    
+
                     $('#spiritMoneyPreview').html(`
                         <img src="${dataUrl}" alt="Spirit Money" class="img-fluid border rounded shadow-sm" style="max-height: 500px;">
                     `);
                     $('#spiritMoneyInfo').show();
                     $('#btnDownloadSpiritMoney').prop('disabled', false);
-                    
+
                     TempleCore.showToast('Spirit money generated successfully!', 'success');
                 })
                 .catch(error => {
@@ -1079,21 +1099,21 @@
                     TempleCore.showToast('Failed to generate spirit money', 'error');
                 });
         },
-        
-        downloadCurrentSpiritMoney: function() {
+
+        downloadCurrentSpiritMoney: function () {
             if (this.currentSpiritMoneyData) {
                 window.SpiritMoneyGenerator.download(
                     this.currentSpiritMoneyData.dataUrl,
                     this.currentSpiritMoneyData.filename
                 );
-                
+
                 TempleCore.showToast('Spirit money downloaded!', 'success');
-                
+
                 setTimeout(() => {
                     bootstrap.Modal.getInstance(document.getElementById('spiritMoneyModal')).hide();
                 }, 800);
             }
         }
     };
-    
+
 })(jQuery, window);

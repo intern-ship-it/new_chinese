@@ -5,6 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Crypt;
 use App\Services\S3UploadService;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class PaymentMode extends Model
 {
@@ -34,7 +37,7 @@ class PaymentMode extends Model
         'is_live' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
-        
+
     ];
 
     protected $hidden = [
@@ -109,7 +112,7 @@ class PaymentMode extends Model
             try {
                 $s3Service = app(S3UploadService::class);
                 $signedUrl = $s3Service->getSignedUrl($this->icon_path);
-                
+
                 // Update the URL in database (optional, for caching)
                 if ($signedUrl) {
                     $this->icon_url = $signedUrl;
@@ -273,5 +276,73 @@ class PaymentMode extends Model
     public function modules()
     {
         return $this->belongsToMany(Module::class, 'payment_mode_modules');
+    }
+
+    /**
+     * Get all payments made with this mode
+     */
+    public function payments()
+    {
+        return $this->hasMany(BookingPayment::class, 'payment_mode_id');
+    }
+
+
+    /**
+     * Scope to get online payment modes
+     */
+    public function scopeOnline($query)
+    {
+        return $query->where('is_online', true);
+    }
+
+    /**
+     * Scope to get offline payment modes
+     */
+    public function scopeOffline($query)
+    {
+        return $query->where('is_online', false);
+    }
+
+    /**
+     * Scope to order by sort order
+     */
+    public function scopeOrdered($query)
+    {
+        return $query->orderBy('sort_order');
+    }
+
+    protected static function boot()
+    {
+        parent::boot();
+        static::creating(function ($model) {
+            if (empty($model->id)) {
+                $model->id = (string) Str::uuid();
+            }
+        });
+    }
+
+public function meta()
+{
+    return $this->hasMany(PaymentModeMeta::class, 'payment_mode_id')
+                ->orderBy('id', 'asc');
+}
+
+    // Helper to get meta as key-value array
+    public function getMetaArray()
+    {
+        return $this->meta->pluck('meta_value', 'meta_key')->toArray();
+    }
+
+    // Helper to get meta with type information
+    public function getMetaWithTypes()
+    {
+        return $this->meta->map(function ($meta) {
+            return [
+                'key' => $meta->meta_key,
+                'value' => $meta->meta_value,
+                'type' => $meta->meta_type,
+                'id' => $meta->id
+            ];
+        })->toArray();
     }
 }

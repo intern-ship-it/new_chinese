@@ -109,142 +109,349 @@ class StaffController extends Controller
         }
     }
 
-    public function store(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            // Basic Information
-            'designation_id' => 'required|exists:designations,id',
-            'employee_type' => 'required|in:PERMANENT,CONTRACT,PART_TIME,VOLUNTEER,CONSULTANT',
-            'first_name' => 'required|string|max:100',
-            'last_name' => 'nullable|string|max:100',
-            'father_name' => 'nullable|string|max:100',
-            'date_of_birth' => 'nullable|date|before:today',
-            'gender' => 'required|in:MALE,FEMALE,OTHER',
-            'marital_status' => 'nullable|in:SINGLE,MARRIED,DIVORCED,WIDOWED',
+public function store(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        // Basic Information
+        'designation_id' => 'required|exists:designations,id',
+        'employee_type' => 'required|in:PERMANENT,CONTRACT,PART_TIME,VOLUNTEER,CONSULTANT',
+        'first_name' => 'required|string|max:100',
+        'last_name' => 'nullable|string|max:100',
+        'father_name' => 'nullable|string|max:100',
+        'date_of_birth' => 'nullable|date|before:today',
+        'gender' => 'required|in:MALE,FEMALE,OTHER',
+        'marital_status' => 'nullable|in:SINGLE,MARRIED,DIVORCED,WIDOWED',
 
-            // Contact Information
-            'phone' => 'required|string|max:20',
-            'email' => 'required|email|unique:staff,email',
-            'current_address' => 'required|array',
-            'current_address.line1' => 'required|string',
-            'current_address.city' => 'required|string',
-            'current_address.state' => 'required|string',
-            'current_address.pincode' => 'required|string',
+        // Contact Information
+        'phone' => 'required|string|max:20',
+        'email' => 'required|email|unique:staff,email',
+        'current_address' => 'required|array',
+        'current_address.line1' => 'required|string',
+        'current_address.city' => 'required|string',
+        'current_address.state' => 'required|string',
+        'current_address.pincode' => 'required|string',
 
-            // Employment Information
-            'joining_date' => 'required|date',
-            'work_location' => 'nullable|string|max:100',
+        // Employment Information
+        'joining_date' => 'required|date',
+        'work_location' => 'nullable|string|max:100',
 
-            // Documents
-            'aadhar_number' => 'nullable|string|size:12|unique:staff,aadhar_number',
-            'pan_number' => 'nullable|string|size:10|unique:staff,pan_number',
+        // Documents
+        'aadhar_number' => 'nullable|string|size:12|unique:staff,aadhar_number',
+        'pan_number' => 'nullable|string|size:10|unique:staff,pan_number',
 
-            // Bank Details
-            'bank_details' => 'nullable|array',
-            'bank_details.bank_name' => 'nullable|string',
-            'bank_details.account_number' => 'nullable|string',
-            'bank_details.ifsc_code' => 'nullable|string',
+        // Bank Details
+        'bank_details' => 'nullable|array',
+        'bank_details.bank_name' => 'nullable|string',
+        'bank_details.account_number' => 'nullable|string',
+        'bank_details.ifsc_code' => 'nullable|string',
 
-            // Password Option
-            'generate_password' => 'nullable|in:on,off,1,0,true,false',
+        // Password Option
+        'generate_password' => 'nullable|in:on,off,1,0,true,false',
+        'custom_password' => 'nullable|string|min:8|regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/',
+        'send_credentials' => 'nullable|in:on,off,1,0,true,false',
 
-            'custom_password' => 'nullable|string|min:8|regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/',
-            'send_credentials' => 'nullable|in:on,off,1,0,true,false',
+        // Files
+        'profile_photo' => 'nullable|image|max:2048',
+        'documents.*' => 'nullable|file|max:5120',
+        
+        // Work Shifts
+        'work_shifts' => 'nullable|array',
+        'work_shifts.*' => 'in:MORNING,AFTERNOON,EVENING,NIGHT,GENERAL',
+    ]);
 
-            // Files
-            'profile_photo' => 'nullable|image|max:2048',
-            'documents.*' => 'nullable|file|max:5120',
-            'work_shifts'   => 'nullable|array',
-            'work_shifts.*' => 'in:MORNING,AFTERNOON,EVENING,NIGHT,GENERAL',
+    if ($validator->fails()) {
+        \Log::warning('Staff validation failed', [
+            'errors' => $validator->errors()->toArray(),
+            'input' => $request->except(['password', 'custom_password', 'profile_photo', 'documents'])
+        ]);
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Validation failed',
+            'errors' => $validator->errors()
+        ], 422);
+    }
+
+    DB::beginTransaction();
+    try {
+        // Prepare data (exclude files and password fields)
+        $data = $request->except([
+            'profile_photo', 
+            'documents', 
+            'generate_password', 
+            'custom_password', 
+            'send_credentials'
         ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
-            ], 422);
+        // ===================================
+        // HANDLE JSON STRING CONVERSIONS
+        // ===================================
+        // Convert JSON strings to arrays if needed
+        if ($request->has('current_address') && is_string($request->current_address)) {
+            $data['current_address'] = json_decode($request->current_address, true);
         }
 
-        DB::beginTransaction();
-        try {
-            $data = $request->except(['profile_photo', 'documents', 'generate_password', 'custom_password', 'send_credentials']);
-            if ($request->has('current_address') && is_string($request->current_address)) {
-                $data['current_address'] = json_decode($request->current_address, true);
-            }
+        if ($request->has('permanent_address') && is_string($request->permanent_address)) {
+            $data['permanent_address'] = json_decode($request->permanent_address, true);
+        }
 
-            if ($request->has('permanent_address') && is_string($request->permanent_address)) {
-                $data['permanent_address'] = json_decode($request->permanent_address, true);
-            }
+        if ($request->has('bank_details') && is_string($request->bank_details)) {
+            $data['bank_details'] = json_decode($request->bank_details, true);
+        }
 
-            if ($request->has('bank_details') && is_string($request->bank_details)) {
-                $data['bank_details'] = json_decode($request->bank_details, true);
-            }
-            // Generate staff code
-            $data['staff_code'] = Staff::generateStaffCode();
+        // ===================================
+        // GENERATE STAFF CODE
+        // ===================================
+        $data['staff_code'] = Staff::generateStaffCode();
+        
+        \Log::info('Generated staff code', [
+            'staff_code' => $data['staff_code']
+        ]);
 
-            // Set default values
-            $data['status'] = 'ACTIVE';
-            $data['created_by'] = auth()->id();
+        // ===================================
+        // SET DEFAULT VALUES
+        // ===================================
+        $data['status'] = 'ACTIVE';
+        $data['created_by'] = auth()->id();
 
-            // Handle file uploads
-            if ($request->hasFile('profile_photo')) {
+        // ===================================
+        // HANDLE FILE UPLOADS
+        // ===================================
+        // Handle profile photo
+        if ($request->hasFile('profile_photo')) {
+            try {
                 $data['profile_photo'] = $this->s3Service->uploadFile(
                     $request->file('profile_photo'),
                     'staff/photos'
                 );
+                
+                \Log::info('Profile photo uploaded', [
+                    'path' => $data['profile_photo']
+                ]);
+            } catch (\Exception $e) {
+                \Log::error('Profile photo upload failed', [
+                    'error' => $e->getMessage()
+                ]);
+                // Continue without photo
             }
+        }
 
-            if ($request->hasFile('documents')) {
-                $documentUrls = [];
-                foreach ($request->file('documents') as $document) {
+        // Handle documents
+        if ($request->hasFile('documents')) {
+            $documentUrls = [];
+            foreach ($request->file('documents') as $document) {
+                try {
                     $documentUrls[] = $this->s3Service->uploadFile(
                         $document,
                         'staff/documents'
                     );
+                } catch (\Exception $e) {
+                    \Log::error('Document upload failed', [
+                        'error' => $e->getMessage()
+                    ]);
+                    // Continue with other documents
                 }
-                $data['documents'] = $documentUrls;
             }
+            $data['documents'] = $documentUrls;
+            
+            \Log::info('Documents uploaded', [
+                'count' => count($documentUrls)
+            ]);
+        }
 
-            // Create staff
-            $staff = Staff::create($data);
+        // ===================================
+        // CREATE STAFF RECORD
+        // ===================================
+        $staff = Staff::create($data);
+        
+        \Log::info('Staff record created', [
+            'staff_id' => $staff->id,
+            'staff_code' => $staff->staff_code,
+            'email' => $staff->email,
+            'name' => $staff->full_name
+        ]);
 
+        // ===================================
+        // CREATE USER ACCOUNT
+        // ===================================
+        // Determine password
+        $password = $request->generate_password
+            ? Staff::generateSecurePassword()
+            : ($request->custom_password ?? Staff::generateSecurePassword());
+
+        \Log::info('Creating user account for staff', [
+            'staff_id' => $staff->id,
+            'staff_code' => $staff->staff_code,
+            'email' => $staff->email,
+            'user_type' => 'STAFF',
+            'generate_password' => $request->generate_password ? 'yes' : 'no',
+            'custom_password' => $request->custom_password ? 'yes' : 'no'
+        ]);
+
+        try {
             // Create user account
-            $password = $request->generate_password
-                ? Staff::generateSecurePassword()
-                : ($request->custom_password ?? Staff::generateSecurePassword());
-
             $user = $staff->createUserAccount($password);
+            
+            \Log::info('User account created successfully', [
+                'user_id' => $user->id,
+                'username' => $user->username,
+                'email' => $user->email,
+                'staff_id' => $staff->id,
+                'is_active' => $user->is_active,
+                'user_type' => $user->user_type,
+                'has_role' => $user->roles()->count() > 0,
+                'roles' => $user->roles()->pluck('name')->toArray()
+            ]);
 
-            // Send credentials via email
-            if ($request->get('send_credentials', true)) {
-                Mail::to($staff->email)->send(new StaffCredentialsMail($staff, $user, $password));
+            // Check if user can login from required channels
+            $canLoginAdmin = $user->canLoginFromChannel('ADMIN');
+            $canLoginCounter = $user->canLoginFromChannel('COUNTER');
+            
+            \Log::info('User channel access check', [
+                'user_id' => $user->id,
+                'username' => $user->username,
+                'can_login_admin' => $canLoginAdmin,
+                'can_login_counter' => $canLoginCounter
+            ]);
+
+            if (!$canLoginAdmin && !$canLoginCounter) {
+                \Log::error('User cannot login from any valid channel', [
+                    'user_id' => $user->id,
+                    'username' => $user->username,
+                    'user_type' => $user->user_type
+                ]);
             }
 
-            // Log activity
-            $staff->logActivity('CREATED', null, $data);
-
-            DB::commit();
-
-            return response()->json([
-                'success' => true,
-                'data' => $staff->load(['designation', 'user']),
-                'credentials' => [
-                    'username' => $user->username,
-                    'password' => $password,
-                    'sent_to_email' => $request->get('send_credentials', true)
-                ],
-                'message' => 'Staff created successfully'
-            ], 201);
-        } catch (\Exception $e) {
+        } catch (\Exception $userException) {
+            \Log::error('Failed to create user account', [
+                'staff_id' => $staff->id,
+                'staff_code' => $staff->staff_code,
+                'email' => $staff->email,
+                'error' => $userException->getMessage(),
+                'file' => $userException->getFile(),
+                'line' => $userException->getLine(),
+                'trace' => $userException->getTraceAsString()
+            ]);
+            
+            // Rollback and return detailed error
             DB::rollBack();
+            
             return response()->json([
                 'success' => false,
-                'message' => 'Error creating staff: ' . $e->getMessage()
+                'message' => 'Staff record created but user account creation failed',
+                'error' => $userException->getMessage(),
+                'staff_id' => $staff->id,
+                'staff_code' => $staff->staff_code,
+                'troubleshooting' => [
+                    'Check Laravel logs for details',
+                    'Verify designation has a valid role_id',
+                    'Ensure users table has all required fields',
+                    'Check database constraints'
+                ]
             ], 500);
         }
-    }
 
+        // ===================================
+        // SEND CREDENTIALS EMAIL
+        // ===================================
+        if ($request->get('send_credentials', true)) {
+            try {
+                Mail::to($staff->email)->send(new StaffCredentialsMail($staff, $user, $password));
+                
+                \Log::info('Credentials email sent successfully', [
+                    'staff_id' => $staff->id,
+                    'email' => $staff->email
+                ]);
+            } catch (\Exception $mailException) {
+                // Log but don't fail the request
+                \Log::warning('Failed to send credentials email', [
+                    'staff_id' => $staff->id,
+                    'email' => $staff->email,
+                    'error' => $mailException->getMessage()
+                ]);
+                // Email failure should not stop the process
+            }
+        } else {
+            \Log::info('Credentials email not sent (user opted out)', [
+                'staff_id' => $staff->id
+            ]);
+        }
+
+        // ===================================
+        // LOG ACTIVITY
+        // ===================================
+        $staff->logActivity('CREATED', null, $data);
+
+        DB::commit();
+
+        \Log::info('Staff creation completed successfully', [
+            'staff_id' => $staff->id,
+            'user_id' => $user->id,
+            'username' => $user->username
+        ]);
+
+        // ===================================
+        // RETURN SUCCESS RESPONSE
+        // ===================================
+        return response()->json([
+            'success' => true,
+            'data' => $staff->load(['designation', 'user']),
+            'credentials' => [
+                'username' => $user->username,
+                'password' => $password,
+                'sent_to_email' => $request->get('send_credentials', true)
+            ],
+            'login_instructions' => [
+                'step_1' => 'Use the FULL username including @temple1 suffix',
+                'step_2' => 'Select login channel as ADMIN or COUNTER',
+                'step_3' => 'Staff must change password on first login',
+                'username' => $user->username,
+                'allowed_channels' => ['ADMIN', 'COUNTER'],
+                'example_request' => [
+                    'url' => '/api/v1/auth/login',
+                    'method' => 'POST',
+                    'headers' => [
+                        'Content-Type' => 'application/json',
+                        'X-Temple-ID' => 'temple1'
+                    ],
+                    'body' => [
+                        'username' => $user->username,
+                        'password' => '[Your Password]',
+                        'request_through' => 'ADMIN'
+                    ]
+                ]
+            ],
+            'message' => 'Staff created successfully'
+        ], 201);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        
+        \Log::error('Staff creation failed with exception', [
+            'error' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => $e->getTraceAsString(),
+            'request_data' => $request->except(['password', 'custom_password', 'profile_photo', 'documents'])
+        ]);
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Error creating staff: ' . $e->getMessage(),
+            'error_details' => [
+                'message' => $e->getMessage(),
+                'file' => basename($e->getFile()),
+                'line' => $e->getLine()
+            ],
+            'troubleshooting' => [
+                'Check Laravel logs at storage/logs/laravel.log',
+                'Verify all required database tables exist',
+                'Ensure foreign keys are valid',
+                'Check S3 configuration if file uploads are involved'
+            ]
+        ], 500);
+    }
+}
     public function show($id)
     {
         try {

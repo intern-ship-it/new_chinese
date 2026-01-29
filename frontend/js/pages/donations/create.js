@@ -1,7 +1,7 @@
 // js/pages/donations/create.js
 // Dynamic Donation Create Page with Card-Based Selection and Enhanced Pledge Support
 
-(function($, window) {
+(function ($, window) {
     'use strict';
     if (!window.DonationsSharedModule) {
         window.DonationsSharedModule = {
@@ -10,8 +10,8 @@
             cssId: 'donations-css',
             cssPath: '/css/donations.css',
             activePages: new Set(),
-            
-            loadCSS: function() {
+
+            loadCSS: function () {
                 if (!document.getElementById(this.cssId)) {
                     const link = document.createElement('link');
                     link.id = this.cssId;
@@ -21,44 +21,44 @@
                     console.log('Donations CSS loaded');
                 }
             },
-            
-            registerPage: function(pageId) {
+
+            registerPage: function (pageId) {
                 this.activePages.add(pageId);
                 this.loadCSS();
                 console.log(`Donations page registered: ${pageId} (Total: ${this.activePages.size})`);
             },
-            
-            unregisterPage: function(pageId) {
+
+            unregisterPage: function (pageId) {
                 this.activePages.delete(pageId);
                 console.log(`Donations page unregistered: ${pageId} (Remaining: ${this.activePages.size})`);
-                
+
                 if (this.activePages.size === 0) {
                     this.cleanup();
                 }
             },
-            
-            hasActivePages: function() {
+
+            hasActivePages: function () {
                 return this.activePages.size > 0;
             },
-            
-            getActivePages: function() {
+
+            getActivePages: function () {
                 return Array.from(this.activePages);
             },
-            
-            cleanup: function() {
+
+            cleanup: function () {
                 const cssLink = document.getElementById(this.cssId);
                 if (cssLink) {
                     cssLink.remove();
                     console.log('Donations CSS removed');
                 }
-                
+
                 if (typeof gsap !== 'undefined') {
                     gsap.killTweensOf("*");
                 }
-                
+
                 $(document).off('.' + this.eventNamespace);
                 $(window).off('.' + this.eventNamespace);
-                
+
                 this.activePages.clear();
                 console.log('Donations module cleaned up');
             }
@@ -70,8 +70,8 @@
         eventNamespace: window.DonationsSharedModule.eventNamespace,
         donationTypes: [],
         paymentModes: [],
-        
-        init: function(params) {
+
+        init: function (params) {
             window.DonationsSharedModule.registerPage(this.pageId);
             this.render();
             this.initAnimations();
@@ -79,32 +79,32 @@
             this.bindEvents();
         },
 
-        cleanup: function() {
+        cleanup: function () {
             console.log(`Cleaning up ${this.pageId}...`);
-            
+
             window.DonationsSharedModule.unregisterPage(this.pageId);
-            
+
             $(document).off(`.${this.eventNamespace}`);
             $(window).off(`.${this.eventNamespace}`);
-            
+
             if (typeof gsap !== 'undefined') {
                 gsap.killTweensOf(`.${this.pageId}-page *`);
             }
-            
+
             if (this.intervals) {
                 this.intervals.forEach(interval => clearInterval(interval));
                 this.intervals = [];
             }
-            
+
             if (this.timeouts) {
                 this.timeouts.forEach(timeout => clearTimeout(timeout));
                 this.timeouts = [];
             }
-            
+
             console.log(`${this.pageId} cleanup completed`);
         },
 
-        render: function() {
+        render: function () {
             const html = `
                 <div class="donations-page">
                     <!-- Page Header with Animation -->
@@ -160,11 +160,11 @@
                     </div>
                 </div>
             `;
-            
+
             $('#page-container').html(html);
         },
 
-        loadDynamicData: async function() {
+        loadDynamicData: async function () {
             try {
                 // Load donation types and payment modes in parallel
                 const [donationsResponse, paymentModesResponse] = await Promise.all([
@@ -186,7 +186,7 @@
             } catch (error) {
                 console.error('Error loading dynamic data:', error);
                 TempleCore.showToast('Failed to load form data', 'error');
-                
+
                 $('#formContent').html(`
                     <div class="alert alert-danger">
                         <i class="bi bi-exclamation-triangle-fill me-2"></i>
@@ -196,7 +196,7 @@
             }
         },
 
-        getDonationTypeIcon: function(type) {
+        getDonationTypeIcon: function (type) {
             const icons = {
                 'general': 'bi bi-gift',
                 'voucher': 'bi bi-ticket-perforated',
@@ -207,7 +207,7 @@
             return icons[type] || 'bi bi-gift';
         },
 
-        renderForm: function() {
+        renderForm: function () {
             // Limit donation types to maximum 8 for better display
             const displayDonationTypes = this.donationTypes.slice(0, 8);
             const colSize = displayDonationTypes.length <= 4 ? 3 : Math.floor(12 / Math.min(displayDonationTypes.length, 4));
@@ -422,15 +422,15 @@
                         <div class="payment-methods">
                             <div class="row g-3">
                                 ${this.paymentModes.map((mode, index) => {
-                                    const iconDisplay = mode.icon_display_url_data || { type: 'bootstrap', value: 'bi-currency-dollar' };
-                                    const iconHtml = iconDisplay.type === 'bootstrap'
-                                        ? `<i class="bi ${iconDisplay.value}"></i>`
-                                        : `<img src="${iconDisplay.value}" alt="${mode.name}" 
+                const iconDisplay = mode.icon_display_url_data || { type: 'bootstrap', value: 'bi-currency-dollar' };
+                const iconHtml = iconDisplay.type === 'bootstrap'
+                    ? `<i class="bi ${iconDisplay.value}"></i>`
+                    : `<img src="${iconDisplay.value}" alt="${mode.name}" 
                                                 style="width: ${iconDisplay.width || 62}px; 
                                                        height: ${iconDisplay.height || 28}px; 
                                                        object-fit: contain;">`;
 
-                                    return `
+                return `
                                         <div class="col-md-3">
                                             <div class="form-check form-check-card">
                                                 <input class="form-check-input" type="radio" name="payment_mode_id" 
@@ -442,7 +442,7 @@
                                             </div>
                                         </div>
                                     `;
-                                }).join('')}
+            }).join('')}
                             </div>
                         </div>
                         <div class="invalid-feedback d-block" id="paymentMethodError" style="display: none !important;">
@@ -468,9 +468,9 @@
                     </div>
                 </div>
             `;
-            
+
             $('#formContent').html(formContent);
-            
+
             // Animate form appearance
             gsap.from('#formContent', {
                 opacity: 0,
@@ -483,7 +483,7 @@
             this.initializePlugins();
         },
 
-        initAnimations: function() {
+        initAnimations: function () {
             if (typeof AOS !== 'undefined') {
                 AOS.init({
                     duration: 800,
@@ -502,7 +502,7 @@
             });
 
             // Animate form cards on hover
-            $(document).on('mouseenter.' + this.eventNamespace, '.form-check-card', function() {
+            $(document).on('mouseenter.' + this.eventNamespace, '.form-check-card', function () {
                 gsap.to(this, {
                     scale: 1.05,
                     boxShadow: '0 8px 20px rgba(255, 0, 255, 0.15)',
@@ -510,8 +510,8 @@
                     ease: 'power2.out'
                 });
             });
-            
-            $(document).on('mouseleave.' + this.eventNamespace, '.form-check-card', function() {
+
+            $(document).on('mouseleave.' + this.eventNamespace, '.form-check-card', function () {
                 if (!$(this).find('input').is(':checked')) {
                     gsap.to(this, {
                         scale: 1,
@@ -523,60 +523,60 @@
             });
         },
 
-        initializePlugins: function() {
+        initializePlugins: function () {
             // Initialize pledge handlers
             this.initPledgeHandlers();
-                // Initialize anonymous handlers
-    this.initAnonymousHandlers();
+            // Initialize anonymous handlers
+            this.initAnonymousHandlers();
         },
-initAnonymousHandlers: function() {
-    const self = this;
-    
-    // Toggle personal info fields when anonymous checkbox changes
-    $('#isAnonymous').on('change', function() {
-        const isChecked = $(this).is(':checked');
-        
-        if (isChecked) {
-            // Hide and disable personal info fields
-            $('#personalInfoFields').slideUp(300);
-            
-            // Remove required attributes
-            $('#nameChinese, #contactNo').removeAttr('required');
-            $('#nameChineseRequired, #contactRequired').hide();
-            
-            // Clear values
-            $('#nameChinese, #nameEnglish, #nric, #email, #contactNo').val('');
-            
-            // Remove validation
-            $('#nameChinese, #contactNo').removeClass('is-invalid');
-            
-            // Show info message
-            TempleCore.showToast('Personal information fields hidden for anonymous donation', 'info');
-        } else {
-            // Show and enable personal info fields
-            $('#personalInfoFields').slideDown(300);
-            
-            // Add required attributes back
-            $('#nameChinese, #contactNo').attr('required', 'required');
-            $('#nameChineseRequired, #contactRequired').show();
-            
-            TempleCore.showToast('Personal information is now required', 'info');
-        }
-    });
-},
-        initPledgeHandlers: function() {
+        initAnonymousHandlers: function () {
             const self = this;
-            
-            // Toggle pledge amount field
-            $('#isPledge').on('change', function() {
+
+            // Toggle personal info fields when anonymous checkbox changes
+            $('#isAnonymous').on('change', function () {
                 const isChecked = $(this).is(':checked');
-                
+
+                if (isChecked) {
+                    // Hide and disable personal info fields
+                    $('#personalInfoFields').slideUp(300);
+
+                    // Remove required attributes
+                    $('#nameChinese, #contactNo').removeAttr('required');
+                    $('#nameChineseRequired, #contactRequired').hide();
+
+                    // Clear values
+                    $('#nameChinese, #nameEnglish, #nric, #email, #contactNo').val('');
+
+                    // Remove validation
+                    $('#nameChinese, #contactNo').removeClass('is-invalid');
+
+                    // Show info message
+                    TempleCore.showToast('Personal information fields hidden for anonymous donation', 'info');
+                } else {
+                    // Show and enable personal info fields
+                    $('#personalInfoFields').slideDown(300);
+
+                    // Add required attributes back
+                    $('#nameChinese, #contactNo').attr('required', 'required');
+                    $('#nameChineseRequired, #contactRequired').show();
+
+                    TempleCore.showToast('Personal information is now required', 'info');
+                }
+            });
+        },
+        initPledgeHandlers: function () {
+            const self = this;
+
+            // Toggle pledge amount field
+            $('#isPledge').on('change', function () {
+                const isChecked = $(this).is(':checked');
+
                 if (isChecked) {
                     $('#pledgeAmountContainer').slideDown(300);
                     $('#normalAmountHelp').hide();
                     $('#pledgeAmountHelp').show();
                     $('#amountLabel').html('Initial Payment 首期款额');
-                    
+
                     // Suggest pledge amount based on current amount
                     const currentAmount = parseFloat($('#donationAmount').val()) || 0;
                     if ($('#pledgeAmount').val() === '' && currentAmount > 0) {
@@ -585,7 +585,7 @@ initAnonymousHandlers: function() {
                         $('#pledgeAmount').attr('placeholder', `Suggested: ${suggestedPledge.toFixed(2)}`);
                         $('#pledgeAmount').val(suggestedPledge.toFixed(2));
                     }
-                    
+
                     self.updatePledgeSummary();
                 } else {
                     $('#pledgeAmountContainer').slideUp(300);
@@ -596,46 +596,46 @@ initAnonymousHandlers: function() {
                     $('#pledgeAmount').val('');
                 }
             });
-            
+
             // Quick pledge amount buttons
-            $(document).on('click', '.pledge-preset', function() {
+            $(document).on('click', '.pledge-preset', function () {
                 const amount = $(this).data('amount');
                 $('#pledgeAmount').val(amount).trigger('input');
-                
+
                 // Animate button
-                gsap.fromTo(this, 
+                gsap.fromTo(this,
                     { scale: 1 },
                     { scale: 1.1, duration: 0.1, yoyo: true, repeat: 1 }
                 );
             });
-            
+
             // Update pledge summary when amounts change
-            $('#donationAmount, #pledgeAmount').on('input', function() {
+            $('#donationAmount, #pledgeAmount').on('input', function () {
                 if ($('#isPledge').is(':checked')) {
                     self.updatePledgeSummary();
                 }
             });
         },
 
-        updatePledgeSummary: function() {
+        updatePledgeSummary: function () {
             const donationAmount = parseFloat($('#donationAmount').val()) || 0;
             const pledgeAmount = parseFloat($('#pledgeAmount').val()) || 0;
-            
+
             if (pledgeAmount > 0) {
                 const balance = pledgeAmount - donationAmount;
-                
+
                 $('#summaryPledgeAmount').text('RM ' + pledgeAmount.toFixed(2));
                 $('#summaryInitialAmount').text('RM ' + donationAmount.toFixed(2));
                 $('#summaryBalance').text('RM ' + balance.toFixed(2));
-                
+
                 // Show summary
                 $('#pledgeSummary').slideDown(300);
-                
+
                 // Highlight if invalid
                 if (balance < 0) {
                     $('#summaryBalance').removeClass('text-warning').addClass('text-danger');
                     $('#pledgeAmount').addClass('is-invalid');
-                    
+
                     // Show error message
                     if (!$('#pledgeAmount').next('.invalid-feedback').length) {
                         $('#pledgeAmount').after('<div class="invalid-feedback">Pledge amount must be greater than or equal to initial payment</div>');
@@ -650,39 +650,39 @@ initAnonymousHandlers: function() {
             }
         },
 
-        bindEvents: function() {
+        bindEvents: function () {
             const self = this;
-            
+
             // Form submission
-            $(document).on('submit.' + this.eventNamespace, '#donationForm', function(e) {
+            $(document).on('submit.' + this.eventNamespace, '#donationForm', function (e) {
                 e.preventDefault();
-                
+
                 // Custom pledge validation
                 if ($('#isPledge').is(':checked')) {
                     const donationAmount = parseFloat($('#donationAmount').val()) || 0;
                     const pledgeAmount = parseFloat($('#pledgeAmount').val()) || 0;
-                    
+
                     if (pledgeAmount <= 0) {
                         $('#pledgeAmount').addClass('is-invalid');
                         if (!$('#pledgeAmount').next('.invalid-feedback').length) {
                             $('#pledgeAmount').after('<div class="invalid-feedback">Please enter a valid pledge amount</div>');
                         }
                         TempleCore.showToast('Please enter a valid pledge amount', 'error');
-                        
+
                         // Scroll to pledge amount
                         $('html, body').animate({
                             scrollTop: $('#pledgeAmount').offset().top - 100
                         }, 500);
                         return;
                     }
-                    
+
                     if (pledgeAmount < donationAmount) {
                         $('#pledgeAmount').addClass('is-invalid');
                         if (!$('#pledgeAmount').next('.invalid-feedback').length) {
                             $('#pledgeAmount').after('<div class="invalid-feedback">Pledge amount must be greater than or equal to initial payment</div>');
                         }
                         TempleCore.showToast('Pledge amount must be greater than or equal to the initial payment', 'error');
-                        
+
                         // Scroll to pledge amount
                         $('html, body').animate({
                             scrollTop: $('#pledgeAmount').offset().top - 100
@@ -690,32 +690,32 @@ initAnonymousHandlers: function() {
                         return;
                     }
                 }
-                
+
                 if (!this.checkValidity()) {
                     e.stopPropagation();
                     $(this).addClass('was-validated');
                     return;
                 }
-                
+
                 self.submitForm();
             });
-            
+
             // Cancel button
-            $('#btnCancel').on('click.' + this.eventNamespace, function() {
+            $('#btnCancel').on('click.' + this.eventNamespace, function () {
                 self.cleanup();
                 TempleRouter.navigate('donations/list');
             });
-            
+
             // Reset button
-            $(document).on('click.' + this.eventNamespace, '#btnReset', function() {
+            $(document).on('click.' + this.eventNamespace, '#btnReset', function () {
                 self.resetForm();
             });
-            
+
             // Radio card selection animation
-            $(document).on('change.' + this.eventNamespace, 'input[type="radio"]', function() {
+            $(document).on('change.' + this.eventNamespace, 'input[type="radio"]', function () {
                 const $parent = $(this).closest('.form-check-card');
                 const $siblings = $parent.siblings('.form-check-card');
-                
+
                 // Animate selected card
                 gsap.to($parent[0], {
                     scale: 1.05,
@@ -724,9 +724,9 @@ initAnonymousHandlers: function() {
                     duration: 0.3,
                     ease: 'power2.out'
                 });
-                
+
                 // Reset siblings
-                $siblings.each(function() {
+                $siblings.each(function () {
                     gsap.to(this, {
                         scale: 1,
                         boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
@@ -738,13 +738,13 @@ initAnonymousHandlers: function() {
             });
 
             // Input field animations
-            $(document).on('focus.' + this.eventNamespace, '.form-control, .form-select', function() {
+            $(document).on('focus.' + this.eventNamespace, '.form-control, .form-select', function () {
                 gsap.to($(this), {
                     scale: 1.02,
                     duration: 0.2,
                     ease: 'power1.out'
                 });
-            }).on('blur.' + this.eventNamespace, '.form-control, .form-select', function() {
+            }).on('blur.' + this.eventNamespace, '.form-control, .form-select', function () {
                 gsap.to($(this), {
                     scale: 1,
                     duration: 0.2
@@ -752,102 +752,102 @@ initAnonymousHandlers: function() {
             });
         },
 
-submitForm: async function() {
-    const formData = this.getFormData();
-    const shouldPrint = $('input[name="print_receipt"]').is(':checked');
-    const isAnonymous = formData.is_anonymous;
-    
-    // Show loading state
-    const $submitBtn = $('#btnSubmit');
-    const originalText = $submitBtn.html();
-    $submitBtn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Processing...');
-    
-    try {
-        const response = await TempleAPI.post('/donations', formData);
-        
-        if (response.success) {
-            // Success animation
-            gsap.to('.donation-form-card', {
-                scale: 1.02,
-                duration: 0.2,
-                yoyo: true,
-                repeat: 1,
-                ease: 'power2.inOut'
-            });
-            
-            // Show success message
-            let message = 'Donation recorded successfully!';
-            if (isAnonymous && formData.is_pledge) {
-                message = `Anonymous pledge donation of RM ${formData.pledge_amount} recorded successfully! Initial payment: RM ${formData.amount}`;
-            } else if (isAnonymous) {
-                message = 'Anonymous donation recorded successfully!';
-            } else if (formData.is_pledge) {
-                message = `Pledge donation of RM ${formData.pledge_amount} recorded successfully! Initial payment: RM ${formData.amount}`;
-            }
-            
-            TempleCore.showToast(message, 'success');
-            
-            // Get the booking ID from response
-            const bookingId = response.data.booking.id;
-            
-            // Navigate based on print option
-            setTimeout(() => {
-                this.cleanup();
-                if (shouldPrint) {
-                    // Redirect to print page
-                    TempleRouter.navigate('donations/receipt-print', { id: bookingId });
-                } else {
-                    // Redirect to list page
-                    TempleRouter.navigate('donations/list');
-                }
-            }, 1500);
-        } else {
-            throw new Error(response.message || 'Failed to record donation');
-        }
-    } catch (error) {
-        console.error('Error submitting donation:', error);
-        TempleCore.showToast(error.message || 'Failed to record donation', 'error');
-        $submitBtn.prop('disabled', false).html(originalText);
-    }
-},
-       getFormData: function() {
-    const isPledge = $('#isPledge').is(':checked');
-    const isAnonymous = $('#isAnonymous').is(':checked');
-    
-    const formData = {
-        donation_id: $('input[name="donation_id"]:checked').val(),
-        amount: parseFloat($('input[name="amount"]').val()),
-        payment_mode_id: $('input[name="payment_mode_id"]:checked').val(),
-        print_option: $('input[name="print_receipt"]').is(':checked') ? 'SINGLE_PRINT' : 'NO_PRINT',
-        notes: $('textarea[name="notes"]').val(),
-        is_pledge: isPledge,
-        is_anonymous: isAnonymous
-    };
-    
-    // Only add personal info if not anonymous
-    if (!isAnonymous) {
-        formData.name_chinese = $('input[name="name_chinese"]').val();
-        formData.name_english = $('input[name="name_english"]').val();
-        formData.nric = $('input[name="nric"]').val();
-        formData.email = $('input[name="email"]').val();
-        formData.contact_no = $('input[name="contact_no"]').val();
-    }
-    
-    if (isPledge) {
-        formData.pledge_amount = parseFloat($('#pledgeAmount').val());
-    }
-    
-    return formData;
-},
+        submitForm: async function () {
+            const formData = this.getFormData();
+            const shouldPrint = $('input[name="print_receipt"]').is(':checked');
+            const isAnonymous = formData.is_anonymous;
 
-        resetForm: function() {
+            // Show loading state
+            const $submitBtn = $('#btnSubmit');
+            const originalText = $submitBtn.html();
+            $submitBtn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Processing...');
+
+            try {
+                const response = await TempleAPI.post('/donations', formData);
+
+                if (response.success) {
+                    // Success animation
+                    gsap.to('.donation-form-card', {
+                        scale: 1.02,
+                        duration: 0.2,
+                        yoyo: true,
+                        repeat: 1,
+                        ease: 'power2.inOut'
+                    });
+
+                    // Show success message
+                    let message = 'Donation recorded successfully!';
+                    if (isAnonymous && formData.is_pledge) {
+                        message = `Anonymous pledge donation of RM ${formData.pledge_amount} recorded successfully! Initial payment: RM ${formData.amount}`;
+                    } else if (isAnonymous) {
+                        message = 'Anonymous donation recorded successfully!';
+                    } else if (formData.is_pledge) {
+                        message = `Pledge donation of RM ${formData.pledge_amount} recorded successfully! Initial payment: RM ${formData.amount}`;
+                    }
+
+                    TempleCore.showToast(message, 'success');
+
+                    // Get the booking ID from response
+                    const bookingId = response.data.booking.id;
+
+                    // Navigate based on print option
+                    setTimeout(() => {
+                        this.cleanup();
+                        if (shouldPrint) {
+                            // Redirect to print page
+                            TempleRouter.navigate('donations/receipt-print', { id: bookingId });
+                        } else {
+                            // Redirect to list page
+                            TempleRouter.navigate('donations/list');
+                        }
+                    }, 1500);
+                } else {
+                    throw new Error(response.message || 'Failed to record donation');
+                }
+            } catch (error) {
+                console.error('Error submitting donation:', error);
+                TempleCore.showToast(error.message || 'Failed to record donation', 'error');
+                $submitBtn.prop('disabled', false).html(originalText);
+            }
+        },
+        getFormData: function () {
+            const isPledge = $('#isPledge').is(':checked');
+            const isAnonymous = $('#isAnonymous').is(':checked');
+
+            const formData = {
+                donation_id: $('input[name="donation_id"]:checked').val(),
+                amount: parseFloat($('input[name="amount"]').val()),
+                payment_mode_id: $('input[name="payment_mode_id"]:checked').val(),
+                print_option: $('input[name="print_receipt"]').is(':checked') ? 'SINGLE_PRINT' : 'NO_PRINT',
+                notes: $('textarea[name="notes"]').val(),
+                is_pledge: isPledge,
+                is_anonymous: isAnonymous
+            };
+
+            // Only add personal info if not anonymous
+            if (!isAnonymous) {
+                formData.name_chinese = $('input[name="name_chinese"]').val();
+                formData.name_english = $('input[name="name_english"]').val();
+                formData.nric = $('input[name="nric"]').val();
+                formData.email = $('input[name="email"]').val();
+                formData.contact_no = $('input[name="contact_no"]').val();
+            }
+
+            if (isPledge) {
+                formData.pledge_amount = parseFloat($('#pledgeAmount').val());
+            }
+
+            return formData;
+        },
+
+        resetForm: function () {
             $('#donationForm')[0].reset();
             $('#donationForm').removeClass('was-validated');
-            
+
             // Reset to first donation type and payment mode
             $('input[name="donation_id"]').first().prop('checked', true).trigger('change');
             $('input[name="payment_mode_id"]').first().prop('checked', true).trigger('change');
-            
+
             // Reset pledge fields
             $('#isPledge').prop('checked', false);
             $('#pledgeAmountContainer').hide();
@@ -857,21 +857,21 @@ submitForm: async function() {
             $('#normalAmountHelp').show();
             $('#pledgeAmountHelp').hide();
             $('#amountLabel').html('Amount 款额');
-            
+
             // Animate reset
-            gsap.fromTo('#formContent', 
+            gsap.fromTo('#formContent',
                 { opacity: 1 },
-                { 
-                    opacity: 0, 
+                {
+                    opacity: 0,
                     duration: 0.2,
                     onComplete: () => {
                         gsap.to('#formContent', { opacity: 1, duration: 0.3 });
                     }
                 }
             );
-            
+
             TempleCore.showToast('Form reset', 'info');
         }
     };
-    
+
 })(jQuery, window);

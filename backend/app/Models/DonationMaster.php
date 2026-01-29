@@ -12,6 +12,8 @@ class DonationMaster extends Model
         'name',
         'secondary_name',
         'type',
+        'group_id',
+        'image_url',
         'ledger_id',
         'details',
         'status',
@@ -28,8 +30,8 @@ class DonationMaster extends Model
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
     ];
-public $incrementing = false;
-protected $keyType = 'string';
+    public $incrementing = false;
+    protected $keyType = 'string';
     /**
      * Relationship: Donation Master created by User
      */
@@ -38,6 +40,10 @@ protected $keyType = 'string';
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function group()
+    {
+        return $this->belongsTo(DonationGroup::class, 'group_id');
+    }
     /**
      * Relationship: Donation Master updated by User
      */
@@ -84,4 +90,8 @@ protected $keyType = 'string';
     {
         return $this->belongsTo(\App\Models\Ledger::class, 'ledger_id', 'id');
     }
+public function donationGroup()
+{
+    return $this->belongsTo(DonationGroup::class, 'group_id');
+}
 }

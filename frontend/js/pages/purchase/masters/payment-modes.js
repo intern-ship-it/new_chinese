@@ -13,6 +13,8 @@
         selectedBootstrapIcon: null,
         permissions: {},
         currentUser: null,
+        gatewayFieldCounter: 0,
+        gatewayFields: [],
 
         init: function () {
             this.currentUser = JSON.parse(localStorage.getItem(window.APP_CONFIG.STORAGE.USER) || '{}');
@@ -25,7 +27,6 @@
                 self.loadPaymentModes();
                 self.bindEvents();
             });
-
         },
 
         loadPermissions: function () {
@@ -44,6 +45,7 @@
                     self.setDefaultPermissions();
                 });
         },
+
         setDefaultPermissions: function () {
             const userType = this.currentUser?.user_type || '';
             this.permissions = {
@@ -51,9 +53,9 @@
                 can_edit_payment_modes: userType === 'SUPER_ADMIN' || userType === 'ADMIN',
                 can_delete_payment_modes: userType === 'SUPER_ADMIN' || userType === 'ADMIN',
                 can_view_payment_modes: userType === 'SUPER_ADMIN' || userType === 'ADMIN',
-
             };
         },
+
         render: function () {
             const html = `
                 <div class="container-fluid">
@@ -256,41 +258,23 @@
                                         </div>
                                     </div>
                                     
-                                    <!-- Payment Gateway Fields -->
+                                    <!-- Payment Gateway Fields (DYNAMIC VERSION) -->
                                     <div id="paymentGatewayFields" style="display: none;">
                                         <hr>
-                                        <h6 class="mb-3">Payment Gateway Details</h6>
-                                        
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label class="form-label">Merchant Code</label>
-                                                    <input type="text" class="form-control" id="merchantCode" maxlength="255">
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label class="form-label">Merchant Key</label>
-                                                    <input type="password" class="form-control" id="merchantKey" maxlength="255">
-                                                </div>
-                                            </div>
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <h6 class="mb-0">Payment Gateway Configuration</h6>
+                                            <button type="button" class="btn btn-sm btn-primary" id="btnAddGatewayField">
+                                                <i class="bi bi-plus-circle"></i> Add Field
+                                            </button>
                                         </div>
                                         
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label class="form-label">Password</label>
-                                                    <input type="password" class="form-control" id="gatewayPassword" maxlength="255">
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label class="form-label">Gateway URL</label>
-                                                    <input type="url" class="form-control" id="gatewayUrl" maxlength="255" placeholder="https://">
-                                                </div>
-                                            </div>
+                                        <div id="gatewayFieldsContainer">
+                                            <!-- Dynamic fields will be added here -->
+                                        </div>
+                                        
+                                        <div id="noGatewayFields" class="text-center text-muted py-4 border rounded" style="display: none;">
+                                            <i class="bi bi-inbox" style="font-size: 32px;"></i>
+                                            <p class="mb-0 mt-2">No gateway fields added yet. Click "Add Field" to start.</p>
                                         </div>
                                     </div>
                                     
@@ -380,12 +364,11 @@
                             <td><small>${modulesList}</small></td>
                             <td>${statusBadge}</td>
                             <td>
-                            
-     ${permissions.can_edit_payment_modes ? `
+                                ${permissions.can_edit_payment_modes ? `
                                 <button class="btn btn-sm btn-info" onclick="PurchaseMastersPaymentModesPage.editMode('${mode.id}')">
                                     <i class="bi bi-pencil"></i>
                                 </button>`: ''}
-                                  ${permissions.can_delete_payment_modes ? `
+                                ${permissions.can_delete_payment_modes ? `
                                 <button class="btn btn-sm btn-danger" onclick="PurchaseMastersPaymentModesPage.deleteMode('${mode.id}')">
                                     <i class="bi bi-trash"></i>
                                 </button>`: ''}
@@ -552,6 +535,89 @@
             $('#modulesCheckboxList').html(html);
         },
 
+        // ========================================
+        // DYNAMIC GATEWAY FIELDS METHODS
+        // ========================================
+        
+        addGatewayField: function(key = '', value = '', type = 'text', id = null) {
+            const self = this;
+            const fieldId = id || `gateway_field_${self.gatewayFieldCounter++}`;
+            
+            const fieldHtml = `
+                <div class="gateway-field-row mb-3" data-field-id="${fieldId}">
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            <input type="text" class="form-control gateway-field-key" 
+                                   placeholder="Field Label (e.g., Merchant Code)" 
+                                   value="${key}" data-field-id="${fieldId}">
+                        </div>
+                        <div class="col-md-5">
+                            <input type="${type}" class="form-control gateway-field-value" 
+                                   placeholder="Field Value" 
+                                   value="${value}" data-field-id="${fieldId}">
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select gateway-field-type" data-field-id="${fieldId}">
+                                <option value="text" ${type === 'text' ? 'selected' : ''}>Text</option>
+                                <option value="password" ${type === 'password' ? 'selected' : ''}>Password</option>
+                                <option value="url" ${type === 'url' ? 'selected' : ''}>URL</option>
+                                <option value="email" ${type === 'email' ? 'selected' : ''}>Email</option>
+                                <option value="number" ${type === 'number' ? 'selected' : ''}>Number</option>
+                            </select>
+                        </div>
+                        <div class="col-md-1">
+                            <button type="button" class="btn btn-danger btn-sm w-100 remove-gateway-field" 
+                                    data-field-id="${fieldId}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            $('#gatewayFieldsContainer').append(fieldHtml);
+            $('#noGatewayFields').hide();
+            
+            // Update input type when type changes
+            $(`.gateway-field-type[data-field-id="${fieldId}"]`).on('change', function() {
+                const newType = $(this).val();
+                $(`.gateway-field-value[data-field-id="${fieldId}"]`).attr('type', newType);
+            });
+        },
+
+        removeGatewayField: function(fieldId) {
+            $(`.gateway-field-row[data-field-id="${fieldId}"]`).remove();
+            
+            if ($('#gatewayFieldsContainer .gateway-field-row').length === 0) {
+                $('#noGatewayFields').show();
+            }
+        },
+
+        getGatewayFields: function() {
+            const fields = [];
+            $('#gatewayFieldsContainer .gateway-field-row').each(function() {
+                const fieldId = $(this).data('field-id');
+                const key = $(`.gateway-field-key[data-field-id="${fieldId}"]`).val().trim();
+                const value = $(`.gateway-field-value[data-field-id="${fieldId}"]`).val();
+                const type = $(`.gateway-field-type[data-field-id="${fieldId}"]`).val();
+                
+                if (key) { // Only add if key is not empty
+                    fields.push({ key, value, type });
+                }
+            });
+            return fields;
+        },
+
+        clearGatewayFields: function() {
+            $('#gatewayFieldsContainer').empty();
+            $('#noGatewayFields').show();
+            this.gatewayFieldCounter = 0;
+        },
+
+        // ========================================
+        // EVENT HANDLERS
+        // ========================================
+
         bindEvents: function () {
             const self = this;
 
@@ -569,6 +635,17 @@
 
             $('#isPaymentGateway').on('change', function () {
                 self.togglePaymentGatewayFields($(this).is(':checked'));
+            });
+
+            // NEW: Add gateway field button
+            $(document).on('click', '#btnAddGatewayField', function() {
+                self.addGatewayField();
+            });
+
+            // NEW: Remove gateway field button
+            $(document).on('click', '.remove-gateway-field', function() {
+                const fieldId = $(this).data('field-id');
+                self.removeGatewayField(fieldId);
             });
 
             // Icon type radio buttons
@@ -717,6 +794,9 @@
             $('#isPaymentGateway, #isLive').prop('checked', false);
             this.togglePaymentGatewayFields(false);
 
+            // Clear gateway fields
+            this.clearGatewayFields();
+
             const modal = new bootstrap.Modal(document.getElementById('modeModal'));
             modal.show();
         },
@@ -756,12 +836,16 @@
                             self.updateCurrentIconPreview();
                         }
 
-                        // Load payment gateway fields
+                        // Load payment gateway meta fields
                         if (mode.is_payment_gateway) {
-                            $('#merchantCode').val(mode.merchant_code);
-                            $('#merchantKey').val(mode.merchant_key);
-                            $('#gatewayPassword').val(mode.password);
-                            $('#gatewayUrl').val(mode.url);
+                            self.clearGatewayFields();
+                            
+                            if (mode.gateway_meta && mode.gateway_meta.length > 0) {
+                                mode.gateway_meta.forEach(function(meta) {
+                                    self.addGatewayField(meta.key, meta.value, meta.type, meta.id);
+                                });
+                            }
+                            
                             self.togglePaymentGatewayFields(true);
                         } else {
                             self.togglePaymentGatewayFields(false);
@@ -852,13 +936,31 @@
                 return;
             }
 
+            // Validate gateway fields if payment gateway is enabled
+            const isPaymentGateway = $('#isPaymentGateway').is(':checked');
+            if (isPaymentGateway) {
+                const gatewayFields = self.getGatewayFields();
+                if (gatewayFields.length === 0) {
+                    TempleCore.showToast('Please add at least one gateway configuration field', 'error');
+                    return;
+                }
+                
+                // Check for duplicate keys
+                const keys = gatewayFields.map(f => f.key.toLowerCase());
+                const duplicates = keys.filter((item, index) => keys.indexOf(item) !== index);
+                if (duplicates.length > 0) {
+                    TempleCore.showToast('Duplicate field labels found. Each field must have a unique label.', 'error');
+                    return;
+                }
+            }
+
             // Prepare FormData
             const formData = new FormData();
             formData.append('name', $('#modeName').val());
             formData.append('ledger_id', $('#modeLedgerId').val() || '');
             formData.append('description', $('#modeDescription').val());
             formData.append('status', parseInt($('#modeStatus').val()));
-            formData.append('is_payment_gateway', $('#isPaymentGateway').is(':checked') ? 1 : 0);
+            formData.append('is_payment_gateway', isPaymentGateway ? 1 : 0);
             formData.append('is_live', $('#isLive').is(':checked') ? 1 : 0);
 
             // Add icon data
@@ -877,13 +979,10 @@
                 formData.append('module_ids[]', moduleId);
             });
 
-            // Add payment gateway fields if applicable
-            const isPaymentGateway = $('#isPaymentGateway').is(':checked');
+            // Add gateway meta fields
             if (isPaymentGateway) {
-                formData.append('merchant_code', $('#merchantCode').val() || '');
-                formData.append('merchant_key', $('#merchantKey').val() || '');
-                formData.append('password', $('#gatewayPassword').val() || '');
-                formData.append('url', $('#gatewayUrl').val() || '');
+                const gatewayFields = self.getGatewayFields();
+                formData.append('gateway_meta', JSON.stringify(gatewayFields));
             }
 
             const modeId = $('#modeId').val();
@@ -977,41 +1076,3 @@
     };
 
 })(jQuery, window);
-
-// Add CSS for icon selection
-const iconStyles = document.createElement('style');
-iconStyles.textContent = `
-    .icon-option {
-        padding: 15px;
-        text-align: center;
-        border: 2px solid #e0e0e0;
-        border-radius: 8px;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        background: #fff;
-    }
-    
-    .icon-option:hover {
-        border-color: #0d6efd;
-        background: #f8f9fa;
-        transform: translateY(-2px);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    
-    .icon-option.selected {
-        border-color: #0d6efd;
-        background: #e7f1ff;
-        box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
-    }
-    
-    .icon-option small {
-        font-size: 0.7rem;
-        color: #666;
-    }
-    
-    .icon-option.selected small {
-        color: #0d6efd;
-        font-weight: 600;
-    }
-`;
-document.head.appendChild(iconStyles);

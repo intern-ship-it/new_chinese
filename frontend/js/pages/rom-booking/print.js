@@ -1,16 +1,16 @@
-// js/pages/rom-booking/receipt/print.js
-// ROM Booking Receipt Print Page
+// js/pages/rom-booking/print.js
+// ROM Booking Receipt Print Page - DYNAMIC VERSION
 
 (function($, window) {
     'use strict';
     
-    window.RomBookingPrintPage= {
+    window.RomBookingPrintPage = {
         bookingId: null,
         bookingData: null,
         templeSettings: null,
         
         init: function(params) {
-            this.bookingId = 1;
+            this.bookingId = params.id;
             
             if (!this.bookingId) {
                 TempleCore.showToast('Invalid booking ID', 'error');
@@ -45,47 +45,20 @@
         loadBookingData: function() {
             const self = this;
             return new Promise((resolve, reject) => {
-                // Simulate loading ROM booking data (replace with actual API call)
-                setTimeout(() => {
-                    // Sample booking data - replace with actual API call
-                    self.bookingData = {
-                        id: self.bookingId,
-                        booking_code: 'MR010916',
-                        date: '2025-11-21',
-                        time: '09:00 AM',
-                        couple: {
-                            groom: 'CHEW ENG KUAN',
-                            bride: 'WHITNEY KOK SHUE YUIN'
-                        },
-                        payment_mode: 'Cash',
-                        amount: 200.00,
-                        venue: {
-                            name: 'Main Temple Hall',
-                            location: 'Ground Floor'
-                        },
-                        session: 'AM',
-                        status: 'Confirmed',
-                        reference_no: '902864(11.01)',
-                        created_at: '2025-11-21T09:00:00Z'
-                    };
-                    resolve();
-                }, 500);
-                
-                // Actual API implementation:
-                /*
-                TempleAPI.get(`/rom-booking/${this.bookingId}`)
+                TempleAPI.get(`/rom-booking/${self.bookingId}`)
                     .done(function(response) {
                         if (response.success) {
                             self.bookingData = response.data;
+                            console.log('Booking data loaded:', self.bookingData);
                             resolve();
                         } else {
                             reject(new Error('Failed to load booking'));
                         }
                     })
-                    .fail(function() {
+                    .fail(function(error) {
+                        console.error('Failed to load booking:', error);
                         reject(new Error('Error loading booking'));
                     });
-                */
             });
         },
         
@@ -100,16 +73,19 @@
                                 self.templeSettings = response.data.values;
                                 
                                 // Update localStorage for future use
-                                localStorage.setItem(APP_CONFIG.STORAGE.TEMPLE, JSON.stringify({
-                                    name: self.templeSettings.temple_name || '',
-                                    address: self.templeSettings.temple_address || '',
-                                    city: self.templeSettings.temple_city || '',
-                                    state: self.templeSettings.temple_state || '',
-                                    pincode: self.templeSettings.temple_pincode || '',
-                                    country: self.templeSettings.temple_country || 'Malaysia',
-                                    phone: self.templeSettings.temple_phone || '',
-                                    email: self.templeSettings.temple_email || ''
-                                }));
+                                if (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.STORAGE) {
+                                    localStorage.setItem(APP_CONFIG.STORAGE.TEMPLE, JSON.stringify({
+                                        name: self.templeSettings.temple_name || '',
+                                        address: self.templeSettings.temple_address || '',
+                                        city: self.templeSettings.temple_city || '',
+                                        state: self.templeSettings.temple_state || '',
+                                        pincode: self.templeSettings.temple_pincode || '',
+                                        country: self.templeSettings.temple_country || 'Malaysia',
+                                        phone: self.templeSettings.temple_phone || '',
+                                        email: self.templeSettings.temple_email || '',
+                                        logo: self.templeSettings.temple_logo || ''
+                                    }));
+                                }
                                 
                                 resolve();
                             } else {
@@ -139,7 +115,8 @@
                 temple_pincode: stored.pincode || '',
                 temple_country: stored.country || 'Malaysia',
                 temple_phone: stored.phone || '03-2273 7088',
-                temple_email: stored.email || 'hainan@hainannet.com.my'
+                temple_email: stored.email || 'hainan@hainannet.com.my',
+                temple_logo: stored.logo || ''
             };
         },
         
@@ -166,20 +143,30 @@
             const booking = this.bookingData;
             const temple = this.templeSettings;
             
-            // Generate token number based on date (static for now as requested)
-            const tokenNumber = this.generateTokenNumber(booking.date);
+            // Generate token number based on date
+            const tokenNumber = this.generateTokenNumber(booking.booking_date);
             
-            // Generate temple logo HTML (you can customize this based on your logo handling)
+            // Generate temple logo HTML
             const logoHTML = this.getTempleLogoHTML();
             
             // Format amount in words
-            const amountInWords = this.numberToWords(booking.amount);
+            const amountInWords = this.numberToWords(booking.total_amount);
+            
+            // Get couple names
+            const coupleNames = this.getCoupleNames(booking.couples);
+            
+            // Get payment info
+            const paymentInfo = this.getPaymentInfo(booking.payments);
+            
+            // Format date and time
+            const bookingDate = this.formatDate(booking.booking_date);
+            const bookingTime = booking.session?.from_time || '09:00 AM';
             
             return `
                 <!DOCTYPE html>
                 <html>
                 <head>
-                    <title>ROM Booking Receipt - ${booking.booking_code}</title>
+                    <title>ROM Booking Receipt - ${booking.booking_number}</title>
                     <meta charset="utf-8">
                     <style>
                         body { 
@@ -207,7 +194,7 @@
                             border-bottom: 2px solid #c2c2c2;
                             padding-bottom: 20px;
                             margin-bottom: 20px;
-							display: flex;
+                            display: flex;
                         }
                         .temple-logo {
                             align-items: center;
@@ -249,7 +236,6 @@
                             width: 150px;
                         }
                         .token-circle {
-                            /*position: absolute;*/
                             top: 180px;
                             right: 20px;
                             width: 80px;
@@ -288,10 +274,10 @@
                         .clear { clear: both; }
                         .token_no {
                             width: 80px;
-            		    text-align: center;
-    			    font-weight: bold;
-    			    font-size: 18px;
-			}
+                            text-align: center;
+                            font-weight: bold;
+                            font-size: 18px;
+                        }
                         @media print {
                             .btn, #controlButtons { display: none !important; }
                             body { margin: 0; padding: 10px; }
@@ -336,35 +322,31 @@
                             Marriage Registration Direct Lines : 03-2273 7882 / 03-2273 9419
                         </div>
                         
-                        <!-- Token Number Circle -->
-                        
-                        
                         <!-- Booking Details -->
                         <div class="booking-details">
                             <table>
                                 <tr>
                                     <td class="label">No:</td>
-                                    <td>${booking.booking_code || '-'}</td>
+                                    <td>${booking.booking_number || '-'}</td>
                                     <td class="label" style="text-align: right;">Date:</td>
-                                    <td style="text-align: right; width: 100px;">${this.formatDate(booking.date)}</td>
+                                    <td style="text-align: right; width: 100px;">${bookingDate}</td>
                                 </tr>
                                 <tr>
                                     <td class="label">Registration Date / Time:</td>
-                                    <td colspan="2">${this.formatDate(booking.date)} &nbsp;&nbsp; ${booking.time || '09:00 AM'}</td>
-				    <td rowspan="3">
-					<div class="token_no">Number</div>
-					<div class="token-circle">
-					   <div style="text-align: center;">
-						<div style="font-size: 32px; margin: 5px 0;">${tokenNumber}</div>
-					   </div>
-					</div>
-				    </td>
+                                    <td colspan="2">${bookingDate} &nbsp;&nbsp; ${bookingTime}</td>
+                                    <td rowspan="3">
+                                        <div class="token_no">Number</div>
+                                        <div class="token-circle">
+                                           <div style="text-align: center;">
+                                                <div style="font-size: 32px; margin: 5px 0;">${tokenNumber}</div>
+                                           </div>
+                                        </div>
+                                    </td>
                                 </tr>
                                 <tr>
                                     <td class="label">Received from:</td>
                                     <td colspan="2">
-                                        <strong>${booking.couple.groom || 'Groom Name'}</strong><br>
-                                        <strong>${booking.couple.bride || 'Bride Name'}</strong>
+                                        ${coupleNames}
                                     </td>
                                 </tr>
                                 <tr>
@@ -377,21 +359,21 @@
                                 </tr>
                                 <tr>
                                     <td class="label">Amount:</td>
-                                    <td><strong>RM ${this.formatCurrency(booking.amount)}</strong></td>
+                                    <td><strong>RM ${this.formatCurrency(booking.total_amount)}</strong></td>
                                     <td class="label" style="text-align: right;">Payment Mode:</td>
-                                    <td style="text-align: right;">${booking.payment_mode || 'Cash'}</td>
+                                    <td style="text-align: right;">${paymentInfo.mode}</td>
                                 </tr>
                                 <tr>
                                     <td class="label">Cash/Cheque No:</td>
-                                    <td>_________________</td>
+                                    <td>${paymentInfo.reference || '_________________'}</td>
                                     <td class="label" style="text-align: right;">Session:</td>
-                                    <td style="text-align: right;">${booking.session || 'AM'}</td>
+                                    <td style="text-align: right;">${booking.session?.name_primary || 'AM'}</td>
                                 </tr>
                                 <tr>
                                     <td class="label">Duty/Row Refer No:</td>
-                                    <td>${booking.reference_no || '-'}</td>
+                                    <td>${paymentInfo.reference || '-'}</td>
                                     <td class="label" style="text-align: right;">Venue:</td>
-                                    <td style="text-align: right;">${booking.venue?.name || 'Main Hall'}</td>
+                                    <td style="text-align: right;">${booking.venue?.name_primary || 'Main Hall'}</td>
                                 </tr>
                             </table>
                         </div>
@@ -410,6 +392,7 @@
                         // Auto focus print dialog
                         window.onload = function() {
                             setTimeout(() => {
+                                // Auto-print can be uncommented if needed
                                 // window.print();
                             }, 500);
                         };
@@ -420,48 +403,71 @@
         },
         
         getTempleLogoHTML: function() {
-            // Default logo placeholder - you can customize this based on your logo handling
-            // This could load from temple settings or a default logo file
-			let logoHTML = '';
-			console.log('this.templeSettings');
-			console.log(this.templeSettings);
+            let logoHTML = '';
+            
             if (this.templeSettings.temple_logo) {
-                // Assuming temple_logo contains the path or URL
-                logoHTML = `<div class="temple-logo"> <img src="${this.templeSettings.temple_logo}" style="width:205px;height: 119px;object-fit:contain;padding-top: 14px;" alt="Temple Logo" /></div>`;
+                logoHTML = `<div class="temple-logo"><img src="${this.templeSettings.temple_logo}" style="width:205px;height: 119px;object-fit:contain;padding-top: 14px;" alt="Temple Logo" /></div>`;
             } else {
-                // Fallback to placeholder
                 logoHTML = `
                     <div class="temple-logo" style="
-                    width: 100px; 
-                    height: 100px; 
-                    background: #ff00ff; 
-                    border-radius: 50%; 
-                    display: flex; 
-                    align-items: center; 
-                    justify-content: center; 
-                    color: white; 
-                    font-size: 12px;
-                    text-align: center;
-                ">
-                    TEMPLE<br>LOGO
-                </div>`;
-			}
-             
-            return logoHTML;y
+                        width: 100px; 
+                        height: 100px; 
+                        background: #ff00ff; 
+                        border-radius: 50%; 
+                        display: flex; 
+                        align-items: center; 
+                        justify-content: center; 
+                        color: white; 
+                        font-size: 12px;
+                        text-align: center;
+                    ">
+                        TEMPLE<br>LOGO
+                    </div>
+                `;
+            }
+            
+            return logoHTML;
         },
         
-        generateTokenNumber: function(date) {
-            // Static token number for now as requested
-            // Later this can be dynamic based on date and counter
-            return '5002';
+        getCoupleNames: function(couples) {
+            if (!couples || couples.length === 0) {
+                return 'N/A';
+            }
             
-            // Future implementation for date-based token:
-            /*
-            const bookingDate = new Date(date);
-            const dateStr = bookingDate.toISOString().split('T')[0].replace(/-/g, '');
-            const dailyCounter = this.getDailyCounter(dateStr); // Get from API/localStorage
-            return (dailyCounter).toString().padStart(4, '0');
-            */
+            return couples.map(couple => {
+                const groom = couple.groom?.name || 'N/A';
+                const bride = couple.bride?.name || 'N/A';
+                return `<strong>${groom}</strong><br><strong>${bride}</strong>`;
+            }).join('<br>');
+        },
+        
+        getPaymentInfo: function(payments) {
+            if (!payments || payments.length === 0) {
+                return {
+                    mode: 'Cash',
+                    reference: ''
+                };
+            }
+            
+            const payment = payments[0]; // Get first payment
+            return {
+                mode: payment.payment_mode?.name || payment.payment_method || 'Cash',
+                reference: payment.payment_reference || ''
+            };
+        },
+        
+        generateTokenNumber: function(bookingDate) {
+            // Generate a simple token based on date
+            // You can customize this logic based on your requirements
+            const date = new Date(bookingDate);
+            const day = date.getDate().toString().padStart(2, '0');
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const year = date.getFullYear().toString().substr(-2);
+            
+            // Simple counter - in production, this should come from database
+            const counter = Math.floor(Math.random() * 9999) + 1;
+            
+            return counter.toString().padStart(4, '0');
         },
         
         formatCurrency: function(amount) {
@@ -477,7 +483,7 @@
             if (amount === 0) return 'Zero Ringgit Only';
             
             // Split into whole and decimal parts
-            const [whole, decimal = '00'] = amount.toFixed(2).split('.');
+            const [whole, decimal = '00'] = parseFloat(amount).toFixed(2).split('.');
             let words = this.convertToWords(parseInt(whole));
             
             // Add currency

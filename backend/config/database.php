@@ -125,7 +125,8 @@ return [
             'search_path' => 'public',
             'sslmode' => 'prefer',
         ],
-		'temple2' => [
+
+        'temple2' => [
             'driver' => 'pgsql',
             'url' => env('DB_URL'),
             'host' => '52.221.161.203',
@@ -153,8 +154,35 @@ return [
             'search_path' => 'public',
             'sslmode' => 'prefer',
         ],
-
-
+        //chinese temple dev
+        'temple_dev' => [
+            'driver' => 'pgsql',
+            'url' => env('DB_URL'),
+            'host' => '52.221.161.203',
+            'port' => '5432',
+            'database' => 'chinese_temple_dev',
+            'username' => 'temple_client', 
+            'password' => 'Password123',  
+            'charset' => env('DB_CHARSET', 'utf8'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => 'prefer',
+        ],
+        'citiansi' => [
+            'driver' => 'pgsql',
+            'url' => env('DB_URL'),
+            'host' => '52.221.161.203',
+            'port' => '5432',
+            'database' => 'citiansi',
+            'username' => 'citiansi', 
+            'password' => 'Citiansi123',  
+            'charset' => env('DB_CHARSET', 'utf8'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => 'prefer',
+        ],
 
     ],
 
@@ -191,7 +219,7 @@ return [
 
         'options' => [
             'cluster' => env('REDIS_CLUSTER', 'redis'),
-            'prefix' => env('REDIS_PREFIX', Str::slug((string) env('APP_NAME', 'laravel')).'-database-'),
+            'prefix' => env('REDIS_PREFIX', Str::slug((string) env('APP_NAME', 'laravel')) . '-database-'),
             'persistent' => env('REDIS_PERSISTENT', false),
         ],
 
